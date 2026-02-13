@@ -1,0 +1,25 @@
+# Core Data & processing
+pandas>=2.2.0
+numpy>=1.26.0
+pyarrow>=15.0.0  # For Parquet file handling (Bronze/Silver/Gold storage)
+
+# Market Data (Indian Context)
+nsepython>=0.1.0  # Unofficial NSE API wrapper (as per plan)
+yfinance>=0.2.36  # Secondary/Validation source
+requests>=2.31.0
+
+# Validation & Config
+pydantic>=2.6.0  # Data contracts & Schema validation
+python-dotenv>=1.0.1  # Secrets management
+pyyaml>=6.0.1
+
+# Utilities & Resilience
+tenacity>=8.2.3  # Retry logic for network calls
+structlog>=24.1.0  # Structured logging for defining observability
+pytz>=2024.1     # Timezone handling (UTC+IST)
+
+# Testing & Quality
+pytest>=8.0.0
+pytest-cov>=4.1.0
+ruff>=0.2.1      # Linting (fast)
+black>=24.1.1    # Formatting

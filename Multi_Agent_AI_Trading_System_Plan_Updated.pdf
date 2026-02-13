@@ -1,0 +1,473 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 9 /Kids [5 0 R 7 0 R 9 0 R 11 0 R 13 0 R 15 0 R 17 0 R 19 0 R 21 0 R] >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 5665 >>
+stream
+BT /F2 10.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 803.89 Tm (Multi-Agent AI Trading System Plan) Tj ET
+BT /F1 9.00 Tf 0.350 0.390 0.460 rg 1 0 0 1 351.28 803.89 Tm (Styled Formal Edition | February 2026) Tj ET
+0.800 0.840 0.890 RG 1.00 w 54.00 795.89 m 541.28 795.89 l S
+BT /F2 22.00 Tf 0.070 0.230 0.390 rg 1 0 0 1 54.00 761.89 Tm (Multi-Agent AI Trading System) Tj ET
+0.800 0.840 0.890 RG 1.30 w 54.00 729.89 m 541.28 729.89 l S
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 718.89 Tm (Updated Integrated Plan for Indian Market \(USD/INR + NSE Stocks & Indices\)) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 700.69 Tm (Version 1.2.1 | February 2026) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 665.49 Tm (0. Document Control) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 642.49 Tm (Purpose: maintain versioning, accountability, and auditability.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 624.29 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 606.09 Tm (- Single owner and reviewer list are defined.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 589.59 Tm (- Versioning and changelog are maintained in this document.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 573.09 Tm (- Each model and data artifact is traceable to a plan version.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 556.59 Tm (- Version 1.2 change set captures dual-loop execution, sentiment cache decoupling, crisis override voting, and impossible-scenario stress tests.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 540.09 Tm (- Version 1.2.1 applies minimum-safe scope: ship dual-loop, sentiment cache, basic crisis mode, and impossible stress testing; defer aggressive alien-state automation,) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 525.59 Tm (snapback smoothing tuning, and full winner-takes-all automation.) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 492.09 Tm (1. Executive Summary) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 469.09 Tm (This updated plan refines the existing multi-agent trading system for Indian markets by adding concrete governance, execution, and validation controls. It preserves) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 453.89 Tm (the core multi-agent architecture while tightening scope, compliance, data integrity, and rollout safety. The plan incorporates a dedicated Sentiment Agent in Phase 2) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 438.69 Tm (using a fine-tuned FinBERT model to improve event-driven robustness. The system targets early 2026 deployment, a simulated Sharpe ratio of 1.8 to 2.5+, and a 10 to) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 423.49 Tm (20 percent improvement in event-driven accuracy attributable to sentiment integration.) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 388.29 Tm (2. Scope, Objectives, and Trading Constraints) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 365.29 Tm (Defines the trading horizon, asset universe, allowed actions, and performance targets.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 347.09 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 328.89 Tm (- Primary trading frequency is Hourly and explicitly documented.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 312.39 Tm (- Daily timeframe is used only for confirmation and regime context filtering.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 295.89 Tm (- Data sampling frequency is locked to the primary horizon to avoid model-data mismatch.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 279.39 Tm (- Asset universe is explicit and versioned \(NSE equities, indices, USD/INR, F&O\).) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 262.89 Tm (- Universe selection policy includes numeric filters: Avg Daily Turnover >= ¹10 Cr \(6-month average\), Impact Cost <= 0.50 percent, Free float >= 20 percent \(per NSE) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 248.39 Tm (IWF methodology\), Price >= ¹50, Listing age >= 12 months, and no stocks with > 5 circuit hits in the last 3 months.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 231.89 Tm (- Universe review and rebalance occurs quarterly via the Preprocessing Agent.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 215.39 Tm (- Allowed actions are specified per product \(shorting, leverage, lot size, margin, order types\).) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 198.89 Tm (- Performance objectives include return, risk, drawdown, capacity, and turnover targets.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 182.39 Tm (- Target performance metrics are stated as goals, not guarantees, with confidence intervals.) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 148.89 Tm (3. Regulatory and Broker Compliance) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 125.89 Tm (Defines compliance requirements and audit trails for SEBI and broker rules.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 107.69 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 89.49 Tm (- Compliance checklist exists for SEBI and broker rules.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 72.99 Tm (- Pre-trade checks include position limits, margin rules, and circuit breaker rules.) Tj ET
+0.800 0.840 0.890 RG 0.70 w 54.00 42.00 m 541.28 42.00 l S
+BT /F1 9.00 Tf 0.350 0.390 0.460 rg 1 0 0 1 501.28 28.00 Tm (Page 1) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 8 0 R >>
+endobj
+8 0 obj
+<< /Length 5713 >>
+stream
+BT /F2 10.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 803.89 Tm (Multi-Agent AI Trading System Plan) Tj ET
+BT /F1 9.00 Tf 0.350 0.390 0.460 rg 1 0 0 1 351.28 803.89 Tm (Styled Formal Edition | February 2026) Tj ET
+0.800 0.840 0.890 RG 1.00 w 54.00 795.89 m 541.28 795.89 l S
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 768.89 Tm (- Audit trail includes order intent, execution, cancellation, and model version used.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 752.39 Tm (- Static Mumbai IP whitelisting and broker access controls are documented as production-only requirements.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 735.89 Tm (- Regulatory reporting automation and retention policy are documented.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 719.39 Tm (- Algorithm approval or notification requirements and periodic audit obligations are documented where applicable.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 702.89 Tm (- Data usage policy explicitly prohibits unpublished or embargoed information; only publicly released or contractually licensed feeds are permitted.) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 669.39 Tm (4. System Architecture and Interfaces) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 646.39 Tm (Defines module boundaries, data flows, APIs, and latency budgets.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 628.19 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 609.99 Tm (- Each module has defined inputs, outputs, and failure modes.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 593.49 Tm (- Data flow diagram exists with transport protocols and schemas.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 576.99 Tm (- Latency budgets are documented per stage \(ingest, features, inference, execution\).) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 560.49 Tm (- Stage SLAs include p50, p95, and p99 targets with hard caps and automatic mode degradation on breach.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 543.99 Tm (- Architecture enforces dual-loop separation: Fast Loop \(execution critical\) and Slow Loop \(context and policy updates\).) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 527.49 Tm (- Fast Loop target is p99 <= 10 ms and processes only technical microstructure, order-imbalance features, and cache reads.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 510.99 Tm (- Slow Loop supports heavier inference \(100 to 500 ms typical\) and is asynchronous, never blocking order placement.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 494.49 Tm (- Volatility bypass thresholds use hysteresis and cooldown windows to prevent rapid mode flapping.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 477.99 Tm (- Deployment topology \(Mumbai-based low-latency VPS\) is specified.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 461.49 Tm (- Minimum-safe release profile is explicit: advanced overrides are disabled by default and only basic crisis-weighted controls are active.) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 427.99 Tm (5. Phase 1: Data Orchestration Layer) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 404.99 Tm (Specialized agents for acquisition and preprocessing.) Tj ET
+BT /F2 12.00 Tf 0.180 0.260 0.330 rg 1 0 0 1 54.00 372.79 Tm (5.1 NSE Sentinel Agent) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 354.79 Tm (Real-time and historical market data acquisition from NSE sources.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 336.59 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 318.39 Tm (- Data sources include nsepython, jugad-data, and official NSE APIs or their replacements.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 301.89 Tm (- Redundancy exists for core price, volume, and corporate action feeds.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 285.39 Tm (- Timestamp validation and clock sync are enforced across all streams.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 268.89 Tm (- Official API or exchange/broker endpoints are the primary source, with web scraping restricted to fallback mode.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 252.39 Tm (- Signal provenance is tagged per event \(primary API vs fallback scraper\) and exposed to downstream risk controls.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 235.89 Tm (- Primary data-feed failure triggers automatic reduce-only or close-only mode until integrity checks pass.) Tj ET
+BT /F2 12.00 Tf 0.180 0.260 0.330 rg 1 0 0 1 54.00 205.39 Tm (5.2 Macro Monitor Agent) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 187.39 Tm (Indian macro indicators and cross-asset signals.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 169.19 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 150.99 Tm (- Macro indicators list is defined and versioned.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 134.49 Tm (- Indicators include WPI, CPI, IIP, FII/DII flows, FX reserves, RBI bulletins, and India-US 10Y spread.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 117.99 Tm (- Global proxies such as Brent and DXY are explicitly justified as India-relevant or removed.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 101.49 Tm (- Data quality checks cover missingness, outliers, and latency.) Tj ET
+0.800 0.840 0.890 RG 0.70 w 54.00 42.00 m 541.28 42.00 l S
+BT /F1 9.00 Tf 0.350 0.390 0.460 rg 1 0 0 1 501.28 28.00 Tm (Page 2) Tj ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 10 0 R >>
+endobj
+10 0 obj
+<< /Length 5018 >>
+stream
+BT /F2 10.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 803.89 Tm (Multi-Agent AI Trading System Plan) Tj ET
+BT /F1 9.00 Tf 0.350 0.390 0.460 rg 1 0 0 1 351.28 803.89 Tm (Styled Formal Edition | February 2026) Tj ET
+0.800 0.840 0.890 RG 1.00 w 54.00 795.89 m 541.28 795.89 l S
+BT /F2 12.00 Tf 0.180 0.260 0.330 rg 1 0 0 1 54.00 762.89 Tm (5.3 Preprocessing Agent) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 744.89 Tm (Normalization, noise filtering, corporate actions, and feature readiness.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 726.69 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 708.49 Tm (- Feature engineering is deterministic and reproducible.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 691.99 Tm (- Rolling window normalization and directional change thresholds are implemented.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 675.49 Tm (- Corporate action adjustments are validated against a reference source.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 658.99 Tm (- Leakage tests confirm strict time alignment and lagging.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 642.49 Tm (- Feature approval process is defined \(proposal, offline evaluation, shadow testing, promotion\).) Tj ET
+BT /F2 12.00 Tf 0.180 0.260 0.330 rg 1 0 0 1 54.00 611.99 Tm (5.4 Textual Data Agent) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 593.99 Tm (Text collection for sentiment analysis and event detection.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 575.79 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 557.59 Tm (- Source list includes NSE news, Economic Times, RBI reports, and earnings transcripts.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 541.09 Tm (- Social data collection from X is documented with keyword and semantic search rules.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 524.59 Tm (- PDF extraction pipeline is validated with spot checks.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 508.09 Tm (- Code-mixed English and Hinglish handling strategy is documented.) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 474.59 Tm (6. Phase 2: Analyst Board \(Modeling\)) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 451.59 Tm (Specialized models for forecasting, regime detection, sentiment, and consensus.) Tj ET
+BT /F2 12.00 Tf 0.180 0.260 0.330 rg 1 0 0 1 54.00 419.39 Tm (6.1 Technical Agent) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 401.39 Tm (Time-series modeling for price prediction and action thresholds.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 383.19 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 364.99 Tm (- Model families include ARIMA-LSTM hybrids, 2D CNNs, and GARCH quantiles for VaR and ES.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 348.49 Tm (- Model targets and metrics are specified for each family.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 331.99 Tm (- Baselines and ablation tests are implemented.) Tj ET
+BT /F2 12.00 Tf 0.180 0.260 0.330 rg 1 0 0 1 54.00 301.49 Tm (6.2 Regime Agent) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 283.49 Tm (Regime detection and transition modeling.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 265.29 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 247.09 Tm (- PEARL or an equivalent meta-learning model is specified.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 230.59 Tm (- Regime definitions include RBI inner and outer band zones.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 214.09 Tm (- Transition criteria cover event-driven shifts and volatility regime changes.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 197.59 Tm (- Calibration tests and stability checks are documented.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 181.09 Tm (- Regime training and stress validation include structural breaks \(2008 crisis, 2013 taper tantrum, COVID window, and RBI policy discontinuities\).) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 164.59 Tm (- Novelty or out-of-distribution detection uses explicit statistical distance thresholds with an alien-state flag.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 148.09 Tm (- Alien-state detection triggers staged de-risking \(full risk, reduced risk, neutral or cash\) with documented escalation.) Tj ET
+BT /F2 12.00 Tf 0.180 0.260 0.330 rg 1 0 0 1 54.00 117.59 Tm (6.3 Sentiment Agent) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 99.59 Tm (FinBERT-based sentiment modeling for Indian markets.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 81.39 Tm (Acceptance Criteria:) Tj ET
+0.800 0.840 0.890 RG 0.70 w 54.00 42.00 m 541.28 42.00 l S
+BT /F1 9.00 Tf 0.350 0.390 0.460 rg 1 0 0 1 501.28 28.00 Tm (Page 3) Tj ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 12 0 R >>
+endobj
+12 0 obj
+<< /Length 6265 >>
+stream
+BT /F2 10.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 803.89 Tm (Multi-Agent AI Trading System Plan) Tj ET
+BT /F1 9.00 Tf 0.350 0.390 0.460 rg 1 0 0 1 351.28 803.89 Tm (Styled Formal Edition | February 2026) Tj ET
+0.800 0.840 0.890 RG 1.00 w 54.00 795.89 m 541.28 795.89 l S
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 768.89 Tm (- Base model is ProsusAI/finbert or equivalent with documented justification.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 752.39 Tm (- Fine-tuning datasets include Indian sources such as harixn/indian_news_sentiment and SEntFiN.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 735.89 Tm (- Bayesian priors or regularization are defined for stability.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 719.39 Tm (- Daily sentiment aggregates form a threshold variable \(z_t\) used in regime logic.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 702.89 Tm (- Precision and recall thresholds are defined by class, with timestamp alignment tests.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 686.39 Tm (- Robustness controls include spam and adversarial text filtering, source deduplication, and noise handling.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 669.89 Tm (- Dual-speed sentiment design is defined: intraday fast lane \(lightweight model plus keyword rules\) and offline slow lane \(deep model, nightly updates\).) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 653.39 Tm (- Sentiment runs on an independent timeline and writes outputs to fast cache \(e.g., Redis\) with timestamp, confidence, and TTL.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 636.89 Tm (- Fast Loop consumes the latest cached sentiment via O\(1\) memory reads and never waits for fresh NLP inference.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 620.39 Tm (- Intraday sentiment path targets <= 100 ms score generation from headline arrival under normal load, outside the execution-critical path.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 603.89 Tm (- Sentiment freshness TTL and event-priority routing are documented to prevent stale text overriding fresh market signals.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 587.39 Tm (- Cache decision policy is deterministic: fresh -> use, stale -> downweight, expired -> ignore.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 570.89 Tm (- Cache read failure triggers technical-only reduced-risk execution mode until cache health recovers.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 554.39 Tm (- Pump-and-dump and slang-scam detection for code-mixed text is required; manipulative hype spikes can force sentiment downgrade to neutral or protective.) Tj ET
+BT /F2 12.00 Tf 0.180 0.260 0.330 rg 1 0 0 1 54.00 523.89 Tm (6.4 Consensus Agent) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 505.89 Tm (Aggregates signals using LSTAR or ESTAR with Bayesian estimation.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 487.69 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 469.49 Tm (- Logistic and exponential transition functions are specified.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 452.99 Tm (- Bayesian estimation of smoothness and location parameters is documented.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 436.49 Tm (- Transition function includes volatility, macro differentials, RBI signals, and sentiment quantiles.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 419.99 Tm (- Consensus stability is tested during high-volatility windows.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 403.49 Tm (- Default mode uses weighted consensus with explicit safety bias toward protective signals.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 386.99 Tm (- Basic crisis mode uses crisis-weighted routing with capped dominance \(max 60 to 70 percent for the crisis agent\), not full winner-takes-all.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 370.49 Tm (- Agent divergence \(fundamental disagreement between agents\) is modeled as a dedicated regime signal that triggers staged risk reduction or temporary freeze.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 353.99 Tm (- Full winner-takes-all crisis automation is deferred until false-positive and stability thresholds are met in shadow mode.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 337.49 Tm (- Snapback tests are retained for measurement; automatic Bayesian smoothing retuning from snapback output is deferred.) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 303.99 Tm (7. Phase 3: Strategic Executive \(Trader Ensemble\)) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 280.99 Tm (RL ensemble for trade execution decisions.) Tj ET
+BT /F2 12.00 Tf 0.180 0.260 0.330 rg 1 0 0 1 54.00 248.79 Tm (7.1 Ensemble Composition) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 230.79 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 212.59 Tm (- Ensemble includes SAC, PPO, and TD3 or justified alternatives.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 196.09 Tm (- Each policy has defined training cadence and evaluation metrics.) Tj ET
+BT /F2 12.00 Tf 0.180 0.260 0.330 rg 1 0 0 1 54.00 165.59 Tm (7.2 Decision Mechanism) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 147.59 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 129.39 Tm (- Decision policy uses a maximum entropy framework.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 112.89 Tm (- Multi-threshold genetic algorithm is specified for action selection.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 96.39 Tm (- Genetic algorithm evolution and search run offline in training and calibration.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 79.89 Tm (- Live execution uses teacher-student distillation, where the student policy mimics teacher decisions under strict latency budgets.) Tj ET
+0.800 0.840 0.890 RG 0.70 w 54.00 42.00 m 541.28 42.00 l S
+BT /F1 9.00 Tf 0.350 0.390 0.460 rg 1 0 0 1 501.28 28.00 Tm (Page 4) Tj ET
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 14 0 R >>
+endobj
+14 0 obj
+<< /Length 5654 >>
+stream
+BT /F2 10.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 803.89 Tm (Multi-Agent AI Trading System Plan) Tj ET
+BT /F1 9.00 Tf 0.350 0.390 0.460 rg 1 0 0 1 351.28 803.89 Tm (Styled Formal Edition | February 2026) Tj ET
+0.800 0.840 0.890 RG 1.00 w 54.00 795.89 m 541.28 795.89 l S
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 768.89 Tm (- Student promotion requires teacher-student agreement thresholds on crisis slices, not only average-day performance.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 752.39 Tm (- Offline teacher monitoring remains active in production analytics, and student drift beyond threshold triggers automatic demotion.) Tj ET
+BT /F2 12.00 Tf 0.180 0.260 0.330 rg 1 0 0 1 54.00 721.89 Tm (7.3 Observation Space) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 703.89 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 685.69 Tm (- Observation space includes outputs from Technical, Regime, Sentiment, and Consensus agents.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 669.19 Tm (- Features include regime probabilities, VaR and ES levels, macro differentials, and sentiment scores.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 652.69 Tm (- Observation schema is versioned and validated.) Tj ET
+BT /F2 12.00 Tf 0.180 0.260 0.330 rg 1 0 0 1 54.00 622.19 Tm (7.4 Reward and Utility Functions) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 604.19 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 585.99 Tm (- Reward library includes RA-DRL composite, Sharpe, Sortino, Calmar, Omega, and Kelly variants.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 569.49 Tm (- Dynamic weighting is tied to regime state and sentiment signals.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 552.99 Tm (- Downside penalties increase during RBI outer band or negative sentiment spikes.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 536.49 Tm (- Formulas are documented in an appendix or code reference.) Tj ET
+BT /F2 12.00 Tf 0.180 0.260 0.330 rg 1 0 0 1 54.00 505.99 Tm (7.5 Deliberation Process) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 487.99 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 469.79 Tm (- Critical-path thinker logic is lightweight and deterministic; heavy reasoning remains in the Slow Loop.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 453.29 Tm (- Simulations and policy search are removed from the execution-critical path and run asynchronously.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 436.79 Tm (- Execution consumes the latest validated policy snapshot, with scheduled refresh \(e.g., every 10 minutes\) or earlier on async completion.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 420.29 Tm (- Deliberation bypass is enabled under high-volatility triggers and does not block order decisions.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 403.79 Tm (- Trade rejection is tied to risk-control breaches, stale-data TTL breaches, or latency-cap breaches, not pending simulation completion.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 387.29 Tm (- Fast Loop peak-load decision stack target is hard-capped with p99 <= 10 ms for in-process compute stages.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 370.79 Tm (- Slow Loop latency \(100 to 500 ms typical\) is monitored separately and cannot directly bypass Fast Loop safety gates.) Tj ET
+BT /F2 12.00 Tf 0.180 0.260 0.330 rg 1 0 0 1 54.00 340.29 Tm (7.6 Safe RL Training and Deployment) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 322.29 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 304.09 Tm (- Online learning is gated behind offline training and paper trading validation.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 287.59 Tm (- Exploration is constrained by risk limits and hard safety filters.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 271.09 Tm (- Promotion to live trading requires risk committee approval and rollback readiness.) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 237.59 Tm (8. Portfolio Construction and Risk Budgeting) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 214.59 Tm (Dedicated allocation and exposure management.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 196.39 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 178.19 Tm (- Risk budgets per asset class and sector are defined.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 161.69 Tm (- Correlation and concentration limits are enforced.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 145.19 Tm (- Position sizing ties to forecast uncertainty and liquidity.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 128.69 Tm (- Capacity ceiling is defined: initial live notional ¹510 Cr, with scale to ¹25 Cr only after 6 months of live validation; stress-tested at 1x, 2x, and 3x capacity, with a) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 114.19 Tm (hard cap at 2x if impact exceeds 0.25 percent at 3x.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 97.69 Tm (- Max participation limits are documented and enforced at execution time.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 81.19 Tm (- Downside risk emphasis is enforced during panic regimes.) Tj ET
+0.800 0.840 0.890 RG 0.70 w 54.00 42.00 m 541.28 42.00 l S
+BT /F1 9.00 Tf 0.350 0.390 0.460 rg 1 0 0 1 501.28 28.00 Tm (Page 5) Tj ET
+endstream
+endobj
+15 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 16 0 R >>
+endobj
+16 0 obj
+<< /Length 6372 >>
+stream
+BT /F2 10.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 803.89 Tm (Multi-Agent AI Trading System Plan) Tj ET
+BT /F1 9.00 Tf 0.350 0.390 0.460 rg 1 0 0 1 351.28 803.89 Tm (Styled Formal Edition | February 2026) Tj ET
+0.800 0.840 0.890 RG 1.00 w 54.00 795.89 m 541.28 795.89 l S
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 759.89 Tm (9. Stress Testing Framework) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 736.89 Tm (Dedicated stress testing framework to validate resilience under adverse conditions.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 718.69 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 700.49 Tm (- A maintained scenario library exists with versioned definitions and expected outcomes.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 683.99 Tm (- Explicit shock scenarios include an RBI surprise rate hike, INR flash move, and liquidity drought.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 667.49 Tm (- Historical scenario set explicitly includes 2008 Global Financial Crisis data and 2013 Taper Tantrum regime shocks.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 650.99 Tm (- Stress tests cover historical crises and synthetic shocks at 1x, 2x, and 3x capacity.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 634.49 Tm (- Results are reviewed quarterly and trigger risk budget or capacity adjustments.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 617.99 Tm (- Impossible-scenario tests are mandatory, including correlation inversion, frozen constituent prices, and simultaneous multi-asset liquidity vacuum.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 601.49 Tm (- Data poisoning and feed-freeze simulations are included, with checks for correct behavior when no ticks or no book updates arrive for defined windows.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 584.99 Tm (- Validation confirms the engine distinguishes zero volume from missing data and enters safe mode when feed integrity is uncertain.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 568.49 Tm (- Snapback tests measure how many ticks it takes to clip net exposure after flash-shock conditions; smoothing parameters are capped if recovery is too slow.) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 534.99 Tm (10. Execution and Market Impact) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 511.99 Tm (Order routing and slippage management tailored to NSE.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 493.79 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 475.59 Tm (- Execution supports partial fills, pacing, and participation limits.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 459.09 Tm (- Slippage model is validated against intraday data.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 442.59 Tm (- Circuit breaker and halt handling is implemented and tested.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 426.09 Tm (- Execution metrics include fill rate, slippage vs model, and latency.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 409.59 Tm (- Market impact model is defined and linked to capacity assumptions.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 393.09 Tm (- Real-time routing health checks are enforced, with automatic degradation to reduce-only or close-only on execution infrastructure failure.) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 359.59 Tm (11. Phase 4: Independent Risk Overseer) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 336.59 Tm (Safety controls and oversight independent of trading logic.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 318.39 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 300.19 Tm (- Kill switch and loss limits enforced at broker and system levels.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 283.69 Tm (- Controls include max drawdown, daily loss, and position size constraints.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 267.19 Tm (- Extreme negative sentiment spikes trigger protective actions.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 250.69 Tm (- Automated drift detection uses ADDM or equivalent.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 234.19 Tm (- XAI logging captures top features and agent contributions using SHAP.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 217.69 Tm (- Kill switch hierarchy is documented with layered triggers \(model, portfolio, broker, manual\) and escalation order.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 201.19 Tm (- XAI coverage thresholds are defined \(e.g., >= 80 percent of trades with top-k explanations logged\).) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 184.69 Tm (- Operating modes are explicitly defined as normal, reduce-only, close-only, and kill-switch with trigger and recovery criteria.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 168.19 Tm (- Data provenance reliability scoring dynamically adjusts position sizing instead of fixed haircut rules.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 151.69 Tm (- OOD or alien-state triggers enforce staged de-risking before full neutralization unless hard limits are breached.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 135.19 Tm (- Crisis taxonomy explicitly defines full crisis, agent divergence, and slow-crash or freeze states, each mapped to mode transitions and overrides.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 118.69 Tm (- Sentiment-to-price mismatch circuit breaker can downgrade sentiment to neutral during suspected manipulation or panic slang bursts.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 102.19 Tm (- Crisis entry requires multi-condition confirmation \(volatility break, liquidity deterioration, and agent confidence threshold\).) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 85.69 Tm (- Crisis triggers must persist for configured ticks or seconds before activation, with explicit cooldown and hysteresis rules.) Tj ET
+0.800 0.840 0.890 RG 0.70 w 54.00 42.00 m 541.28 42.00 l S
+BT /F1 9.00 Tf 0.350 0.390 0.460 rg 1 0 0 1 501.28 28.00 Tm (Page 6) Tj ET
+endstream
+endobj
+17 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 18 0 R >>
+endobj
+18 0 obj
+<< /Length 5694 >>
+stream
+BT /F2 10.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 803.89 Tm (Multi-Agent AI Trading System Plan) Tj ET
+BT /F1 9.00 Tf 0.350 0.390 0.460 rg 1 0 0 1 351.28 803.89 Tm (Styled Formal Edition | February 2026) Tj ET
+0.800 0.840 0.890 RG 1.00 w 54.00 795.89 m 541.28 795.89 l S
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 768.89 Tm (- Crisis mode has max-duration expiry and auto-reverts unless revalidated by trigger conditions.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 752.39 Tm (- Agent divergence has explicit neutral-hold duration and staged re-risking rules after alignment recovery.) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 718.89 Tm (12. Phase 5: Validation and Evolution Loop) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 695.89 Tm (Backtesting, paper trading, and continuous learning.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 677.69 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 659.49 Tm (- Vectorbt or equivalent framework is used for realistic simulations.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 642.99 Tm (- Backtests span 2018 or 2019 to present, covering COVID crash, budget cycles, elections, and Oct-Nov 2022 volatility.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 626.49 Tm (- Walk-forward evaluation and time-based CV are required.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 609.99 Tm (- Leakage tests include timestamp audits and feature lag checks.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 593.49 Tm (- Survivorship bias controls are enforced using point-in-time universe data, including delisted symbols.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 576.99 Tm (- Nightly incremental learning uses TTM or equivalent lightweight models.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 560.49 Tm (- PEARL-based meta-learning adapts to the most recent 1 to 3 month regimes.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 543.99 Tm (- Training stability tests run via automated scripts like test_retraining.py.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 527.49 Tm (- Weekly sentiment re-fine-tuning is validated against SEntFiN or equivalent.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 510.99 Tm (- Synthetic data usage policy is documented, including labeling, scope boundaries for text and price data, and exclusion rules for performance claims unless validated on) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 496.49 Tm (real data.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 479.99 Tm (- Stress library includes structural breaks and synthetic payment or policy shock scenarios with clear labels for synthetic-origin data.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 463.49 Tm (- Dual-loop boundary tests verify that text floods alone cannot flip portfolio direction without confirming technical or risk conditions.) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 429.99 Tm (13. MLOps and Model Governance) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 406.99 Tm (Versioning, reproducibility, and controlled deployment.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 388.79 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 370.59 Tm (- Model registry includes data snapshot and code hash.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 354.09 Tm (- Champion-challenger promotion gates are codified.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 337.59 Tm (- Rollback policy exists and is tested.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 321.09 Tm (- Training pipelines are reproducible from raw data.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 304.59 Tm (- Human oversight gates are defined, including review cadence and approval authority.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 288.09 Tm (- Material strategy changes \(latency bypass, dual-speed sentiment, novelty safeguards\) require ablation evidence before promotion.) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 254.59 Tm (14. Rollout Strategy and Live Monitoring) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 231.59 Tm (Controlled deployment with shadow testing and gating.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 213.39 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 195.19 Tm (- Shadow mode runs for a fixed minimum window.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 178.69 Tm (- Promotion requires challenger outperforming champion on risk-adjusted metrics.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 162.19 Tm (- Live A/B is optional and gated by risk approval.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 145.69 Tm (- Monitoring dashboards include PnL attribution, drift, and risk limits.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 129.19 Tm (- Promotion gates require no regression in Sharpe, drawdown, and slippage, plus acceptable rates for mode switching and false kill-switch events.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 112.69 Tm (- Crisis logic and override routing must complete shadow-mode validation before live activation.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 96.19 Tm (- Override rollout is sequential: enable one override at a time, validate, then promote the next.) Tj ET
+0.800 0.840 0.890 RG 0.70 w 54.00 42.00 m 541.28 42.00 l S
+BT /F1 9.00 Tf 0.350 0.390 0.460 rg 1 0 0 1 501.28 28.00 Tm (Page 7) Tj ET
+endstream
+endobj
+19 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 20 0 R >>
+endobj
+20 0 obj
+<< /Length 4915 >>
+stream
+BT /F2 10.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 803.89 Tm (Multi-Agent AI Trading System Plan) Tj ET
+BT /F1 9.00 Tf 0.350 0.390 0.460 rg 1 0 0 1 351.28 803.89 Tm (Styled Formal Edition | February 2026) Tj ET
+0.800 0.840 0.890 RG 1.00 w 54.00 795.89 m 541.28 795.89 l S
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 759.89 Tm (15. Operations, Security, and Resilience) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 736.89 Tm (Reliability, incident response, and secure operations.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 718.69 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 700.49 Tm (- Secrets management is centralized and audited.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 683.99 Tm (- DR plan defines RPO and RTO targets.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 667.49 Tm (- Centralized logging with retention policies is implemented.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 650.99 Tm (- Incident response runbook exists and is exercised.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 634.49 Tm (- System time sync is enforced via NTP or equivalent with drift alerts.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 617.99 Tm (- Observability includes metrics, traces, and alerts for data latency, inference time, and execution failures.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 601.49 Tm (- Operational dashboards track decision staleness, feature lag, mode-switch frequency, OOD trigger rate, kill-switch false positives, and MTTR.) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 567.99 Tm (16. Milestones and Deliverables) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 544.99 Tm (Phased execution with measurable outcomes.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 526.79 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 508.59 Tm (- Each phase has exit criteria, owners, and timelines.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 492.09 Tm (- Go-live criteria include performance, stability, and compliance readiness.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 467.59 Tm (Go-Live Checklist \(Minimums\):) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 449.39 Tm (- Minimum 3 calendar months of paper trading with >= 80 percent uptime.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 432.89 Tm (- Annualized Sharpe >= 1.8.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 416.39 Tm (- Sortino >= 2.0.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 399.89 Tm (- Max Drawdown <= 8 percent.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 383.39 Tm (- Win rate >= 52 percent.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 366.89 Tm (- Profit factor >= 1.5.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 350.39 Tm (- Average realized slippage <= model estimate + 20 bps.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 333.89 Tm (- Data uptime >= 99.5 percent during NSE trading hours.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 317.39 Tm (- Zero critical compliance violations and zero broker or SEBI flags or order rejections.) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 283.89 Tm (17. Gold Expansion \(MCX Bullion Track\)) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 260.89 Tm (Add exchange-traded gold alongside existing USD/INR and NSE instruments using the same multi-agent stack.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 242.69 Tm (Scope and Assumptions:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 224.49 Tm (- Instruments: MCX `GOLD` and `GOLDM` futures in Phase 1; options only after stable futures rollout.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 207.99 Tm (- Venue: Indian exchange-traded commodity segment only.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 191.49 Tm (- Dependency: Existing core stack has passed current go-live checklist.) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 149.99 Tm (18. Next Iteration Enhancements \(Nice-to-have\)) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 126.99 Tm (Planned upgrades to be prioritized after initial production stability.) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 108.79 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 90.59 Tm (- Backlog is reviewed quarterly and scoped only after six months of stable live operation.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 74.09 Tm (- Any new enhancements require documented risk review and rollback plans before deployment.) Tj ET
+0.800 0.840 0.890 RG 0.70 w 54.00 42.00 m 541.28 42.00 l S
+BT /F1 9.00 Tf 0.350 0.390 0.460 rg 1 0 0 1 501.28 28.00 Tm (Page 8) Tj ET
+endstream
+endobj
+21 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 22 0 R >>
+endobj
+22 0 obj
+<< /Length 2845 >>
+stream
+BT /F2 10.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 803.89 Tm (Multi-Agent AI Trading System Plan) Tj ET
+BT /F1 9.00 Tf 0.350 0.390 0.460 rg 1 0 0 1 351.28 803.89 Tm (Styled Formal Edition | February 2026) Tj ET
+0.800 0.840 0.890 RG 1.00 w 54.00 795.89 m 541.28 795.89 l S
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 759.89 Tm (Appendix A: Metrics and Promotion Gates) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 736.89 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 718.69 Tm (- Core metrics include Sharpe, Sortino, Calmar, MDD, turnover, slippage, and capacity.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 702.19 Tm (- Promotion gates include statistical significance thresholds vs baseline.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 685.69 Tm (- Risk budget adherence is validated before production promotion.) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 652.19 Tm (Appendix B: Data Quality SLAs) Tj ET
+BT /F1 10.80 Tf 0.080 0.080 0.100 rg 1 0 0 1 54.00 629.19 Tm (Acceptance Criteria:) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 610.99 Tm (- Feed uptime thresholds are defined and monitored.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 594.49 Tm (- Max permissible latency is defined per data source.) Tj ET
+BT /F1 10.50 Tf 0.080 0.080 0.100 rg 1 0 0 1 64.00 577.99 Tm (- Data anomaly alerts trigger automatic fallback or pause.) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.340 rg 1 0 0 1 54.00 544.49 Tm (Appendix C: Indian Market Optimization Summary) Tj ET
+BT /F1 9.50 Tf 0.220 0.250 0.300 rg 1 0 0 1 62.00 520.49 Tm (Area | Optimization) Tj ET
+BT /F1 9.50 Tf 0.220 0.250 0.300 rg 1 0 0 1 62.00 502.99 Tm (Data and Macros | RBI policy, FII/DII flows, domestic inflation metrics, FX reserves, and sentiment sources) Tj ET
+BT /F1 9.50 Tf 0.220 0.250 0.300 rg 1 0 0 1 62.00 485.49 Tm (Regime Detection | RBI inner and outer band monitoring with event calendar tracking) Tj ET
+BT /F1 9.50 Tf 0.220 0.250 0.300 rg 1 0 0 1 62.00 467.99 Tm (Volatility Modeling | GARCH quantiles tuned for NSE circuit breakers and FII movement patterns) Tj ET
+BT /F1 9.50 Tf 0.220 0.250 0.300 rg 1 0 0 1 62.00 450.49 Tm (Reward Emphasis | Sortino and Calmar weighting during panic regimes) Tj ET
+BT /F1 9.50 Tf 0.220 0.250 0.300 rg 1 0 0 1 62.00 432.99 Tm (Consensus Signal | Bayesian LSTAR or ESTAR hybrid with sentiment integration) Tj ET
+BT /F1 9.50 Tf 0.220 0.250 0.300 rg 1 0 0 1 62.00 415.49 Tm (Trading Execution | SAC-led ensemble for regime-switch robustness) Tj ET
+BT /F1 9.50 Tf 0.220 0.250 0.300 rg 1 0 0 1 62.00 397.99 Tm (Infrastructure | Mumbai VPS deployment with static IP whitelisting) Tj ET
+0.800 0.840 0.890 RG 0.70 w 54.00 42.00 m 541.28 42.00 l S
+BT /F1 9.00 Tf 0.350 0.390 0.460 rg 1 0 0 1 501.28 28.00 Tm (Page 9) Tj ET
+endstream
+endobj
+xref
+0 23
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000169 00000 n 
+0000000239 00000 n 
+0000000314 00000 n 
+0000000456 00000 n 
+0000006173 00000 n 
+0000006315 00000 n 
+0000012080 00000 n 
+0000012223 00000 n 
+0000017294 00000 n 
+0000017438 00000 n 
+0000023756 00000 n 
+0000023900 00000 n 
+0000029607 00000 n 
+0000029751 00000 n 
+0000036176 00000 n 
+0000036320 00000 n 
+0000042067 00000 n 
+0000042211 00000 n 
+0000047179 00000 n 
+0000047323 00000 n 
+trailer
+<< /Size 23 /Root 1 0 R >>
+startxref
+50221
+%%EOF
