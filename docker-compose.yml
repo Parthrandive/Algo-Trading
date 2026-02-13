@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  algo-trading:
+    build: .
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    container_name: algo_trading_dev
+    command: tail -f /dev/null
