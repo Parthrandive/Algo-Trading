@@ -35,6 +35,10 @@
 | **L2 Lead Dev** | Lead Engineer | SEV1 > 30m, SEV2 > 2h |
 | **L3 Stakeholder**| Project Manager / CTO | SEV1 > 1h, Financial Loss > $X |
 
+Pod operating model:
+- On-call follows cross-functional pod rotation (Quant + Engineer + Trader/Risk + Data).
+- Each incident ticket maps to owning pod and backup pod reviewer.
+
 ## 4. Post-Incident Review (PIR)
 *Required for all SEV1 and SEV2 incidents.*
 
@@ -51,3 +55,19 @@
 - **Corrective Actions**: (Jira tickets / Tasks)
     1. [Immediate Fix]
     2. [Long-term Prevention]
+
+## 5. Post-Deploy 48-Hour Review
+*Required for any production model or execution-path change.*
+
+Template:
+- **Change ID / Release ID**:
+- **Expected Impact**:
+- **Measured Impact Window**: first 48 hours after deploy
+- **Rollback Trigger**:
+- **Latency Summary**: p95, p99, p99.9
+- **Slippage Summary**:
+- **Risk Events**:
+- **Drift Signals**:
+- **PnL Attribution Check**: per-agent and per-signal attribution health
+- **Incident Count**:
+- **Decision**: keep / rollback / hotfix
