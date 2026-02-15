@@ -8,8 +8,13 @@ This document defines the Service Level Agreements (SLAs) for the Multi-Agent AI
 | Metric | Target (p95) | Max Limit (p99) | Measurement Point |
 | :--- | :--- | :--- | :--- |
 | **Tick-to-Trade** | < 50ms | < 100ms | Time from market data ingest to order generation signal. |
+| **Fast Loop Decision Compute** | < 4ms | < 8ms (stretch), degrade if > 10ms | In-process execution-path compute excluding broker/network RTT. |
 | **Order Execution** | < 200ms | < 500ms | Time from order generation to broker ACK. |
 | **Internal Msg** | < 5ms | < 10ms | Intra-agent message passing latency (ZeroMQ/Queue). |
+
+Release gate additions:
+- Execution-path model changes must include `p99.9` and jitter benchmarks under replay and peak-load simulation.
+- Any Fast Loop change that violates tail-latency envelope is blocked from production promotion.
 
 ## 2. Data Freshness SLAs
 *Criticality: Critical*

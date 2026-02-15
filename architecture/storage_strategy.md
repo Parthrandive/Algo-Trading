@@ -4,6 +4,11 @@
 
 We utilize a "Medallion" architecture adapted for high-frequency financial data.
 
+Roadmap posture:
+- Near-term scale target is documented in daily GB processed.
+- Mid-term scale target is documented in daily TB processed.
+- Quarterly reviews adjust partitioning, retention, and replay performance targets.
+
 ### Tier 1: Bronze (Raw)
 - **Content**: Immutable, raw payloads exactly as received from the source.
 - **Format**: JSON lines (`.jsonl`) compressed with Zstd, or original binary format if applicable.
@@ -27,6 +32,12 @@ We utilize a "Medallion" architecture adapted for high-frequency financial data.
 - **Partitioning**: `model_version/YYYY-MM/`
 - **Purpose**: Direct input to Inference and Training agents.
 
+## 1.1 Access Temperature Layers
+
+- **Hot**: In-memory caches and low-latency key-value stores for execution-path reads.
+- **Warm**: Fast analytical stores for feature computation and backtest retrieval.
+- **Cold**: Low-cost archives for long-retention replay, audits, and disaster recovery.
+
 ## 2. Provenance Protocol
 
 Every record in **Silver** and **Gold** tiers MUST carry the following metadata tags:
@@ -45,3 +56,11 @@ Every record in **Silver** and **Gold** tiers MUST carry the following metadata 
 - **Primary Trading Horizon**: Hourly.
 - **Rational**: Balances signal noise with execution frequency for the Indian market context.
 - **Constraint**: All downstream models must be able to function with Hourly resolution. Daily data is *only* for regime context.
+
+## 4. Replay Framework Requirements
+
+- Any trading day must be reproducible from Bronze payloads into Silver/Gold outputs with deterministic IDs.
+- Replay mode must support:
+  - **Event-time replay** for strategy behavior reproduction.
+  - **Wall-clock replay** for latency and throughput diagnostics.
+- Replay outputs must include provenance, schema version, and checksum summary for audit trails.
