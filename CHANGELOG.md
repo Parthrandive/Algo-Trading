@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2026-02-15
 ### Added
 - `requirements.lock` for pinned reproducible dependency resolution from the active `venv`.
 - `architecture/architecture_decisions_v1.md` as the locked Day 2 architecture decision record.
