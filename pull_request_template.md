@@ -3,12 +3,12 @@
 Use this template for every PR. Incomplete PRs should not be approved.
 
 Required governance references:
-- `governance/release_change_request_template.md`
-- `governance/ci_benchmark_evidence_checklist.md`
+- `docs/governance/release_change_request_template.md`
+- `docs/governance/ci_benchmark_evidence_checklist.md`
 
 Direct links:
-- [Release Change Request Template](./governance/release_change_request_template.md)
-- [CI Benchmark Evidence Checklist](./governance/ci_benchmark_evidence_checklist.md)
+- [Release Change Request Template](./docs/governance/release_change_request_template.md)
+- [CI Benchmark Evidence Checklist](./docs/governance/ci_benchmark_evidence_checklist.md)
 
 ## Submission Checklist (Required)
 
