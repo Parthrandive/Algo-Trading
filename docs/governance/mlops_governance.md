@@ -57,7 +57,7 @@ Every deployed model MUST have a corresponding metadata file (JSON/YAML) contain
     - No critical incidents during Staging period.
     - Research-throughput KPIs are current and attached to release record.
     - Change record includes expected impact, rollback trigger, and 48-hour post-deploy review owner.
-    - Major USD/INR and gold strategy/model changes pass mandatory shadow A/B evidence.
+    - Shadow A/B enforcement for major USD/INR and gold strategy/model changes activates after three months of paper-trading baseline; before activation, A/B evidence is strongly recommended with explicit rationale if skipped.
     - Change submission includes completed `release_change_request_template.md`.
     - CI evidence submission includes completed `ci_benchmark_evidence_checklist.md`.
 

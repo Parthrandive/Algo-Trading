@@ -35,9 +35,9 @@
 | **L2 Lead Dev** | Lead Engineer | SEV1 > 30m, SEV2 > 2h |
 | **L3 Stakeholder**| Project Manager / CTO | SEV1 > 1h, Financial Loss > $X |
 
-Pod operating model:
-- On-call follows cross-functional pod rotation (Quant + Engineer + Trader/Risk + Data).
-- Each incident ticket maps to owning pod and backup pod reviewer.
+Current-cycle operating model:
+- On-call uses single owner plus reviewer accountability.
+- Full cross-functional pod rotation is deferred in the current cycle.
 
 ## 4. Post-Incident Review (PIR)
 *Required for all SEV1 and SEV2 incidents.*

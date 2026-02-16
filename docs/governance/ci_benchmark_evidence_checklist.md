@@ -50,7 +50,6 @@ Purpose: standardize objective gate checks for execution-path and model promotio
 
 ## 6. Manual Follow-Ups (If Required)
 
-- [ ] Shadow A/B approval completed for major USD/INR or Gold changes.
+- [ ] Shadow A/B approval completed for major USD/INR or Gold changes (required after Tier 2 enforcement activation).
 - [ ] 48-hour post-deploy review owner assigned.
 - [ ] Rollback trigger and rollback runbook verified.
-

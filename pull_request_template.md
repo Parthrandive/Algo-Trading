@@ -48,9 +48,10 @@ Direct links:
 - Correctness parity result:
 - Observability and recovery parity result:
 
-## 4. Shadow A/B Status (Required for Major USD/INR or Gold Changes)
+## 4. Shadow A/B Status (Tier 2 Enforcement)
 
 - Shadow A/B required: `yes` | `no`
+- Enforcement active: `yes` | `no` (active after three months paper trading)
 - A/B window:
 - Non-regression result (risk-adjusted metrics):
 - Non-regression result (slippage/impact):
@@ -69,4 +70,3 @@ Direct links:
 - [ ] Risk reviewer confirms gates are met.
 - [ ] Engineering reviewer confirms benchmark evidence is complete.
 - [ ] Trading/Product reviewer confirms deployment decision (`GO`/`NO-GO`).
-
