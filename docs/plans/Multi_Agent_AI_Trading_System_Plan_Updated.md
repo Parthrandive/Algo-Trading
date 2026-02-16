@@ -1,6 +1,6 @@
 # Multi-Agent AI Trading System
 Updated Integrated Plan for Indian Market (USD/INR + NSE Stocks & Indices)
-Version 1.3.6 | February 2026
+Version 1.3.7 | February 2026
 
 ## 0. Document Control
 Purpose: maintain versioning, accountability, and auditability.
@@ -18,9 +18,10 @@ Acceptance Criteria:
 - Version 1.3.4 folds rigor guidance directly into MLOps, rollout, and phase-gate sections and removes the standalone memo section.
 - Version 1.3.5 operationalizes release governance with mandatory evidence-first change-request and CI benchmark checklist templates.
 - Version 1.3.6 applies implementation freeze discipline with explicit Tier 1, Tier 2, and Tier 3 priorities; Tier 3 items are deferred for current-cycle delivery.
+- Version 1.3.7 decomposes Tier 1 priorities into concrete execution tasks, artifacts, and completion checks for immediate implementation.
 
 ## 1. Executive Summary
-This updated plan refines the existing multi-agent trading system for Indian markets by adding concrete governance, execution, and validation controls. It preserves the core multi-agent architecture while tightening scope, compliance, data integrity, and rollout safety. The plan incorporates a dedicated Sentiment Agent in Phase 2 using a fine-tuned FinBERT model to improve event-driven robustness. Deployment and promotion decisions are governed by explicit benchmark gates in Section 16 and Appendix A rather than assumed performance uplifts. Version 1.3.6 introduces strict implementation prioritization: execute Tier 1 controls first, schedule Tier 2 after three months of paper trading, and defer Tier 3 items.
+This updated plan refines the existing multi-agent trading system for Indian markets by adding concrete governance, execution, and validation controls. It preserves the core multi-agent architecture while tightening scope, compliance, data integrity, and rollout safety. The plan incorporates a dedicated Sentiment Agent in Phase 2 using a fine-tuned FinBERT model to improve event-driven robustness. Deployment and promotion decisions are governed by explicit benchmark gates in Section 16 and Appendix A rather than assumed performance uplifts. Version 1.3.7 keeps strict tier prioritization and adds concrete Tier 1 execution tasks for immediate delivery.
 
 ## 2. Scope, Objectives, and Trading Constraints
 Defines the trading horizon, asset universe, allowed actions, and performance targets.
@@ -422,6 +423,52 @@ Prioritization Framework:
 | Tier 3 | Market-making module | Deferred | Do not implement in current cycle |
 | Tier 3 | Online RL micro-updates | Deferred | Do not implement in current cycle |
 | Tier 3 | Full cross-functional pod ownership model | Deferred | Do not implement in current cycle |
+
+### 18.2 Tier 1 Task Breakdown (Execution Backlog)
+
+#### Tier 1-A Real-Time Impact and Slippage Monitor with Auto Reduction
+Tasks:
+- Define impact thresholds by instrument bucket (for example liquid index names, mid-liquidity names, and gold futures).
+- Add live metrics pipeline: realized slippage, participation, and ADV-linked impact score.
+- Implement automatic position-sizing reducer on threshold breach with cooldown and hysteresis.
+- Add alerting and dashboard panels for threshold breaches and auto-reduction events.
+Completion Checks:
+- Replay and paper-trading drills show threshold events trigger expected size reduction behavior.
+- No correctness regressions in order intent, fill tracking, and risk logs.
+- Post-deploy review template captures slippage-impact incident counts and outcomes.
+
+#### Tier 1-B Dynamic Volatility-Scaled Risk Budgets
+Tasks:
+- Define volatility regime calculation and sigma thresholds by asset cluster.
+- Map each regime to exposure caps (normal, reduced, protective).
+- Implement automatic cap adjustment in risk overseer before hard kill-switch thresholds.
+- Add risk state telemetry and alerts for regime transitions and cap changes.
+Completion Checks:
+- Stress drills confirm exposure caps scale down before hard kill-switch events.
+- Risk cap transitions are deterministic and auditable.
+- False-trigger rate remains within rollout acceptance limits.
+
+#### Tier 1-C Order-Book Imbalance in Fast Loop
+Tasks:
+- Define canonical imbalance and queue-pressure features with schema versioning.
+- Publish features via non-blocking snapshot path for Fast Loop consumption.
+- Add feature quality guardrails (staleness, missing book levels, and source-quality flags).
+- Validate inference-time impact on decision latency.
+Completion Checks:
+- Fast Loop p99 and p99.9 latency remain within release gates after feature enablement.
+- Feature quality failures degrade safely without blocking execution.
+- Shadow comparison shows non-regression on slippage and risk controls.
+
+#### Tier 1-D Tightened Fast Loop Latency Discipline (8 ms Stretch)
+Tasks:
+- Instrument full decision path timing (p50, p95, p99, p99.9, and jitter).
+- Enforce CI benchmark gate for execution-path pull requests.
+- Validate degrade safeguard behavior when latency breaches > 10 ms.
+- Add weekly latency regression report with owner and remediation actions.
+Completion Checks:
+- CI produces benchmark artifacts for replay and peak-load on every qualifying change.
+- Degrade-path tests pass consistently under synthetic latency stress.
+- Latency trend remains stable or improving over the Tier 1 window.
 
 ## Appendix A: Metrics and Promotion Gates
 Acceptance Criteria:

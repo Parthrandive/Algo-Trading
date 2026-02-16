@@ -62,6 +62,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docs/governance/release_change_request_template.md` updated with Tier 2 Shadow A/B activation wording.
 - `docs/governance/ci_benchmark_evidence_checklist.md` updated with Tier 2 Shadow A/B activation wording.
 - `pull_request_template.md` updated to mark Shadow A/B as Tier 2 enforcement with activation flag.
+- `docs/plans/Multi_Agent_AI_Trading_System_Plan_Updated.md` upgraded to v1.3.7 with concrete Tier 1 execution backlog:
+  - Real-time impact/slippage monitor tasks and completion checks.
+  - Dynamic volatility-scaled risk budget tasks and completion checks.
+  - Order-book imbalance Fast Loop tasks and completion checks.
+  - Tightened Fast Loop latency discipline tasks and completion checks.
+- Regenerated `docs/plans/Multi_Agent_AI_Trading_System_Plan_Updated.pdf` and `docs/plans/Multi_Agent_AI_Trading_System_Plan_Updated_readable.pdf` from the updated v1.3.7 markdown plan.
 
 ### Changed
 - Canonical provenance fields in schemas now use `source_type`, `ingestion_timestamp_utc`, `ingestion_timestamp_ist`, and `quality_status` with backward-compatible input aliases.
