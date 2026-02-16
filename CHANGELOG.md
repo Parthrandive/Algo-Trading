@@ -53,6 +53,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docs/plans/Multi_Agent_AI_Trading_System_Plan_Updated.md` rollout section updated to require completed governance templates for promotion requests.
 - `docs/plans/Multi_Agent_AI_Trading_System_Plan_Updated.md` upgraded to v1.3.5 to reflect template-driven release governance operationalization.
 - `pull_request_template.md` added with mandatory evidence-first PR fields and direct links to both governance templates.
+- `docs/plans/Multi_Agent_AI_Trading_System_Plan_Updated.md` upgraded to v1.3.6 with implementation-freeze prioritization:
+  - Tier 1 (next 4 to 8 weeks): impact or slippage monitor, dynamic vol-scaled risk budgets, order-book imbalance in Fast Loop, and tightened Fast Loop latency discipline.
+  - Tier 2 (after three months paper trading): shadow A/B enforcement for major changes and basic crisis-weighted voting activation.
+  - Tier 3 deferred: hardware or FPGA track, market-making module, online RL micro-updates, and full pod ownership model.
+- `docs/governance/mlops_governance.md` updated to phase Shadow A/B enforcement after three months paper trading, with rationale-required fallback before activation.
+- `docs/governance/runbook_v1.md` updated to current-cycle single owner plus reviewer operations (full pod rotation deferred).
+- `docs/governance/release_change_request_template.md` updated with Tier 2 Shadow A/B activation wording.
+- `docs/governance/ci_benchmark_evidence_checklist.md` updated with Tier 2 Shadow A/B activation wording.
+- `pull_request_template.md` updated to mark Shadow A/B as Tier 2 enforcement with activation flag.
 
 ### Changed
 - Canonical provenance fields in schemas now use `source_type`, `ingestion_timestamp_utc`, `ingestion_timestamp_ist`, and `quality_status` with backward-compatible input aliases.

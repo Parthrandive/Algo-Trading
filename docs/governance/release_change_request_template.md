@@ -46,7 +46,7 @@ Use this template for any model, execution-path, or risk-control change proposed
 
 ## 5. Shadow A/B Evidence
 
-- Shadow A/B required: `yes` | `no` (mandatory for major USD/INR or Gold changes)
+- Shadow A/B required: `yes` | `no` (Tier 2 enforcement after three months paper trading; before activation, provide rationale if skipped)
 - Control arm:
 - Candidate arm:
 - A/B window:
@@ -70,4 +70,3 @@ Use this template for any model, execution-path, or risk-control change proposed
 - Approver (Trading or Product):
 - Decision timestamp:
 - Notes:
-

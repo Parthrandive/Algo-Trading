@@ -1,12 +1,12 @@
 # Multi-Agent AI Trading System
 Updated Integrated Plan for Indian Market (USD/INR + NSE Stocks & Indices)
-Version 1.3.5 | February 2026
+Version 1.3.6 | February 2026
 
 ## 0. Document Control
 Purpose: maintain versioning, accountability, and auditability.
 Acceptance Criteria:
 - Single owner and reviewer list are defined.
-- Cross-functional pod ownership is defined for each asset cluster and artifact (primary owner + reviewer).
+- Single owner and reviewer are defined for each asset cluster and artifact; full cross-functional pod operating model is deferred in the current cycle.
 - Versioning and changelog are maintained in this document.
 - Each model and data artifact is traceable to a plan version.
 - Version 1.2 change set captures dual-loop execution, sentiment cache decoupling, crisis override voting, and impossible-scenario stress tests.
@@ -17,9 +17,10 @@ Acceptance Criteria:
 - Version 1.3.3 added evidence-first rigor guidance and prioritization for IMC-inspired tech adoption.
 - Version 1.3.4 folds rigor guidance directly into MLOps, rollout, and phase-gate sections and removes the standalone memo section.
 - Version 1.3.5 operationalizes release governance with mandatory evidence-first change-request and CI benchmark checklist templates.
+- Version 1.3.6 applies implementation freeze discipline with explicit Tier 1, Tier 2, and Tier 3 priorities; Tier 3 items are deferred for current-cycle delivery.
 
 ## 1. Executive Summary
-This updated plan refines the existing multi-agent trading system for Indian markets by adding concrete governance, execution, and validation controls. It preserves the core multi-agent architecture while tightening scope, compliance, data integrity, and rollout safety. The plan incorporates a dedicated Sentiment Agent in Phase 2 using a fine-tuned FinBERT model to improve event-driven robustness. Deployment and promotion decisions are governed by explicit benchmark gates in Section 16 and Appendix A rather than assumed performance uplifts. Version 1.3.5 operationalizes those rules through mandatory governance templates in promotion workflows.
+This updated plan refines the existing multi-agent trading system for Indian markets by adding concrete governance, execution, and validation controls. It preserves the core multi-agent architecture while tightening scope, compliance, data integrity, and rollout safety. The plan incorporates a dedicated Sentiment Agent in Phase 2 using a fine-tuned FinBERT model to improve event-driven robustness. Deployment and promotion decisions are governed by explicit benchmark gates in Section 16 and Appendix A rather than assumed performance uplifts. Version 1.3.6 introduces strict implementation prioritization: execute Tier 1 controls first, schedule Tier 2 after three months of paper trading, and defer Tier 3 items.
 
 ## 2. Scope, Objectives, and Trading Constraints
 Defines the trading horizon, asset universe, allowed actions, and performance targets.
@@ -157,7 +158,7 @@ Acceptance Criteria:
 - Transition function includes volatility, macro differentials, RBI signals, and sentiment quantiles.
 - Consensus stability is tested during high-volatility windows.
 - Default mode uses weighted consensus with explicit safety bias toward protective signals.
-- Basic crisis mode uses crisis-weighted routing with capped dominance (max 60 to 70 percent for the crisis agent), not full winner-takes-all.
+- Basic crisis mode uses crisis-weighted routing with capped dominance (max 60 to 70 percent for the crisis agent), not full winner-takes-all; activation is Tier 2 and scheduled after three months of stable paper trading.
 - Agent divergence (fundamental disagreement between agents) is modeled as a dedicated regime signal that triggers staged risk reduction or temporary freeze.
 - Full winner-takes-all crisis automation is deferred until false-positive and stability thresholds are met in shadow mode.
 - Snapback tests are retained for measurement; automatic Bayesian smoothing retuning from snapback output is deferred.
@@ -169,7 +170,7 @@ RL ensemble for trade execution decisions.
 Acceptance Criteria:
 - Ensemble includes SAC, PPO, and TD3 or justified alternatives.
 - Each policy has defined training cadence and evaluation metrics.
-- Optional market-making policy head is supported for low-volatility liquidity-provision windows, disabled by default until dedicated validation gates pass.
+- Optional market-making policy head is supported for low-volatility liquidity-provision windows, disabled by default and deferred to Tier 3 in the current cycle.
 
 ### 7.2 Decision Mechanism
 Acceptance Criteria:
@@ -213,7 +214,7 @@ Acceptance Criteria:
 - Online learning is gated behind offline training and paper trading validation.
 - Exploration is constrained by risk limits and hard safety filters.
 - Promotion to live trading requires risk committee approval and rollback readiness.
-- Optional online RL micro-updates (15 to 30 minute cadence) are allowed only in paper or shadow mode first, then promoted only after non-regression evidence and risk sign-off.
+- Optional online RL micro-updates (15 to 30 minute cadence) are deferred to Tier 3 in the current cycle; re-evaluate only after Tier 1 and Tier 2 completion.
 
 ## 8. Portfolio Construction and Risk Budgeting
 Dedicated allocation and exposure management.
@@ -282,9 +283,10 @@ Acceptance Criteria:
 - Risk overseer can trigger hedge or unwind actions directly when exposure or correlation thresholds breach limits.
 - Live PnL attribution is available per agent and per signal family to support real-time diagnosis during stress windows.
 
-## 11.5 Phase 4.5: Hardware Acceleration and Low-Latency Track (Optional)
+## 11.5 Phase 4.5: Hardware Acceleration and Low-Latency Track (Optional, Deferred for Current Cycle)
 Targeted hardware evaluation path for execution-critical latency improvements.
 Acceptance Criteria:
+- Status is deferred for current-cycle implementation and is re-opened only after Tier 1 and Tier 2 milestones are complete.
 - Candidate components for acceleration are limited to execution-path critical steps (for example market data decode/normalization and selected pricing kernels).
 - Candidate components can include order-book parsing and routing adapters implemented in Rust/C++ microservices before FPGA escalation.
 - FPGA evaluation includes deterministic latency benchmarking: p50, p95, p99, p99.9, jitter, and worst-case tail behavior.
@@ -332,7 +334,7 @@ Controlled deployment with shadow testing and gating.
 Acceptance Criteria:
 - Shadow mode runs for a fixed minimum window.
 - Promotion requires challenger outperforming champion on risk-adjusted metrics.
-- Shadow A/B is mandatory for major strategy or model changes in USD/INR and gold tracks, and optional for lower-risk scope with risk approval.
+- Shadow A/B enforcement for major strategy or model changes in USD/INR and gold tracks is Tier 2 and activates after three months of paper trading; before activation, A/B is strongly recommended with explicit rationale if skipped.
 - Monitoring dashboards include PnL attribution, drift, and risk limits.
 - Promotion gates require no regression in Sharpe, drawdown, and slippage, plus acceptable rates for mode switching and false kill-switch events.
 - Crisis logic and override routing must complete shadow-mode validation before live activation.
@@ -354,8 +356,8 @@ Acceptance Criteria:
 - System time sync is enforced via NTP or equivalent with drift alerts.
 - Observability includes metrics, traces, and alerts for data latency, inference time, and execution failures.
 - Operational dashboards track decision staleness, feature lag, mode-switch frequency, OOD trigger rate, kill-switch false positives, and MTTR.
-- Cross-functional pods are the default operating model: Quant + Engineer + Trader or Risk + Data per asset cluster.
-- Pods own end-to-end production metrics (slippage, stability, uptime, tail-risk incidents) and run a shared production incident rotation.
+- Full cross-functional pod operating model is deferred to Tier 3 in the current cycle.
+- Interim operating model uses single owner plus reviewer accountability with explicit metric ownership.
 
 ## 16. Milestones and Deliverables
 Phased execution with measurable outcomes.
@@ -403,18 +405,23 @@ Acceptance Criteria:
 - Any new enhancements require documented risk review and rollback plans before deployment.
 
 Prioritization Framework:
-- High-impact / low-effort: order-book imbalance reinforcement in Fast Loop, real-time slippage-impact controls, dynamic volatility-scaled risk budgets.
-- Medium-impact / medium-effort: optional market-making mode, Rust/C++ critical-path microservices, live PnL attribution dashboard.
-- High-impact / high-effort: FPGA path for select components, full online RL fine-tuning in production.
+- Tier 1 (implement first, next 4 to 8 weeks): real-time impact and slippage monitoring with automatic position reduction; dynamic volatility-scaled risk budgets; order-book imbalance in Fast Loop; tightened Fast Loop latency discipline (8 ms stretch, 10 ms degrade safeguard).
+- Tier 2 (implement after three months of paper trading): shadow A/B enforcement for major changes; basic crisis-weighted voting with 60 to 70 percent cap.
+- Tier 3 (strongly defer for current cycle): hardware acceleration and FPGA track; market-making module; online RL micro-updates; full cross-functional pod ownership model.
 
-### 18.1 Evidence-First Prioritization Table
-| Priority | Initiative | Effort | Expected Impact (Hypothesis Only) | Go Criterion | No-Go Criterion |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Order-book imbalance reinforcement in Fast Loop | Low to medium | Improved short-horizon microstructure response without latency regression | Fast Loop p99/p99.9 non-regression versus baseline and statistically valid shadow non-regression on slippage/risk metrics | Latency regression, data-quality instability, or statistically material shadow regression |
-| 2 | Real-time slippage-impact monitor with dynamic volatility-scaled risk budgets | Medium | Reduced adverse execution in stressed windows and lower tail exposure | Trigger logic passes replay and live-shadow drills; stress-window slippage and risk incidents improve versus baseline without return degradation beyond gate limits | Missed breach handling, excessive false positives, or risk-limit control failure |
-| 3 | Dedicated research loop (Phase 5 hypothesis cycle) | Medium | Faster validated iteration and cleaner research-to-production throughput | Weekly hypothesis pipeline, experiment taxonomy, and promotion evidence complete; lead-time KPI improves without governance regressions | Repeated unclosed hypotheses, high unresolved data-integrity failure ratio, or missing promotion evidence |
-| 4 | One Rust/C++ critical-path microservice (for example parser or routing adapter) | Medium to high | Lower tail latency and jitter on a targeted execution component | Predefined benchmark gain on p99 and p99.9 versus Python baseline plus correctness/failover/observability parity | No measurable gain, correctness mismatches, or degraded incident recovery |
-| 5 | FPGA or advanced hardware acceleration path | High | Additional execution-path tail-latency reduction for proven bottlenecks | Phase 4.5 gates pass with measured latency gain, correctness parity, and operational recovery parity | No benchmark advantage, elevated complexity without risk-adjusted benefit, or degraded resilience |
+### 18.1 Current-Cycle Priority Table
+| Tier | Initiative | Window | Status |
+| --- | --- | --- | --- |
+| Tier 1 | Real-time impact and slippage monitoring with auto reduction | Next 4 to 8 weeks | Implement now |
+| Tier 1 | Dynamic volatility-scaled risk budgets | Next 4 to 8 weeks | Implement now |
+| Tier 1 | Order-book imbalance reinforcement in Fast Loop | Next 4 to 8 weeks | Implement now |
+| Tier 1 | Tightened Fast Loop latency discipline (8 ms stretch) | Next 4 to 8 weeks | Implement now |
+| Tier 2 | Shadow A/B enforcement for major changes | After three months paper trading | Phase in later |
+| Tier 2 | Basic crisis-weighted voting (60 to 70 percent cap) | After three months paper trading | Phase in later |
+| Tier 3 | Hardware acceleration and FPGA track | Deferred | Do not implement in current cycle |
+| Tier 3 | Market-making module | Deferred | Do not implement in current cycle |
+| Tier 3 | Online RL micro-updates | Deferred | Do not implement in current cycle |
+| Tier 3 | Full cross-functional pod ownership model | Deferred | Do not implement in current cycle |
 
 ## Appendix A: Metrics and Promotion Gates
 Acceptance Criteria:
@@ -439,5 +446,5 @@ Acceptance Criteria:
 | Trading Execution | SAC-led ensemble for regime-switch robustness |
 | Infrastructure | Mumbai VPS deployment with static IP whitelisting |
 | Hardware Path | Optional FPGA acceleration for execution-critical components only |
-| Operating Model | Cross-functional pods with shared outcome and incident accountability |
+| Operating Model | Interim single owner plus reviewer model; full pod model deferred for current cycle |
 | Latency Discipline | Fast Loop stretch p99 <= 8 ms with mandatory degrade/bypass above 10 ms |
