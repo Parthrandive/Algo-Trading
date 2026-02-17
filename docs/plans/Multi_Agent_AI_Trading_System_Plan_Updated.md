@@ -2,6 +2,10 @@
 Updated Integrated Plan for Indian Market (USD/INR + NSE Stocks & Indices)
 Version 1.3.7 | February 2026
 
+Document Type: Integrated Project Execution and Governance Plan
+Scope: End-to-end multi-agent trading platform (data, modeling, execution, risk, operations)
+Planning Principle: Whole-system outcomes first; model choices are implementation options, not hard dependencies.
+
 ## 0. Document Control
 Purpose: maintain versioning, accountability, and auditability.
 Acceptance Criteria:
@@ -21,7 +25,16 @@ Acceptance Criteria:
 - Version 1.3.7 decomposes Tier 1 priorities into concrete execution tasks, artifacts, and completion checks for immediate implementation.
 
 ## 1. Executive Summary
-This updated plan refines the existing multi-agent trading system for Indian markets by adding concrete governance, execution, and validation controls. It preserves the core multi-agent architecture while tightening scope, compliance, data integrity, and rollout safety. The plan incorporates a dedicated Sentiment Agent in Phase 2 using a fine-tuned FinBERT model to improve event-driven robustness. Deployment and promotion decisions are governed by explicit benchmark gates in Section 16 and Appendix A rather than assumed performance uplifts. Version 1.3.7 keeps strict tier prioritization and adds concrete Tier 1 execution tasks for immediate delivery.
+This updated plan refines the existing multi-agent trading system for Indian markets by adding concrete governance, execution, and validation controls. It preserves the core multi-agent architecture while tightening scope, compliance, data integrity, and rollout safety. Deployment and promotion decisions are governed by explicit benchmark gates in Section 16 and Appendix A rather than assumed performance uplifts. The plan is evaluated with whole-project, model-neutral criteria: end-to-end risk-adjusted outcomes, stability, and operational resilience, not dependence on any single model family.
+
+## 1.1 Whole-Project Focus and Model-Neutral Policy
+Purpose: ensure the plan remains platform-centric rather than tied to any single algorithm, model family, or vendor implementation.
+Acceptance Criteria:
+- No single model family is mandatory for production eligibility; equivalent alternatives are acceptable when they pass the same governance and benchmark gates.
+- All named model families in this document are reference implementations, not hard requirements.
+- Promotion and rollback decisions are based on whole-system metrics (latency, slippage, risk events, stability, compliance), not isolated model uplift claims.
+- Architecture, risk, and operations controls take precedence over model complexity when conflicts arise.
+- Every change request must document system-level impact, not only model-level performance.
 
 ## 2. Scope, Objectives, and Trading Constraints
 Defines the trading horizon, asset universe, allowed actions, and performance targets.
@@ -114,6 +127,7 @@ Acceptance Criteria:
 
 ## 6. Phase 2: Analyst Board (Modeling)
 Specialized models for forecasting, regime detection, sentiment, and consensus.
+Model-neutral note: listed model families are examples and can be replaced with equivalent alternatives that satisfy the same validation and risk controls.
 
 ### 6.1 Technical Agent
 Time-series modeling for price prediction and action thresholds.
