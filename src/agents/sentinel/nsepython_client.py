@@ -17,7 +17,7 @@ class NSEPythonClient(NSEClientInterface):
     """
 
     def __init__(self):
-        self.source_type = SourceType.OFFICIAL_API # or we can define a new source type if needed
+        self.source_type = SourceType.FALLBACK_SCRAPER
 
     @retry_with_backoff(retries=2, backoff_in_seconds=2)
     @rate_limit(calls=1, period=2) # Strict rate limit to avoid IP blocks
@@ -77,7 +77,13 @@ class NSEPythonClient(NSEClientInterface):
             quality_status=QualityFlag.PASS
         )
 
-    def get_historical_data(self, symbol: str, start_date: datetime, end_date: datetime) -> List[Bar]:
+    def get_historical_data(
+        self,
+        symbol: str,
+        start_date: datetime,
+        end_date: datetime,
+        interval: str = "1h",
+    ) -> List[Bar]:
         """
         Historical data via nsepython is often unstable. 
         We rely on YFinanceClient for this.

@@ -5,6 +5,8 @@ from zoneinfo import ZoneInfo
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from src.utils.time_sync import validate_utc_ist_consistency
+
 IST = ZoneInfo("Asia/Kolkata")
 
 class SourceType(str, Enum):
@@ -36,6 +38,29 @@ class MarketDataBase(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid", populate_by_name=True)
 
+    @model_validator(mode="before")
+    @classmethod
+    def populate_missing_ingestion_timestamps(cls, values):
+        if not isinstance(values, dict):
+            return values
+
+        utc_value = values.get("ingestion_timestamp_utc", values.get("ingestion_timestamp"))
+        ist_value = values.get("ingestion_timestamp_ist")
+
+        if utc_value is None and ist_value is None:
+            now_utc = datetime.now(UTC)
+            values["ingestion_timestamp_utc"] = now_utc
+            values["ingestion_timestamp_ist"] = now_utc.astimezone(IST)
+            return values
+
+        if utc_value is not None and ist_value is None and isinstance(utc_value, datetime) and utc_value.tzinfo is not None:
+            values["ingestion_timestamp_ist"] = utc_value.astimezone(IST)
+
+        if ist_value is not None and utc_value is None and isinstance(ist_value, datetime) and ist_value.tzinfo is not None:
+            values["ingestion_timestamp_utc"] = ist_value.astimezone(UTC)
+
+        return values
+
     @field_validator("ingestion_timestamp_utc")
     @classmethod
     def normalize_ingestion_timestamp_utc(cls, value: datetime) -> datetime:
@@ -49,6 +74,16 @@ class MarketDataBase(BaseModel):
         if value.tzinfo is None:
             raise ValueError("ingestion_timestamp_ist must be timezone-aware")
         return value.astimezone(IST)
+
+    @model_validator(mode="after")
+    def validate_utc_ist_pair(self):
+        if not validate_utc_ist_consistency(
+            self.ingestion_timestamp_utc,
+            self.ingestion_timestamp_ist,
+            tolerance_seconds=0.5,
+        ):
+            raise ValueError("ingestion_timestamp_utc and ingestion_timestamp_ist must represent the same instant")
+        return self
 
     @property
     def source(self) -> SourceType:
