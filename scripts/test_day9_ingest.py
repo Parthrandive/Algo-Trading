@@ -4,7 +4,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Add project root to sys.path
-sys.path.append(os.getcwd())
+project_root = str(Path(__file__).resolve().parents[1])
+if project_root not in sys.path:
+    sys.path.append(project_root)
 
 from src.agents.sentinel.broker_client import BrokerAPIClient
 from src.agents.sentinel.bronze_recorder import BronzeRecorder

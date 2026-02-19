@@ -2,7 +2,10 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-import ntplib
+try:
+    import ntplib
+except ImportError:
+    ntplib = None
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +16,10 @@ def get_clock_drift(server: str = "pool.ntp.org") -> Optional[float]:
     Returns the offset in seconds (positive means system is ahead).
     Returns None when drift cannot be determined.
     """
+    if ntplib is None:
+        logger.warning("ntplib is not installed; clock drift check unavailable.")
+        return None
+
     try:
         client = ntplib.NTPClient()
         response = client.request(server, version=3)
