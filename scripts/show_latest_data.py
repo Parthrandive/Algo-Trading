@@ -19,14 +19,22 @@ def show_data():
         print("No historical data found in data/silver/ohlcv/RELIANCE.NS")
     else:
         # data/silver/ohlcv/RELIANCE.NS/{year}/{month}/{date}.parquet
-        # Let's just find any parquet file
-        files = list(base_dir.rglob("*.parquet"))
+        # Find all parquet files recursively
+        files = sorted(list(base_dir.rglob("*.parquet")))
+        
         if files:
-            latest_file = sorted(files)[-1]
-            print(f"Reading latest file: {latest_file}")
-            df = pd.read_parquet(latest_file)
-            print("\nLast 5 records:")
-            print(df.tail()[['timestamp', 'open', 'high', 'low', 'close', 'volume']])
+            # Take last 2 files (or just 1 if only 1 exists)
+            latest_files = files[-2:]
+            print(f"Reading files: {[f.name for f in latest_files]}")
+            
+            dfs = []
+            for f in latest_files:
+                dfs.append(pd.read_parquet(f))
+            
+            if dfs:
+                df = pd.concat(dfs)
+                print(f"\nLast 10 records (spanning {len(latest_files)} days):")
+                print(df.tail(10)[['timestamp', 'open', 'high', 'low', 'close', 'volume']])
         else:
             print("No parquet files found.")
 
