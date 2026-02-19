@@ -1,0 +1,90 @@
+{
+  "version": "nse-sentinel-runtime-v1",
+  "polling_interval_seconds": 60,
+  "clock_drift_threshold_seconds": 0.5,
+  "monotonicity_scope": "symbol_interval",
+  "sources": [
+    {
+      "name": "official_yfinance",
+      "source_type": "official_api",
+      "priority": 1,
+      "enabled": true,
+      "base_url": "https://query1.finance.yahoo.com",
+      "api_key_env": null,
+      "timeout_seconds": 10,
+      "retries": {
+        "max_attempts": 3,
+        "base_backoff_seconds": 2
+      },
+      "rate_limit": {
+        "calls": 2,
+        "period_seconds": 1
+      }
+    },
+    {
+      "name": "broker_rest",
+      "source_type": "broker_api",
+      "priority": 2,
+      "enabled": true,
+      "base_url": "https://broker.example.com/v1",
+      "api_key_env": "BROKER_API_KEY",
+      "timeout_seconds": 10,
+      "retries": {
+        "max_attempts": 3,
+        "base_backoff_seconds": 2
+      },
+      "rate_limit": {
+        "calls": 5,
+        "period_seconds": 1
+      }
+    },
+    {
+      "name": "nsepython_fallback",
+      "source_type": "fallback_scraper",
+      "priority": 3,
+      "enabled": true,
+      "base_url": "https://www.nseindia.com/api",
+      "api_key_env": null,
+      "timeout_seconds": 10,
+      "retries": {
+        "max_attempts": 2,
+        "base_backoff_seconds": 2
+      },
+      "rate_limit": {
+        "calls": 1,
+        "period_seconds": 2
+      }
+    }
+  ],
+  "symbol_universe": {
+    "version": "week2-core-v1",
+    "core_symbols": [
+      "RELIANCE.NS",
+      "TATASTEEL.NS"
+    ],
+    "fx_symbols": [
+      "USDINR=X"
+    ],
+    "index_symbols": [
+      "^NSEI"
+    ],
+    "review_cadence": "quarterly"
+  },
+  "session_rules": {
+    "timezone": "Asia/Kolkata",
+    "trading_days": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "regular_open": "09:15:00",
+    "regular_close": "15:30:00",
+    "pre_open_start": "09:00:00",
+    "post_close_end": null,
+    "holidays": [
+      "2026-01-26"
+    ]
+  }
+}

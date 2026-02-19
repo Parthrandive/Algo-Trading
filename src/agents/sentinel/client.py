@@ -10,7 +10,13 @@ class NSEClientInterface(ABC):
         pass
 
     @abstractmethod
-    def get_historical_data(self, symbol: str, start_date: datetime, end_date: datetime) -> List[Bar]:
+    def get_historical_data(
+        self,
+        symbol: str,
+        start_date: datetime,
+        end_date: datetime,
+        interval: str = "1h",
+    ) -> List[Bar]:
         """Fetch historical OHLCV data."""
         pass
 
@@ -35,7 +41,13 @@ class MockNSEClient(NSEClientInterface):
             ask=round(price * 1.0005, 2)
         )
 
-    def get_historical_data(self, symbol: str, start_date: datetime, end_date: datetime) -> List[Bar]:
+    def get_historical_data(
+        self,
+        symbol: str,
+        start_date: datetime,
+        end_date: datetime,
+        interval: str = "1h",
+    ) -> List[Bar]:
         """
         Returns a list of mock Bars with random data for the given range.
         Assuming '1h' interval as per plan.
@@ -52,7 +64,7 @@ class MockNSEClient(NSEClientInterface):
                 symbol=symbol,
                 timestamp=current_time,
                 source_type=SourceType.MANUAL_OVERRIDE,
-                interval="1h",
+                interval=interval,
                 open=open_price,
                 high=high_price,
                 low=low_price,

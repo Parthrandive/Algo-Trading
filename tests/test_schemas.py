@@ -1,5 +1,6 @@
 import pytest
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 from pydantic import ValidationError
 from src.schemas.market_data import Tick, Bar, SourceType as MarketSourceType
 from src.schemas.macro_data import MacroIndicator, MacroIndicatorType, SourceType as MacroSourceType
@@ -164,6 +165,21 @@ def test_provenance_alias_backward_compatibility():
     assert tick.source == MarketSourceType.OFFICIAL_API
     assert tick.quality_status.value == "warn"
     assert tick.quality_flag.value == "warn"
+
+def test_rejects_inconsistent_utc_ist_ingestion_pair():
+    utc_ts = datetime.now(UTC)
+    inconsistent_ist = (utc_ts + timedelta(minutes=2)).astimezone(ZoneInfo("Asia/Kolkata"))
+
+    with pytest.raises(ValidationError):
+        Tick(
+            symbol="ITC",
+            timestamp=datetime.now(),
+            source_type=MarketSourceType.OFFICIAL_API,
+            price=451.0,
+            volume=100,
+            ingestion_timestamp_utc=utc_ts,
+            ingestion_timestamp_ist=inconsistent_ist,
+        )
 
 def test_schema_registry():
     # Valid Retrieval

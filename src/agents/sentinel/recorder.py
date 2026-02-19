@@ -42,7 +42,7 @@ class SilverRecorder:
         sorted_bars = sorted(bars, key=lambda b: b.timestamp)
 
         for bar in sorted_bars:
-            if self.monotonicity_checker.check(bar.symbol, bar.timestamp):
+            if self.monotonicity_checker.check(bar.symbol, bar.timestamp, interval=bar.interval):
                 valid_bars.append(bar)
             else:
                 logger.warning(f"Quarantining out-of-order bar for {bar.symbol} at {bar.timestamp}")

@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-02-19
+### Added
+- `/Users/juhi/Desktop/algo-trading/docs/architecture/nse_sentinel_connector_spec_v1.md` with Week 2 Day 8 locked connector contracts and Bronze-to-Silver field mappings for `market.tick.v1`, `market.bar.v1`, and `market.corporate_action.v1`.
+- `/Users/juhi/Desktop/algo-trading/configs/nse_sentinel_runtime_v1.json` containing runtime baseline (source priorities, symbol universe, and NSE session calendar/rules).
+- `/Users/juhi/Desktop/algo-trading/src/agents/sentinel/bronze_recorder.py` for append-only Bronze payload persistence (`source_id/YYYY-MM-DD/HH/events.jsonl`).
+- `/Users/juhi/Desktop/algo-trading/src/agents/sentinel/pipeline.py` to execute Bronze-to-Silver ingest flow with session-rule filtering.
+- `/Users/juhi/Desktop/algo-trading/src/agents/sentinel/broker_client.py` generic broker REST connector implementing quote and historical contracts with retry/rate-limit protection.
+- New tests for runtime config, broker parsing, pipeline persistence, and timestamp controls:
+  - `/Users/juhi/Desktop/algo-trading/tests/agents/sentinel/test_config.py`
+  - `/Users/juhi/Desktop/algo-trading/tests/agents/sentinel/test_broker_client.py`
+  - `/Users/juhi/Desktop/algo-trading/tests/agents/sentinel/test_pipeline.py`
+  - `/Users/juhi/Desktop/algo-trading/tests/test_time_controls.py`
+
+### Changed
+- Failover orchestration now enforces degradation states (`normal`, `reduce-only`, `close-only advisory`) with health-based recovery and fallback provenance tagging in `/Users/juhi/Desktop/algo-trading/src/agents/sentinel/failover_client.py`.
+- Sentinel interface is interval-aware for historical fetches in `/Users/juhi/Desktop/algo-trading/src/agents/sentinel/client.py` and connector implementations.
+- Monotonicity checks are now scoped by symbol + interval in `/Users/juhi/Desktop/algo-trading/src/utils/validation.py` and integrated into `/Users/juhi/Desktop/algo-trading/src/agents/sentinel/recorder.py`.
+- Clock sync now fails closed when drift cannot be determined, and UTC/IST pair consistency validation was added in `/Users/juhi/Desktop/algo-trading/src/utils/time_sync.py`.
+- Market schema now enforces UTC/IST ingestion timestamp consistency in `/Users/juhi/Desktop/algo-trading/src/schemas/market_data.py`.
+- Verification scripts updated for new failover and timestamp behavior:
+  - `/Users/juhi/Desktop/algo-trading/scripts/test_day9_ingest.py`
+  - `/Users/juhi/Desktop/algo-trading/scripts/verify_failover.py`
+  - `/Users/juhi/Desktop/algo-trading/scripts/verify_time_checks.py`
+
 ## [1.0.0] - 2026-02-15
 ### Added
 - `requirements.lock` for pinned reproducible dependency resolution from the active `venv`.

@@ -8,7 +8,7 @@ import logging
 # Add src to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.utils.time_sync import get_clock_drift, is_clock_synced
+from src.utils.time_sync import get_clock_drift, is_clock_synced, validate_utc_ist_consistency
 from src.utils.validation import StreamMonotonicityChecker
 from src.agents.sentinel.recorder import SilverRecorder
 from src.schemas.market_data import Bar, SourceType
@@ -19,11 +19,14 @@ logger = logging.getLogger(__name__)
 def test_clock_drift():
     logger.info("--- Testing Clock Drift ---")
     drift = get_clock_drift()
-    logger.info(f"Clock Drift: {drift:.6f} seconds")
+    if drift is None:
+        logger.warning("Clock drift unavailable (NTP unreachable).")
+    else:
+        logger.info(f"Clock Drift: {drift:.6f} seconds")
     is_synced = is_clock_synced(threshold_seconds=0.5)
     logger.info(f"Is Synced (0.5s threshold): {is_synced}")
     if not is_synced:
-        logger.warning("Clock drift verification failed (or network issue).")
+        logger.warning("Clock drift verification failed.")
     else:
         logger.info("Clock drift verification passed.")
 
@@ -36,13 +39,23 @@ def test_monotonicity_logic():
     t2 = t1 + timedelta(minutes=1)
     t3 = t1 - timedelta(minutes=1) # Out of order
     
-    logger.info(f"Check t1 ({t1}): {checker.check(symbol, t1)} (Expected: True)")
-    logger.info(f"Check t2 ({t2}): {checker.check(symbol, t2)} (Expected: True)")
-    logger.info(f"Check t3 ({t3}): {checker.check(symbol, t3)} (Expected: False)")
-    logger.info(f"Check t2 again ({t2}): {checker.check(symbol, t2)} (Expected: False - duplicate/old)")
+    logger.info(f"Check t1 ({t1}): {checker.check(symbol, t1, interval='1h')} (Expected: True)")
+    logger.info(f"Check t2 ({t2}): {checker.check(symbol, t2, interval='1h')} (Expected: True)")
+    logger.info(f"Check t3 ({t3}): {checker.check(symbol, t3, interval='1h')} (Expected: False)")
+    logger.info(f"Check t2 again ({t2}): {checker.check(symbol, t2, interval='1h')} (Expected: False - duplicate/old)")
     
     t4 = t2 + timedelta(minutes=1)
-    logger.info(f"Check t4 ({t4}): {checker.check(symbol, t4)} (Expected: True)")
+    logger.info(f"Check t4 ({t4}): {checker.check(symbol, t4, interval='1h')} (Expected: True)")
+    logger.info(f"Check t1 on different interval: {checker.check(symbol, t1, interval='1d')} (Expected: True)")
+
+def test_utc_ist_consistency():
+    logger.info("\n--- Testing UTC/IST Consistency ---")
+    utc_now = datetime.now(timezone.utc)
+    ist_now = utc_now.astimezone(timezone(timedelta(hours=5, minutes=30)))
+    inconsistent_ist = (utc_now + timedelta(minutes=2)).astimezone(timezone(timedelta(hours=5, minutes=30)))
+
+    logger.info(f"Consistent pair check: {validate_utc_ist_consistency(utc_now, ist_now)} (Expected: True)")
+    logger.info(f"Inconsistent pair check: {validate_utc_ist_consistency(utc_now, inconsistent_ist)} (Expected: False)")
 
 def test_recorder_quarantine():
     logger.info("\n--- Testing Recorder Quarantine ---")
@@ -96,4 +109,5 @@ def test_recorder_quarantine():
 if __name__ == "__main__":
     test_clock_drift()
     test_monotonicity_logic()
+    test_utc_ist_consistency()
     test_recorder_quarantine()

@@ -1,6 +1,5 @@
 
 import logging
-import logging
 import sys
 import os
 
@@ -8,7 +7,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from datetime import datetime, timezone
-from src.agents.sentinel.failover_client import FailoverSentinelClient
+from src.agents.sentinel.failover_client import DegradationState, FailoverSentinelClient
 from src.agents.sentinel.client import NSEClientInterface
 from src.schemas.market_data import Tick, SourceType, QualityFlag
 
@@ -20,7 +19,7 @@ class BrokenClient(NSEClientInterface):
     def get_stock_quote(self, symbol: str) -> Tick:
         raise ConnectionError("Simulated connection failure")
 
-    def get_historical_data(self, symbol, start, end):
+    def get_historical_data(self, symbol, start, end, interval="1h"):
         raise ConnectionError("Simulated connection failure")
 
 class WorkingClient(NSEClientInterface):
@@ -34,7 +33,7 @@ class WorkingClient(NSEClientInterface):
             quality_status=QualityFlag.PASS
         )
 
-    def get_historical_data(self, symbol, start, end):
+    def get_historical_data(self, symbol, start, end, interval="1h"):
         return []
 
 def main():
@@ -53,11 +52,13 @@ def main():
         logger.info(f"Primary failures recorded: {client._primary_failures}")
         logger.info(f"Primary healthy status: {client._is_primary_healthy}")
         
-        # Verify it was fallback
-        if quote.source_type == SourceType.MANUAL_OVERRIDE:
-             logger.info("Verified: Data came from fallback client.")
+        logger.info(f"Degradation state: {client.degradation_state.value}")
+
+        # Verify fallback path + tagging
+        if quote.source_type == SourceType.FALLBACK_SCRAPER and client.degradation_state == DegradationState.REDUCE_ONLY:
+             logger.info("Verified: fallback switchover and reduce-only degradation are active.")
         else:
-             logger.error("Error: Data did NOT come from fallback!")
+             logger.error("Error: fallback tagging/state did not match expectations.")
              
     except Exception as e:
         logger.error(f"Failed: {e}")
