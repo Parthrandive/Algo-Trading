@@ -15,7 +15,12 @@ def test_ingest():
     print("Initializing YFinanceClient...")
     client = YFinanceClient()
     
-    symbol = "RELIANCE.NS"
+    # Get symbol from command line args or default to RELIANCE.NS
+    if len(sys.argv) > 1:
+        symbol = sys.argv[1]
+    else:
+        symbol = "RELIANCE.NS"
+        
     end_date = datetime.now(timezone.utc)
     start_date = end_date - timedelta(days=30)
     

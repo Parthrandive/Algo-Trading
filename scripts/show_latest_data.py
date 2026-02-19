@@ -12,13 +12,19 @@ from src.agents.sentinel.nsepython_client import NSEPythonClient
 from src.schemas.market_data import Tick
 
 def show_data():
-    print("--- 1. Checking Historical Data (Silver Layer) ---")
-    # Find the latest parquet file we created
-    base_dir = Path("data/silver/ohlcv/RELIANCE.NS")
-    if not base_dir.exists():
-        print("No historical data found in data/silver/ohlcv/RELIANCE.NS")
+    # Get symbol from command line args or default to RELIANCE.NS
+    if len(sys.argv) > 1:
+        symbol = sys.argv[1]
     else:
-        # data/silver/ohlcv/RELIANCE.NS/{year}/{month}/{date}.parquet
+        symbol = "RELIANCE.NS"
+
+    print(f"--- 1. Checking Historical Data (Silver Layer) for {symbol} ---")
+    # Find the latest parquet file we created
+    base_dir = Path(f"data/silver/ohlcv/{symbol}")
+    if not base_dir.exists():
+        print(f"No historical data found in data/silver/ohlcv/{symbol}")
+    else:
+        # data/silver/ohlcv/{symbol}/{year}/{month}/{date}.parquet
         # Find all parquet files recursively
         files = sorted(list(base_dir.rglob("*.parquet")))
         
@@ -38,9 +44,14 @@ def show_data():
         else:
             print("No parquet files found.")
 
-    print("\n--- 2. Checking Real-Time Data (NSEPython) ---")
-    client = NSEPythonClient()
-    symbol = "RELIANCE.NS"
+    if symbol.endswith(".NS"):
+        print(f"\n--- 2. Checking Real-Time Data (NSEPython) for {symbol} ---")
+        client = NSEPythonClient()
+    else:
+        print(f"\n--- 2. Checking Real-Time Data (YFinance) for {symbol} ---")
+        from src.agents.sentinel.yfinance_client import YFinanceClient
+        client = YFinanceClient()
+    
     print(f"Fetching live quote for {symbol}...")
     try:
         tick = client.get_stock_quote(symbol)
