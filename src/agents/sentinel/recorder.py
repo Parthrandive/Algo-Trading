@@ -3,18 +3,28 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Optional
+import logging
 
 from src.schemas.market_data import Bar
+from src.utils.validation import StreamMonotonicityChecker
+
+logger = logging.getLogger(__name__)
 
 class SilverRecorder:
     """
     Recorder for the Silver Layer.
     Persists validated Bar objects to Parquet files organized by symbol/year/month.
+    Handles monotonicity checks and quarantines out-of-order data.
     """
-    def __init__(self, base_dir: str = "data/silver"):
+    def __init__(self, base_dir: str = "data/silver", quarantine_dir: str = "data/quarantine"):
         self.base_dir = Path(base_dir)
         self.ohlcv_dir = self.base_dir / "ohlcv"
         self.ohlcv_dir.mkdir(parents=True, exist_ok=True)
+        
+        self.quarantine_dir = Path(quarantine_dir)
+        self.quarantine_dir.mkdir(parents=True, exist_ok=True)
+        
+        self.monotonicity_checker = StreamMonotonicityChecker()
 
     def save_bars(self, bars: List[Bar]):
         """
@@ -24,6 +34,27 @@ class SilverRecorder:
         if not bars:
             return
 
+        valid_bars = []
+        quarantined_bars = []
+
+        # Sort bars by timestamp to ensure we process in order within the batch
+        # But we still check against state for inter-batch monotonicity
+        sorted_bars = sorted(bars, key=lambda b: b.timestamp)
+
+        for bar in sorted_bars:
+            if self.monotonicity_checker.check(bar.symbol, bar.timestamp):
+                valid_bars.append(bar)
+            else:
+                logger.warning(f"Quarantining out-of-order bar for {bar.symbol} at {bar.timestamp}")
+                quarantined_bars.append(bar)
+
+        self._persist_valid_bars(valid_bars)
+        self._persist_quarantined_bars(quarantined_bars)
+
+    def _persist_valid_bars(self, bars: List[Bar]):
+        if not bars:
+            return
+            
         # Convert to DataFrame
         data = [bar.model_dump() for bar in bars]
         df = pd.DataFrame(data)
@@ -34,17 +65,27 @@ class SilverRecorder:
         
         # We process by symbol to ensure correct partitioning
         for symbol, group in df.groupby('symbol'):
-            self._save_symbol_group(symbol, group)
+            self._save_symbol_group(symbol, group, self.ohlcv_dir)
 
-    def _save_symbol_group(self, symbol: str, df: pd.DataFrame):
+    def _persist_quarantined_bars(self, bars: List[Bar]):
+        if not bars:
+            return
+            
+        # Convert to DataFrame
+        data = [bar.model_dump() for bar in bars]
+        df = pd.DataFrame(data)
+
+        # Ensure timestamp is datetime
+        if 'timestamp' in df.columns:
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            
+        for symbol, group in df.groupby('symbol'):
+            self._save_symbol_group(symbol, group, self.quarantine_dir)
+
+    def _save_symbol_group(self, symbol: str, df: pd.DataFrame, base_output_dir: Path):
         """
-        Save dataframe for a specific symbol.
+        Save dataframe for a specific symbol to the target directory.
         """
-        # Add partition columns if needed, but directory structure handles year/month
-        # We'll use the first timestamp to determine the partition, or iterate if multiple months
-        # For simplicity, let's just append to a day-level file or month-level file.
-        # The plan says: {symbol}/{year}/{month}/{date}.parquet
-        
         # Group by date to handle multiple days in one batch
         df['date_str'] = df['timestamp'].dt.strftime('%Y-%m-%d')
         
@@ -53,15 +94,10 @@ class SilverRecorder:
             year = str(ts.year)
             month = f"{ts.month:02d}"
             
-            target_dir = self.ohlcv_dir / symbol / year / month
+            target_dir = base_output_dir / symbol / year / month
             target_dir.mkdir(parents=True, exist_ok=True)
             
             file_path = target_dir / f"{date_str}.parquet"
-            
-            # If file exists, we might need to append or overwrite. 
-            # For data idempotency, let's overwrite for now or read-append-dedup
-            # Simple approach: Overwrite (Last Writer Wins for the day)
-            # Or better: Read existing, append new, drop duplicates, write back.
             
             if file_path.exists():
                 try:
@@ -70,15 +106,12 @@ class SilverRecorder:
                     # Dedup based on timestamp and symbol
                     combined_df = combined_df.drop_duplicates(subset=['timestamp', 'symbol'], keep='last')
                 except Exception as e:
-                    # Log error, maybe backup corrupt file?
-                    print(f"Error reading existing parquet {file_path}: {e}")
+                    logger.error(f"Error reading existing parquet {file_path}: {e}")
                     combined_df = day_group
             else:
                 combined_df = day_group
 
             # Write back
-            # Ensure proper types for parquet
-            # Drop the temp column
             if 'date_str' in combined_df.columns:
                 combined_df = combined_df.drop(columns=['date_str'])
             
