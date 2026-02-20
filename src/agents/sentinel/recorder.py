@@ -1,8 +1,6 @@
-import os
 import pandas as pd
 from pathlib import Path
-from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List
 import logging
 
 from src.schemas.market_data import Bar, CorporateAction

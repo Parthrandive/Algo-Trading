@@ -1,6 +1,5 @@
 import yfinance as yf
 import nsepython
-from pprint import pprint
 
 print("--- YFinance ---")
 t = yf.Ticker("RELIANCE.NS")

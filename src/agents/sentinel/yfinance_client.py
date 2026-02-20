@@ -1,7 +1,6 @@
 import yfinance as yf
-import pandas as pd
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List
 import logging
 
 from src.agents.sentinel.client import NSEClientInterface

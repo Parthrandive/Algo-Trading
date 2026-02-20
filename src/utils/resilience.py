@@ -1,7 +1,7 @@
 import time
 import functools
 import random
-from typing import Callable, Any, Type, Tuple, Union
+from typing import Callable, Any, Type, Tuple
 
 # Define a custom exception if not already available, or use Exception
 class RateLimitExceeded(Exception):

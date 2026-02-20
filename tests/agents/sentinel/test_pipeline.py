@@ -33,6 +33,9 @@ class StaticClient(NSEClientInterface):
     def get_historical_data(self, symbol: str, start_date: datetime, end_date: datetime, interval: str = "1h") -> list[Bar]:
         return self._bars
 
+    def get_corporate_actions(self, symbol: str, start_date: datetime, end_date: datetime) -> list['CorporateAction']:
+        return []
+
 
 def test_pipeline_writes_bronze_and_silver(tmp_path):
     ist = ZoneInfo("Asia/Kolkata")

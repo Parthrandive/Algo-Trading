@@ -6,7 +6,7 @@ from typing import List, Optional
 import requests
 
 from src.agents.sentinel.client import NSEClientInterface
-from src.schemas.market_data import Bar, QualityFlag, SourceType, Tick
+from src.schemas.market_data import Bar, QualityFlag, SourceType, Tick, CorporateAction
 from src.utils.resilience import rate_limit, retry_with_backoff
 
 
@@ -141,3 +141,12 @@ class BrokerAPIClient(NSEClientInterface):
                 )
             )
         return bars
+
+    def get_corporate_actions(
+        self,
+        symbol: str,
+        start_date: datetime,
+        end_date: datetime,
+    ) -> List['CorporateAction']:
+        """Broker actions not implemented yet."""
+        return []
