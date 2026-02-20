@@ -1,10 +1,10 @@
 import nsepython
 from datetime import datetime, timezone
 import logging
-from typing import List, Optional
+from typing import List
 
 from src.agents.sentinel.client import NSEClientInterface
-from src.schemas.market_data import Bar, Tick, SourceType, QualityFlag
+from src.schemas.market_data import Bar, Tick, SourceType, QualityFlag, CorporateAction
 from src.utils.resilience import retry_with_backoff, rate_limit
 
 logger = logging.getLogger(__name__)
@@ -89,4 +89,16 @@ class NSEPythonClient(NSEClientInterface):
         We rely on YFinanceClient for this.
         """
         logger.warning("get_historical_data is not reliably supported by NSEPythonClient. Use YFinanceClient instead.")
+        return []
+
+    def get_corporate_actions(
+        self,
+        symbol: str,
+        start_date: datetime,
+        end_date: datetime,
+    ) -> List['CorporateAction']:
+        """
+        Corporate actions via nsepython are possible but we rely on YFinance.
+        """
+        logger.warning("get_corporate_actions not implemented in NSEPythonClient. Use YFinanceClient instead.")
         return []

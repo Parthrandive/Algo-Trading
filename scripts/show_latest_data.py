@@ -1,27 +1,29 @@
-import sys
 import argparse
+import json
 import os
-from pathlib import Path
+import sys
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pandas as pd
 
 # Add project root to sys.path
-project_root = str(Path(__file__).resolve().parents[1])
-if project_root not in sys.path:
-    sys.path.append(project_root)
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
 
-from src.agents.sentinel.nsepython_client import NSEPythonClient
-from src.agents.sentinel.yfinance_client import YFinanceClient
-from src.utils.history import normalize_symbol, get_latest_local_timestamp
+from src.utils.history import get_latest_local_timestamp, normalize_symbol
 
-# Imports for fetching
-from src.agents.sentinel.broker_client import BrokerAPIClient
-from src.agents.sentinel.failover_client import FailoverSentinelClient
-from src.agents.sentinel.pipeline import SentinelIngestPipeline
-from src.agents.sentinel.recorder import SilverRecorder
-from src.agents.sentinel.bronze_recorder import BronzeRecorder
-from src.agents.sentinel.config import load_default_sentinel_config
+EXIT_SUCCESS = 0
+EXIT_FAILURE = 1
+EXIT_USAGE = 2
+EXIT_FATAL = 3
+EXIT_INTERRUPTED = 130
+
+INTERVAL_SECONDS = {
+    "1h": 3600,
+    "1d": 86400,
+}
 
 
 def _dedupe_preserve_order(values: list[str]) -> list[str]:
@@ -34,6 +36,17 @@ def _dedupe_preserve_order(values: list[str]) -> list[str]:
     return unique
 
 
+def _parse_utc_date(date_str: str, end_of_day: bool) -> datetime:
+    try:
+        parsed = datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError as exc:
+        raise ValueError(f"Invalid date '{date_str}'. Expected YYYY-MM-DD.") from exc
+
+    if end_of_day:
+        parsed = parsed.replace(hour=23, minute=59, second=59)
+    return parsed.replace(tzinfo=timezone.utc)
+
+
 def build_symbol_candidates(raw_symbol: str) -> list[str]:
     symbol = raw_symbol.strip().upper()
     if not symbol:
@@ -43,7 +56,6 @@ def build_symbol_candidates(raw_symbol: str) -> list[str]:
         base_symbol = symbol[:-3]
         return _dedupe_preserve_order([symbol, base_symbol])
 
-    # For plain company symbols (e.g., TCS), try NSE suffix first.
     is_plain_ticker = symbol.replace("-", "").isalnum() and "." not in symbol and "=" not in symbol and "^" not in symbol
     if is_plain_ticker:
         return _dedupe_preserve_order([f"{symbol}.NS", symbol])
@@ -52,17 +64,15 @@ def build_symbol_candidates(raw_symbol: str) -> list[str]:
 
 
 def resolve_historical_dir(symbol_candidates: list[str]) -> tuple[str, Path]:
-    root = Path("data/silver/ohlcv")
+    root = PROJECT_ROOT / "data" / "silver" / "ohlcv"
     if not root.exists():
         return symbol_candidates[0], root / symbol_candidates[0]
 
-    # Exact match first.
     for candidate in symbol_candidates:
         candidate_dir = root / candidate
         if candidate_dir.exists():
             return candidate, candidate_dir
 
-    # Case-insensitive fallback.
     available_dirs = {entry.name.upper(): entry for entry in root.iterdir() if entry.is_dir()}
     for candidate in symbol_candidates:
         match = available_dirs.get(candidate.upper())
@@ -72,7 +82,12 @@ def resolve_historical_dir(symbol_candidates: list[str]) -> tuple[str, Path]:
     return symbol_candidates[0], root / symbol_candidates[0]
 
 
-def _build_failover_client() -> FailoverSentinelClient:
+def _build_failover_client():
+    from src.agents.sentinel.broker_client import BrokerAPIClient
+    from src.agents.sentinel.failover_client import FailoverSentinelClient
+    from src.agents.sentinel.nsepython_client import NSEPythonClient
+    from src.agents.sentinel.yfinance_client import YFinanceClient
+
     primary = YFinanceClient()
     fallbacks = []
 
@@ -90,103 +105,172 @@ def _build_failover_client() -> FailoverSentinelClient:
     return FailoverSentinelClient(primary, fallbacks, failure_threshold=2, cooldown_seconds=60, recovery_success_threshold=2)
 
 
-def show_historical_data(symbol_candidates: list[str], auto_fetch: bool = False) -> None:
-    # Pick the most canonical symbol for fetching if we have to fetch
-    target_symbol = normalize_symbol(symbol_candidates[0])
-    storage_symbol, base_dir = resolve_historical_dir(symbol_candidates)
-
-    print(f"--- 1. Checking Historical Data (Silver Layer) for {target_symbol} ---")
-
-    if auto_fetch:
-        print("Auto-fetch flag is SET. Checking gap...")
-        now = datetime.now(timezone.utc)
-        latest_ts = get_latest_local_timestamp(target_symbol)
-        
-        start_date = latest_ts if latest_ts is not None else (now - timedelta(days=7))
-        if start_date.tzinfo is None:
-            start_date = start_date.replace(tzinfo=timezone.utc)
-
-        gap_seconds = (now - start_date).total_seconds()
-        
-        # We assume 1h data polling. If gap is larger than 1h (3600s), we fetch.
-        if latest_ts is None or gap_seconds >= 3600:
-            print(f"Gap detected. Fetching data from {start_date} to {now}...")
-            config = load_default_sentinel_config()
-            pipeline = SentinelIngestPipeline(
-                client=_build_failover_client(),
-                silver_recorder=SilverRecorder(),
-                bronze_recorder=BronzeRecorder(),
-                session_rules=config.session_rules,
-            )
-            try:
-                # We add 1 second to start_date to strictly avoid downloading the exact same bar twice
-                fetch_start = start_date + timedelta(seconds=1) if latest_ts else start_date
-                bars = pipeline.ingest_historical(target_symbol, fetch_start, now, interval="1h")
-                print(f"Fetched and saved {len(bars)} bars.")
-                # After fetch, update base_dir to point to canonical name
-                storage_symbol, base_dir = resolve_historical_dir([target_symbol])
-            except Exception as e:
-                print(f"Failed to fetch historical data dynamically: {e}")
-        else:
-            print(f"Data is up-to-date (gap is < 1 hour: 0 delta). Skipping fetch.")
-    else:
-        print("Auto-fetch flag is NOT SET. Reading local only.")
-
+def _load_recent_history(base_dir: Path) -> tuple[pd.DataFrame | None, list[str], str | None]:
     if not base_dir.exists():
-        print(f"No historical data found in {base_dir}")
-        return
+        return None, [], f"No historical data found in {base_dir}"
 
     files = sorted(base_dir.rglob("*.parquet"))
     if not files:
-        print("No parquet files found.")
-        return
+        return None, [], "No parquet files found."
 
     latest_files = files[-2:]
-    print(f"Reading files: {[f.name for f in latest_files]}")
-
     dataframes = []
     for parquet_file in latest_files:
         try:
             dataframes.append(pd.read_parquet(parquet_file))
-        except Exception as exc:
+        except Exception as exc:  # pragma: no cover - defensive
             print(f"Skipping unreadable file {parquet_file.name}: {exc}")
 
     if not dataframes:
-        print("No readable parquet files available.")
-        return
+        return None, [f.name for f in latest_files], "No readable parquet files available."
 
-    df = pd.concat(dataframes, ignore_index=True)
+    combined = pd.concat(dataframes, ignore_index=True)
+    return combined, [f.name for f in latest_files], None
+
+
+def show_historical_data(
+    symbol_candidates: list[str],
+    *,
+    auto_fetch: bool,
+    interval: str,
+    days: int,
+    start_date: datetime | None,
+    end_date: datetime | None,
+) -> dict:
+    target_symbol = normalize_symbol(symbol_candidates[0])
+    _, base_dir = resolve_historical_dir(symbol_candidates)
+
+    result = {
+        "symbol": target_symbol,
+        "status": "NO_DATA",
+        "fetched_bars": 0,
+        "displayed_rows": 0,
+        "files": [],
+        "error": None,
+    }
+
+    print(f"--- 1. Checking Historical Data (Silver Layer) for {target_symbol} ---")
+
+    if auto_fetch:
+        now_utc = datetime.now(timezone.utc)
+        desired_end = end_date or now_utc
+        latest_ts = get_latest_local_timestamp(target_symbol)
+        if latest_ts is not None and latest_ts.tzinfo is None:
+            latest_ts = latest_ts.replace(tzinfo=timezone.utc)
+
+        if start_date is not None:
+            fetch_start = start_date
+        elif latest_ts is not None:
+            fetch_start = latest_ts + timedelta(seconds=1)
+        else:
+            fetch_start = desired_end - timedelta(days=days)
+
+        fetch_needed = True
+        if latest_ts is not None and start_date is None:
+            gap_seconds = (desired_end - latest_ts).total_seconds()
+            if gap_seconds < INTERVAL_SECONDS[interval]:
+                fetch_needed = False
+                print(f"Data is up-to-date (gap {gap_seconds:.0f}s < {INTERVAL_SECONDS[interval]}s). Skipping fetch.")
+
+        if fetch_start >= desired_end:
+            fetch_needed = False
+            print("Fetch window is empty after gap check. Skipping fetch.")
+
+        if fetch_needed:
+            print(f"Fetching missing history from {fetch_start.isoformat()} to {desired_end.isoformat()} ({interval})")
+            try:
+                from src.agents.sentinel.bronze_recorder import BronzeRecorder
+                from src.agents.sentinel.config import load_default_sentinel_config
+                from src.agents.sentinel.pipeline import SentinelIngestPipeline
+                from src.agents.sentinel.recorder import SilverRecorder
+
+                config = load_default_sentinel_config()
+                pipeline = SentinelIngestPipeline(
+                    client=_build_failover_client(),
+                    silver_recorder=SilverRecorder(),
+                    bronze_recorder=BronzeRecorder(),
+                    session_rules=config.session_rules,
+                )
+                bars = pipeline.ingest_historical(target_symbol, fetch_start, desired_end, interval=interval)
+                result["fetched_bars"] = len(bars)
+                print(f"Fetched and saved {len(bars)} bars.")
+                _, base_dir = resolve_historical_dir([target_symbol])
+            except Exception as exc:
+                result["status"] = "ERROR"
+                result["error"] = f"Failed to fetch historical data dynamically: {exc}"
+                print(result["error"])
+    else:
+        print("Auto-fetch flag is NOT set. Reading local data only.")
+
+    df, file_names, read_error = _load_recent_history(base_dir)
+    result["files"] = file_names
+
+    if read_error:
+        print(read_error)
+        if result["status"] != "ERROR":
+            result["error"] = read_error
+        return result
+
+    assert df is not None
     preferred_columns = ["timestamp", "open", "high", "low", "close", "volume"]
     display_columns = [column for column in preferred_columns if column in df.columns]
-
     if not display_columns:
-        print("Historical files loaded, but expected OHLCV columns are missing.")
+        msg = "Historical files loaded, but expected OHLCV columns are missing."
+        print(msg)
         print(f"Available columns: {list(df.columns)}")
-        return
+        result["status"] = "ERROR"
+        result["error"] = msg
+        return result
 
-    # Sort to ensure tail gives the actual latest
-    df = df.sort_values(by="timestamp", ascending=True)
+    if "timestamp" in df.columns:
+        df = df.sort_values(by="timestamp", ascending=True)
 
-    print(f"\nLast 10 records (spanning {len(latest_files)} days):")
+    print(f"Reading files: {file_names}")
+    print(f"\nLast 10 records (spanning {len(file_names)} days):")
     print(df.tail(10)[display_columns])
 
+    result["status"] = "SUCCESS"
+    result["displayed_rows"] = min(10, len(df))
+    return result
 
-def choose_client_order(symbol: str) -> list[tuple[str, object]]:
+
+def _build_nsepython_client():
+    from src.agents.sentinel.nsepython_client import NSEPythonClient
+
+    return NSEPythonClient()
+
+
+def _build_yfinance_client():
+    from src.agents.sentinel.yfinance_client import YFinanceClient
+
+    return YFinanceClient()
+
+
+def choose_client_order(symbol: str) -> list[tuple[str, callable]]:
     if symbol.endswith(".NS"):
-        return [("NSEPython", NSEPythonClient()), ("YFinance", YFinanceClient())]
-    return [("YFinance", YFinanceClient()), ("NSEPython", NSEPythonClient())]
+        return [("NSEPython", _build_nsepython_client), ("YFinance", _build_yfinance_client)]
+    return [("YFinance", _build_yfinance_client), ("NSEPython", _build_nsepython_client)]
 
 
-def show_live_quote(symbol_candidates: list[str]) -> None:
+def show_live_quote(symbol_candidates: list[str]) -> dict:
     print("\n--- 2. Checking Real-Time Data (Live Quote) ---")
 
-    errors: list[str] = []
+    result = {
+        "status": "ERROR",
+        "symbol": None,
+        "price": None,
+        "volume": None,
+        "source": None,
+        "timestamp": None,
+        "errors": [],
+    }
+
     for candidate in symbol_candidates:
         print(f"Trying symbol: {candidate}")
-
-        for client_name, client in choose_client_order(candidate):
+        for client_name, factory in choose_client_order(candidate):
             print(f"Fetching via {client_name}...")
             try:
+                client = factory()
                 tick = client.get_stock_quote(candidate)
                 print("\nSUCCESS: Received Live Tick")
                 print(f"Symbol: {tick.symbol}")
@@ -194,27 +278,98 @@ def show_live_quote(symbol_candidates: list[str]) -> None:
                 print(f"Volume: {tick.volume}")
                 print(f"Source: {tick.source_type}")
                 print(f"Time:   {tick.timestamp}")
-                return
+
+                result.update(
+                    {
+                        "status": "SUCCESS",
+                        "symbol": tick.symbol,
+                        "price": tick.price,
+                        "volume": tick.volume,
+                        "source": str(tick.source_type),
+                        "timestamp": tick.timestamp.isoformat() if hasattr(tick.timestamp, "isoformat") else str(tick.timestamp),
+                    }
+                )
+                return result
             except Exception as exc:
-                errors.append(f"{client_name} ({candidate}): {exc}")
+                result["errors"].append(f"{client_name} ({candidate}): {exc}")
 
     print("Failed to fetch live quote for all symbol/provider attempts.")
-    for error in errors:
+    for error in result["errors"]:
         print(f"- {error}")
 
+    return result
 
-def show_data() -> None:
-    parser = argparse.ArgumentParser(description="Show latest data (historical + live) for a stock symbol.")
-    parser.add_argument("symbol", nargs="?", default="RELIANCE.NS", help="Stock symbol to view (e.g., TCS.NS)")
-    parser.add_argument("--auto-fetch-missing-history", action="store_true", help="Automatically fetch historical data if missing or gapped.")
 
-    args = parser.parse_args()
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Show latest historical and live data for a symbol.")
+    parser.add_argument("symbol", nargs="?", default="RELIANCE.NS", help="Symbol to inspect (e.g., TCS.NS)")
+    parser.add_argument("--auto-fetch-missing-history", action="store_true", help="Fetch missing/gapped history before displaying.")
+
+    window_group = parser.add_mutually_exclusive_group()
+    window_group.add_argument("--days", type=int, default=7, help="Days to backfill when no local history exists (default: 7)")
+    window_group.add_argument("--from", dest="from_date", type=str, help="Backfill start date (UTC) in YYYY-MM-DD")
+
+    parser.add_argument("--to", dest="to_date", type=str, help="Backfill end date (UTC) in YYYY-MM-DD")
+    parser.add_argument("--interval", choices=sorted(INTERVAL_SECONDS), default="1h", help="History interval for fetch")
+    parser.add_argument("--no-live", action="store_true", help="Skip live quote fetch")
+    parser.add_argument("--json", action="store_true", help="Emit a JSON summary")
+    return parser
+
+
+def run(argv: list[str]) -> int:
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+
+    if args.days < 1:
+        parser.error("--days must be >= 1")
+
+    start_date = _parse_utc_date(args.from_date, end_of_day=False) if args.from_date else None
+    end_date = _parse_utc_date(args.to_date, end_of_day=True) if args.to_date else None
+    if start_date and end_date and start_date >= end_date:
+        parser.error("--from must be earlier than --to")
 
     symbol_candidates = build_symbol_candidates(args.symbol)
+    historical = show_historical_data(
+        symbol_candidates,
+        auto_fetch=args.auto_fetch_missing_history,
+        interval=args.interval,
+        days=args.days,
+        start_date=start_date,
+        end_date=end_date,
+    )
 
-    show_historical_data(symbol_candidates, auto_fetch=args.auto_fetch_missing_history)
-    show_live_quote(symbol_candidates)
+    if args.no_live:
+        live = {"status": "SKIPPED", "reason": "--no-live set"}
+    else:
+        live = show_live_quote(symbol_candidates)
+
+    if args.json:
+        payload = {
+            "requested_symbol": args.symbol,
+            "normalized_candidates": symbol_candidates,
+            "historical": historical,
+            "live": live,
+        }
+        print(json.dumps(payload, indent=2, default=str))
+
+    if historical["status"] == "ERROR" and live.get("status") == "ERROR":
+        return EXIT_FAILURE
+    return EXIT_SUCCESS
+
+
+def main() -> None:
+    try:
+        code = run(sys.argv[1:])
+    except KeyboardInterrupt:
+        code = EXIT_INTERRUPTED
+    except SystemExit:
+        raise
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"Fatal error: {exc}")
+        code = EXIT_FATAL
+
+    raise SystemExit(code)
 
 
 if __name__ == "__main__":
-    show_data()
+    main()

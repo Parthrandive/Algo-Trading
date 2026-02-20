@@ -14,7 +14,7 @@ from src.agents.sentinel.client import NSEClientInterface
 from src.agents.sentinel.config import load_default_sentinel_config
 from src.agents.sentinel.pipeline import SentinelIngestPipeline
 from src.agents.sentinel.recorder import SilverRecorder
-from src.schemas.market_data import Bar, SourceType, Tick
+from src.schemas.market_data import Bar, CorporateAction, SourceType, Tick
 
 
 class StaticClient(NSEClientInterface):
@@ -32,6 +32,9 @@ class StaticClient(NSEClientInterface):
 
     def get_historical_data(self, symbol: str, start_date: datetime, end_date: datetime, interval: str = "1h") -> list[Bar]:
         return self._bars
+
+    def get_corporate_actions(self, symbol: str, start_date: datetime, end_date: datetime) -> list[CorporateAction]:
+        return []
 
 
 def test_pipeline_writes_bronze_and_silver(tmp_path):

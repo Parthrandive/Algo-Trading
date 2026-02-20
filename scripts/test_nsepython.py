@@ -1,6 +1,5 @@
 
 import nsepython
-import logging
 
 def test_nsepython():
     print("Testing nsepython...")

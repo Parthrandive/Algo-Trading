@@ -5,7 +5,7 @@ from enum import Enum
 from typing import List
 
 from src.agents.sentinel.client import NSEClientInterface
-from src.schemas.market_data import Bar, QualityFlag, SourceType, Tick
+from src.schemas.market_data import Bar, QualityFlag, SourceType, Tick, CorporateAction
 
 logger = logging.getLogger(__name__)
 
@@ -176,3 +176,31 @@ class FailoverSentinelClient(NSEClientInterface):
 
         self._handle_all_sources_failure()
         raise RuntimeError(f"All clients failed to fetch historical data for {symbol}")
+
+    def get_corporate_actions(
+        self,
+        symbol: str,
+        start_date: datetime,
+        end_date: datetime,
+    ) -> List['CorporateAction']:
+        self._check_health()
+
+        if self._is_primary_healthy:
+            try:
+                data = self.primary.get_corporate_actions(symbol, start_date, end_date)
+                self._handle_primary_success()
+                return data
+            except Exception as e:
+                self._handle_primary_failure(e)
+
+        for client in self.fallbacks:
+            try:
+                data = client.get_corporate_actions(symbol, start_date, end_date)
+                self._handle_fallback_success()
+                return data
+            except Exception as e:
+                logger.warning(f"Fallback client {client} failed corporate actions fetch: {e}")
+                continue
+
+        self._handle_all_sources_failure()
+        raise RuntimeError(f"All clients failed to fetch corporate actions for {symbol}")
