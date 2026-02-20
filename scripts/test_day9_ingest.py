@@ -16,6 +16,7 @@ from src.agents.sentinel.nsepython_client import NSEPythonClient
 from src.agents.sentinel.pipeline import SentinelIngestPipeline
 from src.agents.sentinel.recorder import SilverRecorder
 from src.agents.sentinel.yfinance_client import YFinanceClient
+from src.utils.history import normalize_symbol
 
 
 def _build_failover_client() -> FailoverSentinelClient:
@@ -42,7 +43,7 @@ def test_ingest():
     print(f"Loaded runtime config: {config.version}")
 
     if len(sys.argv) > 1:
-        symbol = sys.argv[1]
+        symbol = normalize_symbol(sys.argv[1])
     else:
         symbol = config.symbol_universe.core_symbols[0]
 

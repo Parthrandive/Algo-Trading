@@ -51,16 +51,18 @@ def build_symbol_candidates(raw_symbol: str) -> list[str]:
     symbol = raw_symbol.strip().upper()
     if not symbol:
         return ["RELIANCE.NS"]
+    normalized = normalize_symbol(symbol)
+    candidates = [normalized]
 
-    if symbol.endswith(".NS"):
-        base_symbol = symbol[:-3]
-        return _dedupe_preserve_order([symbol, base_symbol])
+    # Include a base NSE alias fallback.
+    if normalized.endswith(".NS"):
+        candidates.append(normalized[:-3])
 
-    is_plain_ticker = symbol.replace("-", "").isalnum() and "." not in symbol and "=" not in symbol and "^" not in symbol
-    if is_plain_ticker:
-        return _dedupe_preserve_order([f"{symbol}.NS", symbol])
+    # Include the raw symbol in case user provided a global ticker (e.g. AAPL).
+    if symbol != normalized:
+        candidates.append(symbol)
 
-    return [symbol]
+    return _dedupe_preserve_order(candidates)
 
 
 def resolve_historical_dir(symbol_candidates: list[str]) -> tuple[str, Path]:

@@ -25,6 +25,11 @@ class NSEPythonClient(NSEClientInterface):
         """
         Fetch real-time quote for a stock using nsepython (nse_quote).
         """
+        if "=" in symbol or "^" in symbol:
+            raise ValueError(
+                f"NSEPythonClient does not support forex/index symbol '{symbol}'. Use YFinanceClient for this symbol type."
+            )
+
         # nsepython takes symbol without .NS extension usually, but let's handle both
         clean_symbol = symbol.replace(".NS", "").upper()
         

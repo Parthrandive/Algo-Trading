@@ -1,0 +1,28 @@
+{
+  "SYMBOLS.NS": {
+    "symbol": "SYMBOLS.NS",
+    "status": "SUCCESS",
+    "error_code": null,
+    "error_message": null,
+    "attempt_count": 1,
+    "last_attempt_utc": "2026-02-20T16:57:18.438490+00:00",
+    "last_success_end_utc": "2026-02-20T16:57:11.567904+00:00",
+    "bars_fetched": 0,
+    "requested_start_utc": "2026-01-21T16:57:11.567904+00:00",
+    "requested_end_utc": "2026-02-20T16:57:11.567904+00:00",
+    "interval": "1h"
+  },
+  "ITC.NS": {
+    "symbol": "ITC.NS",
+    "status": "SUCCESS",
+    "error_code": null,
+    "error_message": null,
+    "attempt_count": 1,
+    "last_attempt_utc": "2026-02-20T16:58:58.485933+00:00",
+    "last_success_end_utc": "2026-02-20T16:58:55.601248+00:00",
+    "bars_fetched": 4,
+    "requested_start_utc": "2026-01-21T16:58:55.601248+00:00",
+    "requested_end_utc": "2026-02-20T16:58:55.601248+00:00",
+    "interval": "1h"
+  }
+}

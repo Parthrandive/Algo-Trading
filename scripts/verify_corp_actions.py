@@ -11,6 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.agents.sentinel.yfinance_client import YFinanceClient
 from src.agents.sentinel.recorder import SilverRecorder
+from src.utils.history import normalize_symbol
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -33,7 +34,10 @@ def test_corporate_actions_ingest():
     recorder = SilverRecorder(base_dir=test_base_dir)
     
     config = load_config()
-    symbols = config.get("symbol_universe", {}).get("core_symbols", ["RELIANCE.NS"])
+    if len(sys.argv) > 1:
+        symbols = [normalize_symbol(s) for s in sys.argv[1:]]
+    else:
+        symbols = config.get("symbol_universe", {}).get("core_symbols", ["RELIANCE.NS"])
     
     end_date = datetime.now(timezone.utc)
     start_date = end_date - timedelta(days=365 * 5)
