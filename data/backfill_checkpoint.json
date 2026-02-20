@@ -1,0 +1,16 @@
+{
+  "HDFCBANK.NS": {
+    "symbol": "HDFCBANK.NS",
+    "status": "SUCCESS",
+    "message": "Fetched data",
+    "bars_fetched": 141,
+    "timestamp": "2026-02-20T07:08:45.971725+00:00"
+  },
+  "ITC.NS": {
+    "symbol": "ITC.NS",
+    "status": "SUCCESS",
+    "message": "Fetched data",
+    "bars_fetched": 141,
+    "timestamp": "2026-02-20T07:08:45.971919+00:00"
+  }
+}
