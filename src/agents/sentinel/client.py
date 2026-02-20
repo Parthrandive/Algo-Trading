@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 from datetime import datetime
-from src.schemas.market_data import Bar, Tick
+from src.schemas.market_data import Bar, Tick, CorporateAction
 
 class NSEClientInterface(ABC):
     @abstractmethod
@@ -18,6 +18,16 @@ class NSEClientInterface(ABC):
         interval: str = "1h",
     ) -> List[Bar]:
         """Fetch historical OHLCV data."""
+        pass
+
+    @abstractmethod
+    def get_corporate_actions(
+        self,
+        symbol: str,
+        start_date: datetime,
+        end_date: datetime,
+    ) -> List[CorporateAction]:
+        """Fetch historical corporate actions."""
         pass
 
 import random
@@ -73,3 +83,11 @@ class MockNSEClient(NSEClientInterface):
             ))
             current_time += timedelta(hours=1)
         return bars
+
+    def get_corporate_actions(
+        self,
+        symbol: str,
+        start_date: datetime,
+        end_date: datetime,
+    ) -> List['CorporateAction']:
+        return []

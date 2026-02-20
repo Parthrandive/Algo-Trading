@@ -5,14 +5,14 @@ from typing import List, Optional
 import logging
 
 from src.agents.sentinel.client import NSEClientInterface
-from src.schemas.market_data import Bar, Tick, SourceType, QualityFlag
+from src.schemas.market_data import Bar, Tick, SourceType, QualityFlag, CorporateAction, CorporateActionType
 from src.utils.resilience import retry_with_backoff, rate_limit
 
 logger = logging.getLogger(__name__)
 
 class YFinanceClient(NSEClientInterface):
     """
-    Primary connector using yfinance to fetch market data.
+    Primary connector using yfinance to fetch market data & corporate actions.
     """
     
     def __init__(self):
@@ -98,3 +98,67 @@ class YFinanceClient(NSEClientInterface):
             bars.append(bar)
             
         return bars
+
+    @retry_with_backoff(retries=3, backoff_in_seconds=2)
+    @rate_limit(calls=1, period=1)
+    def get_corporate_actions(self, symbol: str, start_date: datetime, end_date: datetime) -> List[CorporateAction]:
+        """
+        Fetch historical corporate actions (Dividends and Stock Splits) using yfinance.
+        """
+        ticker = yf.Ticker(symbol)
+        actions_df = ticker.actions
+        
+        if actions_df.empty:
+            return []
+
+        # Convert index to timezone-aware if naive (assuming local Market Time / IST for .NS)
+        # yfinance usually returns tz-aware index for actions, but we should be robust
+        if actions_df.index.tzinfo is None:
+             # Just a fallback, might not be necessary depending on yf version
+            actions_df.index = actions_df.index.tz_localize('Asia/Kolkata')
+            
+        # Filter by date range
+        # Note: yfinance returns all history by default for actions.
+        # Ensure we compare timezone-aware dates
+        if start_date.tzinfo is None:
+            start_date = start_date.replace(tzinfo=timezone.utc)
+        if end_date.tzinfo is None:
+            end_date = end_date.replace(tzinfo=timezone.utc)
+            
+        mask = (actions_df.index >= start_date) & (actions_df.index <= end_date)
+        filtered_df = actions_df.loc[mask]
+        
+        corp_actions = []
+        for dt, row in filtered_df.iterrows():
+            ts = dt.to_pydatetime()
+            
+            # Check for Dividends
+            if 'Dividends' in row and row['Dividends'] > 0:
+                corp_actions.append(CorporateAction(
+                    symbol=symbol,
+                    timestamp=datetime.now(timezone.utc), # When we ingested it
+                    source_type=self.source_type,
+                    action_type=CorporateActionType.DIVIDEND,
+                    value=float(row['Dividends']),
+                    ex_date=ts,
+                    quality_status=QualityFlag.PASS
+                ))
+            
+            # Check for Stock Splits
+            if 'Stock Splits' in row and row['Stock Splits'] > 0:
+                # yfinance reports stock splits as a float, e.g., 2.0 implies 2:1 ratio
+                split_ratio = float(row['Stock Splits'])
+                # Format to a readable string if you prefer, e.g. "2.0:1"
+                ratio_str = f"{split_ratio}:1"
+                
+                corp_actions.append(CorporateAction(
+                    symbol=symbol,
+                    timestamp=datetime.now(timezone.utc),
+                    source_type=self.source_type,
+                    action_type=CorporateActionType.SPLIT,
+                    ratio=ratio_str,
+                    ex_date=ts,
+                    quality_status=QualityFlag.PASS
+                ))
+                
+        return corp_actions
