@@ -1,6 +1,7 @@
 import sys
 import os
 import shutil
+import json
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import logging
@@ -14,6 +15,11 @@ from src.agents.sentinel.recorder import SilverRecorder
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def load_config():
+    config_path = os.path.join(os.path.dirname(__file__), '..', 'configs', 'nse_sentinel_runtime_v1.json')
+    with open(config_path, 'r') as f:
+        return json.load(f)
+
 def test_corporate_actions_ingest():
     logger.info("--- Testing Corporate Actions Ingestion ---")
     
@@ -26,38 +32,40 @@ def test_corporate_actions_ingest():
     client = YFinanceClient()
     recorder = SilverRecorder(base_dir=test_base_dir)
     
-    # Test with RELIANCE.NS, fetching last 5 years to ensure we hit dividends/splits
-    symbol = "RELIANCE.NS"
+    config = load_config()
+    symbols = config.get("symbol_universe", {}).get("core_symbols", ["RELIANCE.NS"])
+    
     end_date = datetime.now(timezone.utc)
     start_date = end_date - timedelta(days=365 * 5)
     
-    logger.info(f"Fetching corporate actions for {symbol} from {start_date.date()} to {end_date.date()}")
+    all_actions = []
     
-    actions = client.get_corporate_actions(symbol, start_date, end_date)
-    
-    logger.info(f"Retrieved {len(actions)} corporate actions.")
-    for a in actions:
-        logger.info(f"  - {a.action_type.value}: ex_date={a.ex_date.date()}, value={a.value}, ratio={a.ratio}")
+    for symbol in symbols:
+        logger.info(f"\nFetching corporate actions for {symbol} from {start_date.date()} to {end_date.date()}")
         
-    if not actions:
-        logger.error("No actions retrieved. This might be a yfinance issue or network problem.")
+        actions = client.get_corporate_actions(symbol, start_date, end_date)
+        
+        logger.info(f"Retrieved {len(actions)} corporate actions for {symbol}.")
+        for a in actions:
+            logger.info(f"  - {a.action_type.value}: ex_date={a.ex_date.date()}, value={a.value}, ratio={a.ratio}")
+            
+        all_actions.extend(actions)
+        
+    if not all_actions:
+        logger.error("No actions retrieved across all symbols. This might be a yfinance issue or network problem.")
         return
         
-    logger.info("Saving to Silver layer...")
-    recorder.save_corporate_actions(actions)
+    logger.info("\nSaving to Silver layer...")
+    recorder.save_corporate_actions(all_actions)
     
     # Verify files
-    corp_dir = Path(test_base_dir) / "corporate_actions" / symbol
+    files = list(Path(test_base_dir).rglob("*.parquet"))
+    logger.info(f"Created {len(files)} parquet partitions across {len(symbols)} symbols.")
     
-    if corp_dir.exists():
-        files = list(corp_dir.rglob("*.parquet"))
-        logger.info(f"Created {len(files)} parquet partitions.")
-        if len(files) > 0:
-            logger.info("Corporate actions verification passed!")
-        else:
-            logger.error("Directory created but no parquet files found.")
+    if len(files) > 0:
+        logger.info("Corporate actions verification passed!")
     else:
-        logger.error(f"Corporate actions directory {corp_dir} not created.")
+        logger.error("Directory created but no parquet files found.")
 
 if __name__ == "__main__":
     test_corporate_actions_ingest()
