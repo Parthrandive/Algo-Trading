@@ -81,3 +81,17 @@ def get_latest_local_timestamp(symbol: str, base_dir: str = "data/silver/ohlcv")
         logger.error(f"Failed to read parquet for gap detection {latest_file}: {e}")
         
     return None
+
+def get_latest_local_timestamp_db(symbol: str) -> Optional[datetime]:
+    """
+    Find the maximum timestamp for a symbol currently stored in the database silver layer.
+    Replaces get_latest_local_timestamp.
+    """
+    normalized = normalize_symbol(symbol)
+    try:
+        from src.db.queries import get_latest_timestamp
+        return get_latest_timestamp(normalized) or get_latest_timestamp(symbol)
+    except Exception as e:
+        logger.error(f"Failed to read database for gap detection: {e}")
+        return None
+

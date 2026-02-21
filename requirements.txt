@@ -24,3 +24,8 @@ pytest-cov>=4.1.0
 ruff>=0.2.1      # Linting (fast)
 black>=24.1.1    # Formatting
 ntplib>=0.4.0    # NTP client for clock sync checks
+
+# Database
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.9
+

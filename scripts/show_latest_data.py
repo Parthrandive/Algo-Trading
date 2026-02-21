@@ -13,7 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
-from src.utils.history import get_latest_local_timestamp, normalize_symbol
+from src.utils.history import get_latest_local_timestamp, get_latest_local_timestamp_db, normalize_symbol
 
 EXIT_SUCCESS = 0
 EXIT_FAILURE = 1
@@ -197,7 +197,7 @@ def show_historical_data(
     if auto_fetch:
         now_utc = datetime.now(timezone.utc)
         desired_end = end_date or now_utc
-        latest_ts = get_latest_local_timestamp(target_symbol)
+        latest_ts = get_latest_local_timestamp_db(target_symbol) or get_latest_local_timestamp(target_symbol)
         if latest_ts is not None and latest_ts.tzinfo is None:
             latest_ts = latest_ts.replace(tzinfo=timezone.utc)
 

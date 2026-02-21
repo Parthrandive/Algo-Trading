@@ -52,7 +52,15 @@ def test_ingest():
 
     print("Initializing failover client + Bronze/Silver pipeline...")
     failover_client = _build_failover_client()
-    silver_recorder = SilverRecorder()
+    
+    # Use the new Database Recorder
+    from src.db.silver_db_recorder import SilverDBRecorder
+    from src.db.init_db import init_database
+    
+    # Ensure DB is initialized
+    init_database()
+    silver_recorder = SilverDBRecorder()
+    
     bronze_recorder = BronzeRecorder()
     pipeline = SentinelIngestPipeline(
         client=failover_client,
@@ -64,7 +72,7 @@ def test_ingest():
     print(f"Fetching data for {symbol} from {start_date} to {end_date}...")
     try:
         bars = pipeline.ingest_historical(symbol, start_date, end_date, interval="1h")
-        print(f"Ingested {len(bars)} bars into Silver.")
+        print(f"Ingested {len(bars)} bars into Silver DB.")
     except Exception as e:
         print(f"Error fetching data: {e}")
         return
@@ -73,25 +81,14 @@ def test_ingest():
         print("No bars fetched. Exiting.")
         return
 
-    # Verify Silver output
-    first_bar_date = bars[0].timestamp
-    year = str(first_bar_date.year)
-    month = f"{first_bar_date.month:02d}"
-    date_str = first_bar_date.strftime('%Y-%m-%d')
-    file_path = Path(f"data/silver/ohlcv/{symbol}/{year}/{month}/{date_str}.parquet")
-
-    if file_path.exists():
-        print(f"SUCCESS: Silver file created at {file_path}")
+    # Verify Silver output in DB
+    from src.db.queries import get_bars
+    db_bars = get_bars(symbol, start_date, end_date, interval="1h")
+    
+    if not db_bars.empty:
+        print(f"SUCCESS: Silver data found in database. {len(db_bars)} rows retrieved for {symbol}.")
     else:
-        dir_path = Path(f"data/silver/ohlcv/{symbol}/{year}/{month}")
-        if dir_path.exists():
-            files = list(dir_path.glob("*.parquet"))
-            if files:
-                print(f"SUCCESS: Silver files created in {dir_path}: {len(files)} files found.")
-            else:
-                print(f"FAILURE: Silver directory exists but no parquet files found in {dir_path}")
-        else:
-            print(f"FAILURE: Silver directory {dir_path} not found.")
+        print(f"FAILURE: No data found in the database for {symbol}.")
 
     # Verify Bronze output
     bronze_files = list(Path("data/bronze").rglob("events.jsonl"))
