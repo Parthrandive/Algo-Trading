@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import shlex
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -107,6 +108,30 @@ def _build_failover_client():
     return FailoverSentinelClient(primary, fallbacks, failure_threshold=2, cooldown_seconds=60, recovery_success_threshold=2)
 
 
+def _build_autofetch_rerun_command(
+    symbol: str,
+    *,
+    interval: str,
+    days: int,
+    start_date: datetime | None,
+    end_date: datetime | None,
+) -> str:
+    command = ["python3", "scripts/show_latest_data.py", symbol, "--auto-fetch-missing-history"]
+
+    if start_date is not None:
+        command.extend(["--from", start_date.strftime("%Y-%m-%d")])
+    else:
+        command.extend(["--days", str(days)])
+
+    if end_date is not None:
+        command.extend(["--to", end_date.strftime("%Y-%m-%d")])
+
+    if interval != "1h":
+        command.extend(["--interval", interval])
+
+    return " ".join(shlex.quote(token) for token in command)
+
+
 def _load_recent_history(base_dir: Path) -> tuple[pd.DataFrame | None, list[str], str | None]:
     if not base_dir.exists():
         return None, [], f"No historical data found in {base_dir}"
@@ -130,6 +155,19 @@ def _load_recent_history(base_dir: Path) -> tuple[pd.DataFrame | None, list[str]
     return combined, [f.name for f in latest_files], None
 
 
+def _count_symbol_rows(base_dir: Path) -> int:
+    if not base_dir.exists():
+        return 0
+
+    total_rows = 0
+    for parquet_file in base_dir.rglob("*.parquet"):
+        try:
+            total_rows += len(pd.read_parquet(parquet_file))
+        except Exception as exc:  # pragma: no cover - defensive
+            print(f"Skipping unreadable file {parquet_file.name}: {exc}")
+    return total_rows
+
+
 def show_historical_data(
     symbol_candidates: list[str],
     *,
@@ -146,6 +184,9 @@ def show_historical_data(
         "symbol": target_symbol,
         "status": "NO_DATA",
         "fetched_bars": 0,
+        "bars_fetched": 0,
+        "bars_saved": 0,
+        "silver_path": str(base_dir.resolve()),
         "displayed_rows": 0,
         "files": [],
         "error": None,
@@ -193,22 +234,46 @@ def show_historical_data(
                     bronze_recorder=BronzeRecorder(),
                     session_rules=config.session_rules,
                 )
+                pre_fetch_rows = _count_symbol_rows(base_dir)
                 bars = pipeline.ingest_historical(target_symbol, fetch_start, desired_end, interval=interval)
-                result["fetched_bars"] = len(bars)
-                print(f"Fetched and saved {len(bars)} bars.")
-                _, base_dir = resolve_historical_dir([target_symbol])
+                saved_symbol_candidates = _dedupe_preserve_order([bar.symbol for bar in bars] + symbol_candidates + [target_symbol])
+                _, base_dir = resolve_historical_dir(saved_symbol_candidates)
+                post_fetch_rows = _count_symbol_rows(base_dir)
+
+                bars_fetched = len(bars)
+                bars_saved = max(0, post_fetch_rows - pre_fetch_rows)
+                silver_path = str(base_dir.resolve())
+
+                result["fetched_bars"] = bars_fetched
+                result["bars_fetched"] = bars_fetched
+                result["bars_saved"] = bars_saved
+                result["silver_path"] = silver_path
+
+                print("Fetch persistence summary:")
+                print(f"  bars_fetched: {bars_fetched}")
+                print(f"  bars_saved: {bars_saved}")
+                print(f"  silver_path: {silver_path}")
             except Exception as exc:
                 result["status"] = "ERROR"
                 result["error"] = f"Failed to fetch historical data dynamically: {exc}"
                 print(result["error"])
     else:
-        print("Auto-fetch flag is NOT set. Reading local data only.")
+        print("Local-only mode enabled. Reading local data only.")
 
     df, file_names, read_error = _load_recent_history(base_dir)
     result["files"] = file_names
+    result["silver_path"] = str(base_dir.resolve())
 
     if read_error:
         print(read_error)
+        if not auto_fetch and read_error in {
+            f"No historical data found in {base_dir}",
+            "No parquet files found.",
+        }:
+            print(
+                "Rerun with auto-fetch to pull and persist history:\n"
+                f"  {_build_autofetch_rerun_command(target_symbol, interval=interval, days=days, start_date=start_date, end_date=end_date)}"
+            )
         if result["status"] != "ERROR":
             result["error"] = read_error
         return result
@@ -305,10 +370,24 @@ def show_live_quote(symbol_candidates: list[str]) -> dict:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Show latest historical and live data for a symbol.")
     parser.add_argument("symbol", nargs="?", default="RELIANCE.NS", help="Symbol to inspect (e.g., TCS.NS)")
-    parser.add_argument("--auto-fetch-missing-history", action="store_true", help="Fetch missing/gapped history before displaying.")
+
+    fetch_group = parser.add_mutually_exclusive_group()
+    fetch_group.add_argument(
+        "--auto-fetch-missing-history",
+        dest="auto_fetch_missing_history",
+        action="store_true",
+        default=True,
+        help="Fetch missing/gapped history before displaying (default behavior).",
+    )
+    fetch_group.add_argument(
+        "--local-only",
+        dest="auto_fetch_missing_history",
+        action="store_false",
+        help="Read local data only; do not fetch missing/gapped history.",
+    )
 
     window_group = parser.add_mutually_exclusive_group()
-    window_group.add_argument("--days", type=int, default=7, help="Days to backfill when no local history exists (default: 7)")
+    window_group.add_argument("--days", type=int, default=30, help="Days to backfill when no local history exists (default: 30)")
     window_group.add_argument("--from", dest="from_date", type=str, help="Backfill start date (UTC) in YYYY-MM-DD")
 
     parser.add_argument("--to", dest="to_date", type=str, help="Backfill end date (UTC) in YYYY-MM-DD")

@@ -94,7 +94,7 @@ class NSEPythonClient(NSEClientInterface):
         We rely on YFinanceClient for this.
         """
         logger.warning("get_historical_data is not reliably supported by NSEPythonClient. Use YFinanceClient instead.")
-        return []
+        raise NotImplementedError("Historical data not supported by NSEPythonClient")
 
     def get_corporate_actions(
         self,
@@ -106,4 +106,4 @@ class NSEPythonClient(NSEClientInterface):
         Corporate actions via nsepython are possible but we rely on YFinance.
         """
         logger.warning("get_corporate_actions not implemented in NSEPythonClient. Use YFinanceClient instead.")
-        return []
+        raise NotImplementedError("Corporate actions not supported by NSEPythonClient")
