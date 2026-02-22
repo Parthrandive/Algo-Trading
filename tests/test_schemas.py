@@ -2,7 +2,13 @@ import pytest
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 from pydantic import ValidationError
-from src.schemas.market_data import Tick, Bar, SourceType as MarketSourceType
+from src.schemas.market_data import (
+    Bar,
+    CorporateAction,
+    CorporateActionType,
+    SourceType as MarketSourceType,
+    Tick,
+)
 from src.schemas.macro_data import MacroIndicator, MacroIndicatorType, SourceType as MacroSourceType
 from src.schemas.text_data import NewsArticle, SocialPost, EarningsTranscript, Language, SourceType as TextSourceType
 from src.utils.schema_registry import SchemaRegistry
@@ -70,6 +76,50 @@ def test_bar_rejects_close_outside_high_low_bounds():
             close=3060,  # Invalid: close > high
             volume=500
         )
+
+def test_corporate_action_validation_for_dividend_and_dates():
+    with pytest.raises(ValidationError):
+        CorporateAction(
+            symbol="RELIANCE",
+            timestamp=datetime.now(UTC),
+            source_type=MarketSourceType.OFFICIAL_API,
+            action_type=CorporateActionType.DIVIDEND,
+            ex_date=datetime.now(UTC),
+        )
+
+    ex_date = datetime(2026, 2, 19, 0, 0, tzinfo=UTC)
+    with pytest.raises(ValidationError):
+        CorporateAction(
+            symbol="RELIANCE",
+            timestamp=datetime.now(UTC),
+            source_type=MarketSourceType.OFFICIAL_API,
+            action_type=CorporateActionType.DIVIDEND,
+            value=10.0,
+            ex_date=ex_date,
+            record_date=ex_date - timedelta(days=1),
+        )
+
+
+def test_corporate_action_validation_for_ratio_types():
+    with pytest.raises(ValidationError):
+        CorporateAction(
+            symbol="INFY",
+            timestamp=datetime.now(UTC),
+            source_type=MarketSourceType.BROKER_API,
+            action_type=CorporateActionType.SPLIT,
+            ex_date=datetime.now(UTC),
+        )
+
+    action = CorporateAction(
+        symbol="INFY",
+        timestamp=datetime.now(UTC),
+        source_type=MarketSourceType.BROKER_API,
+        action_type=CorporateActionType.RIGHTS,
+        ratio="3/10",
+        ex_date=datetime.now(UTC),
+        record_date=datetime.now(UTC) + timedelta(days=1),
+    )
+    assert action.ratio == "3:10"
 
     with pytest.raises(ValidationError):
         Bar(

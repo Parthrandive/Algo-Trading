@@ -8,9 +8,11 @@ from src.agents.sentinel.client import NSEClientInterface
 from src.agents.sentinel.config import SessionRules
 from src.schemas.market_data import Bar, Tick, CorporateAction
 
+
 class SilverRecorderProtocol(Protocol):
     def save_bars(self, bars: List[Bar]) -> None: ...
     def save_corporate_actions(self, actions: List[CorporateAction]) -> None: ...
+
 
 class SentinelIngestPipeline:
     """
@@ -70,3 +72,25 @@ class SentinelIngestPipeline:
 
         self.silver_recorder.save_bars(accepted_bars)
         return accepted_bars
+
+    def ingest_corporate_actions(
+        self,
+        symbol: str,
+        start_date: datetime,
+        end_date: datetime,
+        schema_id: str = "market.corporate_action.v1",
+    ) -> list[CorporateAction]:
+        actions = self.client.get_corporate_actions(symbol, start_date, end_date)
+
+        for action in actions:
+            if self.bronze_recorder is not None:
+                self.bronze_recorder.save_event(
+                    source_id=action.source_type.value,
+                    payload=action.model_dump(mode="json"),
+                    event_time=action.ex_date,
+                    symbol=action.symbol,
+                    schema_id=schema_id,
+                )
+
+        self.silver_recorder.save_corporate_actions(actions)
+        return actions

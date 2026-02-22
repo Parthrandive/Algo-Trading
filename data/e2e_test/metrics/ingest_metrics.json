@@ -1,0 +1,13 @@
+{
+  "generated_at_utc": "2026-02-22T09:26:13.060427+00:00",
+  "total_operations": 6,
+  "successful_operations": 6,
+  "failed_operations": 0,
+  "parser_failures": 0,
+  "avg_ingest_latency_ms": 8963.125,
+  "max_ingest_latency_ms": 22836.648,
+  "total_records_observed": 80,
+  "fallback_records_observed": 80,
+  "fallback_percentage": 100.0,
+  "trace_file": "/Users/juhi/Desktop/algo-trading/data/e2e_test/traces/ingest_trace.jsonl"
+}

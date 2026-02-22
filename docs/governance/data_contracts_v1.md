@@ -30,6 +30,7 @@ Canonical serialization names remain the v1 contract names listed in Section 2.
 ## 4. Validation Baseline
 - Strict contract mode: unknown fields are rejected (`extra=forbid`).
 - `Bar` enforces cross-field OHLC validity.
+- `CorporateAction` enforces timezone-aware `ex_date`/`record_date`, valid ratio format, action-specific payload requirements (`dividend -> value`, `split/bonus/rights -> ratio`), and `record_date >= ex_date`.
 - Engagement counters in `SocialPost` are non-negative.
 - Registry validation blocks unknown version keys.
 

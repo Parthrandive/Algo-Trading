@@ -8,13 +8,14 @@ Scope: Week 2 Day 8 contract lock for Phase 1 (NSE Sentinel Agent)
 All market connectors implement `NSEClientInterface`:
 - `get_stock_quote(symbol) -> Tick`
 - `get_historical_data(symbol, start_date, end_date, interval=\"1h\") -> list[Bar]`
+- `get_corporate_actions(symbol, start_date, end_date) -> list[CorporateAction]`
 
 Reference: `/Users/juhi/Desktop/algo-trading/src/agents/sentinel/client.py`.
 
 ### Feed Roles
 - Primary feed: `official_api` (current implementation: yfinance connector)
-- Secondary feed: `broker_api` (REST broker connector)
-- Fallback feed: `fallback_scraper` (nsepython wrapper)
+- Secondary feed: `broker_api` (REST broker connector with corporate-action endpoint parsing)
+- Fallback feed: `fallback_scraper` (nsepython wrapper + controlled fallback drill client for offline verification)
 
 ## 2. Symbol Universe + Session Rules (Runtime Baseline)
 

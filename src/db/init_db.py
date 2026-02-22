@@ -5,16 +5,27 @@ from src.db.models import Base
 
 logger = logging.getLogger(__name__)
 
-REQUIRED_DDL_STATEMENTS = [
-    # 1. Extension
+# ── TimescaleDB-only DDL (skipped on plain PostgreSQL) ──────────────────
+TIMESCALE_DDL = [
     "CREATE EXTENSION IF NOT EXISTS timescaledb;",
-
-    # 2. Hypertables
     "SELECT create_hypertable('ohlcv_bars', 'timestamp', chunk_time_interval => INTERVAL '1 month', if_not_exists => TRUE);",
     "SELECT create_hypertable('ticks', 'timestamp', chunk_time_interval => INTERVAL '1 day', if_not_exists => TRUE);",
     "SELECT create_hypertable('macro_indicators', 'timestamp', chunk_time_interval => INTERVAL '1 year', if_not_exists => TRUE);",
+]
 
-    # 3. Indexes
+COMPRESSION_DDL = [
+    """
+    ALTER TABLE IF EXISTS ohlcv_bars SET (
+        timescaledb.compress,
+        timescaledb.compress_segmentby = 'symbol,interval',
+        timescaledb.compress_orderby = 'timestamp DESC'
+    );
+    """,
+    "SELECT add_compression_policy('ohlcv_bars', INTERVAL '7 days', if_not_exists => TRUE);",
+]
+
+# ── Plain-PostgreSQL-safe DDL (always run) ──────────────────────────────
+INDEX_DDL = [
     "CREATE INDEX IF NOT EXISTS idx_bars_symbol_ts ON ohlcv_bars (symbol, timestamp DESC);",
     "CREATE INDEX IF NOT EXISTS idx_ticks_symbol_ts ON ticks (symbol, timestamp DESC);",
     "CREATE INDEX IF NOT EXISTS idx_corp_symbol_date ON corporate_actions (symbol, ex_date DESC);",
@@ -25,46 +36,57 @@ REQUIRED_DDL_STATEMENTS = [
     "CREATE INDEX IF NOT EXISTS idx_ingest_symbol ON ingestion_log (symbol, run_timestamp DESC);",
 ]
 
-OPTIONAL_DDL_STATEMENTS = [
-    # 4. Compression (Requires TimescaleDB community/enterprise, might fail on basic so wrap in try)
-    """
-    ALTER TABLE IF EXISTS ohlcv_bars SET (
-        timescaledb.compress,
-        timescaledb.compress_segmentby = 'symbol,interval',
-        timescaledb.compress_orderby = 'timestamp DESC'
-    );
-    """,
-    "SELECT add_compression_policy('ohlcv_bars', INTERVAL '7 days', if_not_exists => TRUE);"
-]
 
 def _execute_statement(conn, statement: str, *, optional: bool) -> None:
     try:
-        with conn.begin():
-            conn.execute(text(statement))
+        conn.execute(text(statement))
         logger.debug(f"Executed: {statement[:50]}...")
     except Exception as exc:
         if optional:
-            logger.warning(f"Optional DDL failed: {statement[:50]}...: {exc}")
+            logger.warning(f"Optional DDL skipped: {statement[:50]}...: {exc}")
             return
         raise RuntimeError(f"Required DDL failed: {statement[:50]}...") from exc
 
+
+def _has_timescaledb(conn) -> bool:
+    """Check whether TimescaleDB extension is available on this server."""
+    try:
+        result = conn.execute(
+            text("SELECT 1 FROM pg_available_extensions WHERE name = 'timescaledb'")
+        )
+        return result.fetchone() is not None
+    except Exception:
+        return False
+
+
 def init_database(database_url: str | None = None):
     """
-    Creates tables via ORM and configures TimescaleDB specific features.
+    Creates tables via ORM and configures database features.
+
+    • On TimescaleDB (Docker): creates hypertables, compression, indexes.
+    • On plain PostgreSQL (local): creates regular tables and indexes only.
     """
     engine = get_engine(database_url)
-    
+
     logger.info("Creating tables from ORM metadata...")
     Base.metadata.create_all(engine)
-    
-    logger.info("Executing TimescaleDB specific DDL...")
-    with engine.connect() as conn:
-        for statement in REQUIRED_DDL_STATEMENTS:
-            _execute_statement(conn, statement, optional=False)
-        for statement in OPTIONAL_DDL_STATEMENTS:
-            _execute_statement(conn, statement, optional=True)
-            
+
+    with engine.begin() as conn:
+        if _has_timescaledb(conn):
+            logger.info("TimescaleDB detected — applying hypertables & compression...")
+            for stmt in TIMESCALE_DDL:
+                _execute_statement(conn, stmt, optional=False)
+            for stmt in COMPRESSION_DDL:
+                _execute_statement(conn, stmt, optional=True)
+        else:
+            logger.info("Plain PostgreSQL detected — skipping TimescaleDB DDL.")
+
+        logger.info("Creating indexes...")
+        for stmt in INDEX_DDL:
+            _execute_statement(conn, stmt, optional=False)
+
     logger.info("Schema initialization complete.")
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
