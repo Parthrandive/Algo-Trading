@@ -22,6 +22,9 @@ class BrokenClient(NSEClientInterface):
     def get_historical_data(self, symbol, start, end, interval="1h"):
         raise ConnectionError("Simulated connection failure")
 
+    def get_corporate_actions(self, symbol, start, end):
+        raise ConnectionError("Simulated connection failure")
+
 class WorkingClient(NSEClientInterface):
     def get_stock_quote(self, symbol: str) -> Tick:
         return Tick(
@@ -34,6 +37,9 @@ class WorkingClient(NSEClientInterface):
         )
 
     def get_historical_data(self, symbol, start, end, interval="1h"):
+        return []
+
+    def get_corporate_actions(self, symbol, start, end):
         return []
 
 def main():

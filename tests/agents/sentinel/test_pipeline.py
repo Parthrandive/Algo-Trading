@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import sys
 from zoneinfo import ZoneInfo
@@ -14,12 +14,13 @@ from src.agents.sentinel.client import NSEClientInterface
 from src.agents.sentinel.config import load_default_sentinel_config
 from src.agents.sentinel.pipeline import SentinelIngestPipeline
 from src.agents.sentinel.recorder import SilverRecorder
-from src.schemas.market_data import Bar, CorporateAction, SourceType, Tick
+from src.schemas.market_data import Bar, CorporateAction, CorporateActionType, SourceType, Tick
 
 
 class StaticClient(NSEClientInterface):
-    def __init__(self, bars: list[Bar]):
+    def __init__(self, bars: list[Bar], actions: list[CorporateAction] | None = None):
         self._bars = bars
+        self._actions = actions or []
 
     def get_stock_quote(self, symbol: str) -> Tick:
         return Tick(
@@ -34,7 +35,7 @@ class StaticClient(NSEClientInterface):
         return self._bars
 
     def get_corporate_actions(self, symbol: str, start_date: datetime, end_date: datetime) -> list[CorporateAction]:
-        return []
+        return self._actions
 
 
 def test_pipeline_writes_bronze_and_silver(tmp_path):
@@ -97,3 +98,56 @@ def test_pipeline_writes_bronze_and_silver(tmp_path):
     assert "source_type" in df.columns
     assert "ingestion_timestamp_utc" in df.columns
     assert "ingestion_timestamp_ist" in df.columns
+
+
+def test_pipeline_writes_corporate_actions_to_bronze_and_silver(tmp_path):
+    symbol = "PIPELINE_CORP.NS"
+    ex_date = datetime(2026, 2, 19, 0, 0, tzinfo=ZoneInfo("UTC"))
+    actions = [
+        CorporateAction(
+            symbol=symbol,
+            timestamp=datetime(2026, 2, 20, 10, 0, tzinfo=ZoneInfo("UTC")),
+            source_type=SourceType.BROKER_API,
+            action_type=CorporateActionType.DIVIDEND,
+            value=12.5,
+            ex_date=ex_date,
+            record_date=ex_date + timedelta(days=1),
+        ),
+        CorporateAction(
+            symbol=symbol,
+            timestamp=datetime(2026, 2, 20, 10, 0, tzinfo=ZoneInfo("UTC")),
+            source_type=SourceType.BROKER_API,
+            action_type=CorporateActionType.BONUS,
+            ratio="1:1",
+            ex_date=ex_date + timedelta(days=30),
+            record_date=ex_date + timedelta(days=31),
+        ),
+    ]
+
+    client = StaticClient(bars=[], actions=actions)
+    silver = SilverRecorder(base_dir=str(tmp_path / "silver"), quarantine_dir=str(tmp_path / "quarantine"))
+    bronze = BronzeRecorder(base_dir=str(tmp_path / "bronze"))
+    pipeline = SentinelIngestPipeline(
+        client=client,
+        silver_recorder=silver,
+        bronze_recorder=bronze,
+        session_rules=None,
+    )
+
+    persisted = pipeline.ingest_corporate_actions(
+        symbol=symbol,
+        start_date=datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC")),
+        end_date=datetime(2026, 12, 31, tzinfo=ZoneInfo("UTC")),
+    )
+    assert len(persisted) == 2
+
+    bronze_files = list((tmp_path / "bronze").rglob("events.jsonl"))
+    assert bronze_files
+
+    corp_files = list((tmp_path / "silver" / "corporate_actions").rglob("*.parquet"))
+    assert corp_files
+
+    df = pd.concat([pd.read_parquet(file) for file in corp_files], ignore_index=True)
+    assert "action_type" in df.columns
+    assert "ex_date" in df.columns
+    assert "source_type" in df.columns

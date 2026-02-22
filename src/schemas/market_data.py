@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from enum import Enum
+import re
 from typing import Optional
 from zoneinfo import ZoneInfo
 
@@ -145,3 +146,55 @@ class CorporateAction(MarketDataBase):
     value: Optional[float] = None # e.g., dividend amount
     ex_date: datetime
     record_date: Optional[datetime] = None
+
+    @field_validator("ex_date")
+    @classmethod
+    def normalize_ex_date(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            raise ValueError("ex_date must be timezone-aware")
+        return value.astimezone(UTC)
+
+    @field_validator("record_date")
+    @classmethod
+    def normalize_record_date(cls, value: Optional[datetime]) -> Optional[datetime]:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            raise ValueError("record_date must be timezone-aware")
+        return value.astimezone(UTC)
+
+    @field_validator("ratio")
+    @classmethod
+    def normalize_ratio(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip().replace("/", ":")
+        if not re.fullmatch(r"\d+(\.\d+)?:\d+(\.\d+)?", normalized):
+            raise ValueError("ratio must follow '<num>:<num>' format, e.g. 1:2")
+        return normalized
+
+    @field_validator("value")
+    @classmethod
+    def validate_value(cls, value: Optional[float]) -> Optional[float]:
+        if value is None:
+            return None
+        if value <= 0:
+            raise ValueError("value must be greater than 0 when provided")
+        return float(value)
+
+    @model_validator(mode="after")
+    def validate_action_payload(self):
+        if self.record_date is not None and self.record_date < self.ex_date:
+            raise ValueError("record_date cannot be earlier than ex_date")
+
+        if self.action_type == CorporateActionType.DIVIDEND and self.value is None:
+            raise ValueError("dividend actions require value")
+
+        if self.action_type in {
+            CorporateActionType.SPLIT,
+            CorporateActionType.BONUS,
+            CorporateActionType.RIGHTS,
+        } and self.ratio is None:
+            raise ValueError("split/bonus/rights actions require ratio")
+
+        return self

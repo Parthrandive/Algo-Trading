@@ -8,7 +8,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.agents.sentinel.broker_client import BrokerAPIClient
-from src.schemas.market_data import SourceType
+from src.schemas.market_data import CorporateActionType, SourceType
 
 
 class FakeResponse:
@@ -88,3 +88,57 @@ def test_broker_historical_parsing():
     assert len(bars) == 1
     assert bars[0].source_type == SourceType.BROKER_API
     assert bars[0].interval == "1h"
+
+
+def test_broker_corporate_actions_parsing():
+    session = FakeSession(
+        [
+            FakeResponse(
+                {
+                    "actions": [
+                        {
+                            "action_type": "Dividend",
+                            "ex_date": "2026-02-10T00:00:00+00:00",
+                            "record_date": "2026-02-11T00:00:00+00:00",
+                            "value": 22.5,
+                            "timestamp": "2026-02-09T09:00:00+00:00",
+                        },
+                        {
+                            "action_type": "Split",
+                            "ex_date": "2026-02-12T00:00:00+00:00",
+                            "record_date": "2026-02-13T00:00:00+00:00",
+                            "ratio": "2/1",
+                            "timestamp": "2026-02-11T09:00:00+00:00",
+                        },
+                        {
+                            "action_type": "Bonus",
+                            "ex_date": "2026-02-14T00:00:00+00:00",
+                            "record_date": "2026-02-15T00:00:00+00:00",
+                            "ratio": "1:1",
+                            "timestamp": "2026-02-13T09:00:00+00:00",
+                        },
+                        {
+                            "action_type": "Rights",
+                            "ex_date": "2026-02-16T00:00:00+00:00",
+                            "record_date": "2026-02-17T00:00:00+00:00",
+                            "ratio": "3:10",
+                            "timestamp": "2026-02-15T09:00:00+00:00",
+                        },
+                    ]
+                }
+            )
+        ]
+    )
+    client = BrokerAPIClient(base_url="https://broker.example.com/v1", session=session)
+    actions = client.get_corporate_actions(
+        symbol="RELIANCE",
+        start_date=datetime(2026, 2, 1, tzinfo=timezone.utc),
+        end_date=datetime(2026, 2, 28, tzinfo=timezone.utc),
+    )
+
+    assert len(actions) == 4
+    assert actions[0].action_type == CorporateActionType.DIVIDEND
+    assert actions[1].action_type == CorporateActionType.SPLIT
+    assert actions[1].ratio == "2:1"
+    assert actions[2].action_type == CorporateActionType.BONUS
+    assert actions[3].action_type == CorporateActionType.RIGHTS

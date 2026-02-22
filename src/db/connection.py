@@ -5,12 +5,23 @@ from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-# Default connection string matching docker-compose.db.yml
-DEFAULT_DB_URL = "postgresql://sentinel:sentinel@localhost:5432/sentinel_db"
+# Docker TimescaleDB (docker-compose.db.yml)
+DOCKER_DB_URL = "postgresql://sentinel:sentinel@localhost:5432/sentinel_db"
+
+# Local PostgreSQL installation
+LOCAL_DB_URL = "postgresql://postgres:optimus@localhost:5433/sentinel_db"
+
+# Pick default based on DB_MODE env var: "local" or "docker" (default)
+DEFAULT_DB_URL = LOCAL_DB_URL if os.getenv("DB_MODE", "docker").lower() == "local" else DOCKER_DB_URL
 
 def get_engine(database_url: str | None = None):
     """
     Creates and returns a SQLAlchemy engine instance.
+
+    Resolution order:
+      1. Explicit *database_url* argument
+      2. DATABASE_URL environment variable
+      3. DEFAULT_DB_URL (chosen by DB_MODE: 'local' | 'docker')
     """
     url = database_url or os.getenv("DATABASE_URL", DEFAULT_DB_URL)
     return create_engine(

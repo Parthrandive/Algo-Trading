@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 from datetime import datetime, timezone
 from src.agents.sentinel.failover_client import DegradationState, FailoverSentinelClient
 from src.agents.sentinel.client import NSEClientInterface
-from src.schemas.market_data import Tick, SourceType, QualityFlag
+from src.schemas.market_data import CorporateAction, CorporateActionType, Tick, SourceType, QualityFlag
 
 # Mock Tick for return values
 MOCK_TICK = Tick(
@@ -13,6 +13,16 @@ MOCK_TICK = Tick(
     source_type=SourceType.OFFICIAL_API, 
     price=100.0, 
     volume=100
+)
+
+MOCK_ACTION = CorporateAction(
+    symbol="RELIANCE",
+    timestamp=datetime.now(timezone.utc),
+    source_type=SourceType.OFFICIAL_API,
+    action_type=CorporateActionType.DIVIDEND,
+    value=15.0,
+    ex_date=datetime.now(timezone.utc),
+    record_date=datetime.now(timezone.utc),
 )
 
 @pytest.fixture
@@ -124,3 +134,36 @@ def test_all_failure(mock_primary, mock_fallback):
     with pytest.raises(RuntimeError, match="All clients failed"):
         client.get_stock_quote("RELIANCE")
     assert client.degradation_state == DegradationState.CLOSE_ONLY_ADVISORY
+
+
+def test_corporate_actions_are_tagged_on_fallback(mock_primary, mock_fallback):
+    client = FailoverSentinelClient(mock_primary, [mock_fallback], failure_threshold=1)
+    mock_primary.get_corporate_actions.side_effect = Exception("Primary failed")
+    mock_fallback.get_corporate_actions.return_value = [MOCK_ACTION]
+
+    result = client.get_corporate_actions(
+        symbol="RELIANCE",
+        start_date=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        end_date=datetime(2026, 3, 1, tzinfo=timezone.utc),
+    )
+
+    assert len(result) == 1
+    assert result[0].source_type == SourceType.FALLBACK_SCRAPER
+    assert result[0].quality_status == QualityFlag.WARN
+    assert client.degradation_state == DegradationState.REDUCE_ONLY
+
+
+def test_corporate_actions_primary_empty_falls_back(mock_primary, mock_fallback):
+    client = FailoverSentinelClient(mock_primary, [mock_fallback], failure_threshold=1)
+    mock_primary.get_corporate_actions.return_value = []
+    mock_fallback.get_corporate_actions.return_value = [MOCK_ACTION]
+
+    result = client.get_corporate_actions(
+        symbol="RELIANCE",
+        start_date=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        end_date=datetime(2026, 3, 1, tzinfo=timezone.utc),
+    )
+
+    assert len(result) == 1
+    assert mock_primary.get_corporate_actions.called
+    assert mock_fallback.get_corporate_actions.called

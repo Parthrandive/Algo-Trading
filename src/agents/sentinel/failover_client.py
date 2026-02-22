@@ -108,6 +108,17 @@ class FailoverSentinelClient(NSEClientInterface):
             for bar in bars
         ]
 
+    def _tag_actions_as_fallback(self, actions: List[CorporateAction]) -> List[CorporateAction]:
+        return [
+            action.model_copy(
+                update={
+                    "source_type": self.fallback_source_type,
+                    "quality_status": QualityFlag.WARN,
+                }
+            )
+            for action in actions
+        ]
+
     def get_stock_quote(self, symbol: str) -> Tick:
         self._check_health()
 
@@ -186,12 +197,16 @@ class FailoverSentinelClient(NSEClientInterface):
         end_date: datetime,
     ) -> List['CorporateAction']:
         self._check_health()
+        saw_empty_data = False
 
         if self._is_primary_healthy:
             try:
                 data = self.primary.get_corporate_actions(symbol, start_date, end_date)
                 self._handle_primary_success()
-                return data
+                if data:
+                    return data
+                saw_empty_data = True
+                logger.warning(f"Primary client returned no corporate actions for {symbol}; probing fallbacks.")
             except NotImplementedError:
                 pass  # Skip directly to fallback without marking primary as unhealthy
             except Exception as e:
@@ -200,11 +215,20 @@ class FailoverSentinelClient(NSEClientInterface):
         for client in self.fallbacks:
             try:
                 data = client.get_corporate_actions(symbol, start_date, end_date)
+                if not data:
+                    saw_empty_data = True
+                    logger.warning(f"Fallback client {client} returned no corporate actions for {symbol}")
+                    continue
                 self._handle_fallback_success()
-                return data
+                return self._tag_actions_as_fallback(data)
+            except NotImplementedError:
+                continue
             except Exception as e:
                 logger.warning(f"Fallback client {client} failed corporate actions fetch: {e}")
                 continue
+
+        if saw_empty_data:
+            return []
 
         self._handle_all_sources_failure()
         raise RuntimeError(f"All clients failed to fetch corporate actions for {symbol}")
