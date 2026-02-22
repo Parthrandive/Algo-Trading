@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Protocol, List
 
 from src.agents.sentinel.bronze_recorder import BronzeRecorder
 from src.agents.sentinel.client import NSEClientInterface
 from src.agents.sentinel.config import SessionRules
-from src.agents.sentinel.recorder import SilverRecorder
-from src.schemas.market_data import Bar, Tick
+from src.schemas.market_data import Bar, Tick, CorporateAction
 
+class SilverRecorderProtocol(Protocol):
+    def save_bars(self, bars: List[Bar]) -> None: ...
+    def save_corporate_actions(self, actions: List[CorporateAction]) -> None: ...
 
 class SentinelIngestPipeline:
     """
@@ -18,7 +20,7 @@ class SentinelIngestPipeline:
     def __init__(
         self,
         client: NSEClientInterface,
-        silver_recorder: SilverRecorder,
+        silver_recorder: SilverRecorderProtocol,
         bronze_recorder: Optional[BronzeRecorder] = None,
         session_rules: Optional[SessionRules] = None,
     ):

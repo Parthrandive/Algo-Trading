@@ -15,7 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
-from src.utils.history import get_latest_local_timestamp, normalize_symbol
+from src.utils.history import get_latest_local_timestamp, get_latest_local_timestamp_db, normalize_symbol
 
 EXIT_SUCCESS = 0
 EXIT_PARTIAL_FAILURE = 1
@@ -235,7 +235,7 @@ def _backfill_symbol(
     base_backoff_seconds: float,
 ) -> dict:
     symbol = normalize_symbol(symbol)
-    latest_ts = get_latest_local_timestamp(symbol)
+    latest_ts = get_latest_local_timestamp_db(symbol) or get_latest_local_timestamp(symbol)
 
     if not force_refresh and _is_fresh(latest_ts, requested_end, skip_recent_hours):
         return _result_record(

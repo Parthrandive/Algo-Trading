@@ -159,6 +159,8 @@ class FailoverSentinelClient(NSEClientInterface):
                 data = self._fetch_history(self.primary, symbol, start_date, end_date, interval=interval)
                 self._handle_primary_success()
                 return data
+            except NotImplementedError:
+                pass  # Skip directly to fallback without marking primary as unhealthy
             except Exception as e:
                 self._handle_primary_failure(e)
 
@@ -190,6 +192,8 @@ class FailoverSentinelClient(NSEClientInterface):
                 data = self.primary.get_corporate_actions(symbol, start_date, end_date)
                 self._handle_primary_success()
                 return data
+            except NotImplementedError:
+                pass  # Skip directly to fallback without marking primary as unhealthy
             except Exception as e:
                 self._handle_primary_failure(e)
 

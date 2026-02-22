@@ -6,13 +6,44 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+CURRENCY_CODES = {
+    "AUD",
+    "CAD",
+    "CHF",
+    "CNY",
+    "EUR",
+    "GBP",
+    "HKD",
+    "INR",
+    "JPY",
+    "NZD",
+    "SGD",
+    "USD",
+}
+
+
+def _looks_like_forex_pair(sym: str) -> bool:
+    if len(sym) != 6 or not sym.isalpha():
+        return False
+    base = sym[:3]
+    quote = sym[3:]
+    return base in CURRENCY_CODES and quote in CURRENCY_CODES
+
+
 def normalize_symbol(symbol: str) -> str:
-    """Normalize symbol to expected NSE format (e.g., TCS -> TCS.NS)."""
+    """
+    Normalize symbols for this project:
+    - NSE equities: TCS -> TCS.NS
+    - FX pairs: USDINR -> USDINR=X
+    """
     sym = symbol.strip().upper()
     if not sym:
         return sym
-    is_plain = sym.replace("-", "").isalnum() and "." not in sym and "=" not in sym and "^" not in sym
-    if is_plain:
+    if "." in sym or "=" in sym or "^" in sym:
+        return sym
+    if _looks_like_forex_pair(sym):
+        return f"{sym}=X"
+    if sym.replace("-", "").isalnum():
         return f"{sym}.NS"
     return sym
 
@@ -50,3 +81,17 @@ def get_latest_local_timestamp(symbol: str, base_dir: str = "data/silver/ohlcv")
         logger.error(f"Failed to read parquet for gap detection {latest_file}: {e}")
         
     return None
+
+def get_latest_local_timestamp_db(symbol: str) -> Optional[datetime]:
+    """
+    Find the maximum timestamp for a symbol currently stored in the database silver layer.
+    Replaces get_latest_local_timestamp.
+    """
+    normalized = normalize_symbol(symbol)
+    try:
+        from src.db.queries import get_latest_timestamp
+        return get_latest_timestamp(normalized) or get_latest_timestamp(symbol)
+    except Exception as e:
+        logger.error(f"Failed to read database for gap detection: {e}")
+        return None
+
