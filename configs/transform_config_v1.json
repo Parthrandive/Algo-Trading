@@ -1,0 +1,36 @@
+{
+  "transforms": [
+    {
+      "transform_name": "LogReturnNormalizer",
+      "version": "1.0",
+      "input_schema_version": "market.bar.v1",
+      "output_schema_version": "preprocessing.features.v1.0",
+      "parameters": {
+        "target_column": "close",
+        "output_column": "close_log_return"
+      }
+    },
+    {
+      "transform_name": "ZScoreNormalizer",
+      "version": "1.0",
+      "input_schema_version": "preprocessing.features.v1.0",
+      "output_schema_version": "preprocessing.features.v1.0",
+      "parameters": {
+        "target_column": "close_log_return",
+        "output_column": "close_log_return_zscore",
+        "window": 30
+      }
+    },
+    {
+      "transform_name": "DirectionalChangeDetector",
+      "version": "1.0",
+      "input_schema_version": "preprocessing.features.v1.0",
+      "output_schema_version": "preprocessing.features.v1.0",
+      "parameters": {
+        "target_column": "value",
+        "output_column": "macro_directional_flag",
+        "threshold": 0.02
+      }
+    }
+  ]
+}

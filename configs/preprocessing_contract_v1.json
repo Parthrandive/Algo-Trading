@@ -1,0 +1,41 @@
+{
+  "contract_version": "1.0",
+  "accepted_input_schemas": [
+    "market.bar.v1",
+    "macro.indicator.v1.1"
+  ],
+  "output_schema_version": "preprocessing.output.v1.0",
+  "dataset_snapshot_id_format": "snapshot_YYYYMMDD_HHMMSS_UTC",
+  "deterministic_identifier_rules": {
+    "snapshot_id_assignment": "Snapshot ID must be assigned at ingestion before any transforms",
+    "output_hash_generation": "SHA-256 hash of all input records sorted by timestamp and symbol/indicator_name"
+  },
+  "input_field_specs": [
+    {
+      "name": "timestamp",
+      "data_type": "datetime",
+      "constraints": {
+        "timezone": "UTC"
+      }
+    },
+    {
+      "name": "value",
+      "data_type": "float",
+      "constraints": {}
+    }
+  ],
+  "output_field_specs": [
+    {
+      "name": "output_hash",
+      "data_type": "str",
+      "constraints": {
+        "length": 64
+      }
+    },
+    {
+      "name": "records",
+      "data_type": "list",
+      "constraints": {}
+    }
+  ]
+}
