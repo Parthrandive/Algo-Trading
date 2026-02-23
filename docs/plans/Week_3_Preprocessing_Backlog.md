@@ -93,19 +93,19 @@ Your preprocessing I/O contract defines:
 - [x] **Deliverable:** Normalizers + directional change detector working with versioned config
 
 ### Day 4 (Thu, Feb 26) — Lag-Alignment + Pipeline Wiring
-- [ ] Build `lag_alignment.py`:
+- [x] Build `lag_alignment.py`:
   - `LagAligner` — aligns macro indicators to market timeseries with proper lag
   - Configurable lag rules per indicator (e.g., CPI lagged to publication date, not observation date)
   - **Key guarantee:** No future macro data leaks into aligned output (Section 5.3 leakage requirement)
   - Corporate action adjustments validated against reference source (Section 5.3)
-- [ ] Build `pipeline.py`:
+- [x] Build `pipeline.py`:
   - `PreprocessingPipeline` — orchestrates: loader → lag alignment → transform graph → output
   - Produces `TransformOutput` with SHA-256 output hash and dataset snapshot ID
   - Deterministic: same input snapshot → same output hash (Section 5.3 reproducibility)
-- [ ] Build initial replay support (Section 5.5):
+- [x] Build initial replay support (Section 5.5):
   - Pipeline can reconstruct outputs from stored Bronze/Silver snapshots
   - Event-time playback mode (wall-clock playback deferred to Week 6)
-- [ ] **Deliverable:** Full pipeline wired with replay support, end-to-end test with mock data passes
+- [x] **Deliverable:** Full pipeline wired with replay support, end-to-end test with mock data passes
 
 ### Day 5 (Fri, Feb 27) — Leakage + Reproducibility 🔒 CP2
 - [ ] Build `leakage_test.py`:
