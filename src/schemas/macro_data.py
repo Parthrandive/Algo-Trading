@@ -29,6 +29,9 @@ class MacroIndicatorType(str, Enum):
     FII_FLOW = "FII_FLOW"
     DII_FLOW = "DII_FLOW"
     REPO_RATE = "REPO_RATE"
+    FX_RESERVES = "FX_RESERVES"
+    INDIA_US_10Y_SPREAD = "INDIA_US_10Y_SPREAD"
+    RBI_BULLETIN = "RBI_BULLETIN"
 
 class MacroIndicator(BaseModel):
     indicator_name: MacroIndicatorType
@@ -43,7 +46,7 @@ class MacroIndicator(BaseModel):
         validation_alias=AliasChoices("ingestion_timestamp_utc", "ingestion_timestamp"),
     )
     ingestion_timestamp_ist: datetime = Field(default_factory=lambda: datetime.now(IST))
-    schema_version: str = Field(default="1.0")
+    schema_version: str = Field(default="1.1")
     quality_status: QualityFlag = Field(
         default=QualityFlag.PASS,
         validation_alias=AliasChoices("quality_status", "quality_flag"),

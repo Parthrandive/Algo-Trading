@@ -15,3 +15,4 @@
 - **Usage Policy**: Unpublished Price Sensitive Information (UPSI) is strictly prohibited. Only publicly available or officially licensed data is to be used.
 - **Redundancy**: Broker APIs are preferred for execution-critical paths if the Official NSE API has latency/cost issues, but Official API is the "Gold Standard" for data integrity.
 - **Fallback**: Scraping is a last resort and must be rate-limited and compliant with `robots.txt`.
+- **Macro Proxy Governance**: Proxy inclusion/exclusion rationale is tracked in `docs/governance/macro_proxy_justification_v1.md` (Brent included, DXY excluded for Week 3 catalog).

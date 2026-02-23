@@ -144,6 +144,27 @@ def test_macro_indicator():
         source_type=MacroSourceType.OFFICIAL_API
     )
     assert macro.value == 5.6
+    assert macro.schema_version == "1.1"
+
+def test_macro_indicator_enum_contract_freeze_week3_cp1():
+    expected_indicators = {
+        "CPI",
+        "WPI",
+        "IIP",
+        "GDP",
+        "INR_USD",
+        "BRENT_CRUDE",
+        "US_10Y",
+        "INDIA_10Y",
+        "FII_FLOW",
+        "DII_FLOW",
+        "REPO_RATE",
+        "FX_RESERVES",
+        "INDIA_US_10Y_SPREAD",
+        "RBI_BULLETIN",
+    }
+    actual_indicators = {indicator.value for indicator in MacroIndicatorType}
+    assert actual_indicators == expected_indicators
 
 def test_text_data():
     news = NewsArticle(
@@ -235,6 +256,7 @@ def test_schema_registry():
     # Valid Retrieval
     model = SchemaRegistry.get_model("Tick_v1.0")
     assert model == Tick
+    assert SchemaRegistry.get_model("MacroIndicator_v1.1") == MacroIndicator
 
     # Invalid Retrieval
     with pytest.raises(ValueError):

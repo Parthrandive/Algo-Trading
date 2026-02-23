@@ -77,12 +77,12 @@ Only publicly released or contractually licensed feeds are permitted. Unpublishe
 ## Daily Backlog
 
 ### Day 1 (Mon, Feb 23) — Contract Freeze 🔒 CP1
-- [ ] Confirm indicator catalog matches table above
-- [ ] Add `FX_RESERVES`, `INDIA_US_10Y_SPREAD`, `RBI_BULLETIN` to `MacroIndicatorType` enum
-- [ ] Bump `schema_version` default to `"1.1"`
-- [ ] Document global proxy justification (Brent included, DXY excluded with rationale)
-- [ ] Create `configs/macro_monitor_runtime_v1.json` with per-indicator source config (URL patterns, retry, rate limits, freshness windows)
-- [ ] **Deliverable:** Frozen schema + runtime config + proxy justification committed
+- [x] Confirm indicator catalog matches table above
+- [x] Add `FX_RESERVES`, `INDIA_US_10Y_SPREAD`, `RBI_BULLETIN` to `MacroIndicatorType` enum
+- [x] Bump `schema_version` default to `"1.1"`
+- [x] Document global proxy justification (Brent included, DXY excluded with rationale)
+- [x] Create `configs/macro_monitor_runtime_v1.json` with per-indicator source config (URL patterns, retry, rate limits, freshness windows)
+- [x] **Deliverable:** Frozen schema + runtime config + proxy justification committed
 
 ### Day 2 (Tue, Feb 24) — Source Connector Skeletons
 - [ ] Create `src/agents/macro/` package
