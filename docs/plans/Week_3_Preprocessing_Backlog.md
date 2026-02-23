@@ -52,60 +52,60 @@ Your preprocessing I/O contract defines:
 ## Daily Backlog
 
 ### Day 1 (Mon, Feb 23) — I/O Contract Freeze 🔒 CP1
-- [ ] Create `src/schemas/preprocessing_data.py`:
+- [x] Create `src/schemas/preprocessing_data.py`:
   - `TransformConfig` — name, version, input/output schema versions, parameters
   - `TransformOutput` — output_hash (SHA-256), input_snapshot_id, transform_config_version, records
   - `PreprocessingContract` — input/output field specs with type + range constraints
-- [ ] Create `configs/preprocessing_contract_v1.json`:
+- [x] Create `configs/preprocessing_contract_v1.json`:
   - Accepted input schemas: `MacroIndicator v1.1`, `Bar v1.0`
   - Output schema version: `TransformOutput v1.0`
   - Dataset snapshot ID format and deterministic identifier rules (Section 5.5)
-- [ ] Verify partner's `MacroIndicatorType` enum matches the shared contract list
-- [ ] Define feature approval workflow skeleton: proposal → offline eval → shadow → promote (Section 5.3)
-- [ ] Create `docs/plans/CP1_Contract_Freeze.md` with evidence
-- [ ] **Deliverable:** Contract frozen, schema guardrails committed, feature approval workflow documented
+- [x] Verify partner's `MacroIndicatorType` enum matches the shared contract list
+- [x] Define feature approval workflow skeleton: proposal → offline eval → shadow → promote (Section 5.3)
+- [x] Create `docs/plans/CP1_Contract_Freeze.md` with evidence
+- [x] **Deliverable:** Contract frozen, schema guardrails committed, feature approval workflow documented
 
 ### Day 2 (Tue, Feb 24) — Transform Graph Scaffold + Loaders
-- [ ] Create `src/agents/preprocessing/` package
-- [ ] Build `loader.py`:
+- [x] Create `src/agents/preprocessing/` package
+- [x] Build `loader.py`:
   - `MacroLoader` — reads Silver Parquet/JSON, validates against `MacroIndicator` schema v1.1
   - `MarketLoader` — reads Silver OHLCV Parquet, validates against `Bar` schema v1.0
   - Schema version mismatch → raise `SchemaVersionError`
   - Assign dataset snapshot IDs to loaded data (Section 5.5)
-- [ ] Build `transform_graph.py`:
+- [x] Build `transform_graph.py`:
   - `TransformNode` base class: `input_schema`, `output_schema`, `version`, `transform(df) → df`
   - `TransformGraph` — DAG of nodes, topological execution order
   - Config-driven: reads `configs/transform_config_v1.json`
   - Provenance: every node output tagged with source, schema version, quality status
-- [ ] **Deliverable:** Scaffold committed, loads sample data successfully with snapshot IDs
+- [x] **Deliverable:** Scaffold committed, loads sample data successfully with snapshot IDs
 
 ### Day 3 (Wed, Feb 25) — Normalization Modules + Config Versioning
-- [ ] Build `normalizers.py`:
+- [x] Build `normalizers.py`:
   - `ZScoreNormalizer(TransformNode)` — rolling z-score with configurable window
   - `MinMaxNormalizer(TransformNode)` — rolling min-max scaling
   - `LogReturnNormalizer(TransformNode)` — log returns for price series
   - `DirectionalChangeDetector(TransformNode)` — directional change thresholds (Section 5.3)
-- [ ] Create `configs/transform_config_v1.json`:
+- [x] Create `configs/transform_config_v1.json`:
   - Each transform: name, version, parameters (window size, etc.), input/output schema
   - Config versioned and immutable per run — changes create new version
-- [ ] Tests: `tests/agents/preprocessing/test_transform_graph.py`
+- [x] Tests: `tests/agents/preprocessing/test_transform_graph.py`
   - DAG execution order, version mismatch rejection, config loading, determinism
-- [ ] **Deliverable:** Normalizers + directional change detector working with versioned config
+- [x] **Deliverable:** Normalizers + directional change detector working with versioned config
 
 ### Day 4 (Thu, Feb 26) — Lag-Alignment + Pipeline Wiring
-- [ ] Build `lag_alignment.py`:
+- [x] Build `lag_alignment.py`:
   - `LagAligner` — aligns macro indicators to market timeseries with proper lag
   - Configurable lag rules per indicator (e.g., CPI lagged to publication date, not observation date)
   - **Key guarantee:** No future macro data leaks into aligned output (Section 5.3 leakage requirement)
   - Corporate action adjustments validated against reference source (Section 5.3)
-- [ ] Build `pipeline.py`:
+- [x] Build `pipeline.py`:
   - `PreprocessingPipeline` — orchestrates: loader → lag alignment → transform graph → output
   - Produces `TransformOutput` with SHA-256 output hash and dataset snapshot ID
   - Deterministic: same input snapshot → same output hash (Section 5.3 reproducibility)
-- [ ] Build initial replay support (Section 5.5):
+- [x] Build initial replay support (Section 5.5):
   - Pipeline can reconstruct outputs from stored Bronze/Silver snapshots
   - Event-time playback mode (wall-clock playback deferred to Week 6)
-- [ ] **Deliverable:** Full pipeline wired with replay support, end-to-end test with mock data passes
+- [x] **Deliverable:** Full pipeline wired with replay support, end-to-end test with mock data passes
 
 ### Day 5 (Fri, Feb 27) — Leakage + Reproducibility 🔒 CP2
 - [ ] Build `leakage_test.py`:
