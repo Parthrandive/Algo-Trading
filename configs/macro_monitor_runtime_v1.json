@@ -1,0 +1,299 @@
+{
+  "version": "macro-monitor-runtime-v1",
+  "schema_version": "1.1",
+  "timezone": "Asia/Kolkata",
+  "accepted_indicator_enum_values": [
+    "CPI",
+    "WPI",
+    "IIP",
+    "GDP",
+    "INR_USD",
+    "BRENT_CRUDE",
+    "US_10Y",
+    "INDIA_10Y",
+    "FII_FLOW",
+    "DII_FLOW",
+    "REPO_RATE",
+    "FX_RESERVES",
+    "INDIA_US_10Y_SPREAD",
+    "RBI_BULLETIN"
+  ],
+  "week3_required_publish_set": [
+    "CPI",
+    "WPI",
+    "IIP",
+    "FII_FLOW",
+    "DII_FLOW",
+    "FX_RESERVES",
+    "RBI_BULLETIN",
+    "INDIA_US_10Y_SPREAD"
+  ],
+  "default_request_policy": {
+    "timeout_seconds": 20,
+    "retry": {
+      "max_attempts": 3,
+      "base_backoff_seconds": 2
+    },
+    "rate_limit": {
+      "calls": 10,
+      "period_seconds": 60
+    }
+  },
+  "indicator_configs": {
+    "CPI": {
+      "period": "Monthly",
+      "unit": "%",
+      "freshness_window_hours": 48,
+      "release_schedule": "monthly_post_release",
+      "sources": [
+        {
+          "name": "mospi_cpi_primary",
+          "source_type": "official_api",
+          "url_pattern": "https://www.mospi.gov.in/documents/*consumer-price-index*",
+          "retry": {
+            "max_attempts": 3,
+            "base_backoff_seconds": 2
+          },
+          "rate_limit": {
+            "calls": 6,
+            "period_seconds": 60
+          }
+        },
+        {
+          "name": "rbi_cpi_fallback",
+          "source_type": "fallback_scraper",
+          "url_pattern": "https://www.rbi.org.in/scripts/Statistics.aspx",
+          "retry": {
+            "max_attempts": 2,
+            "base_backoff_seconds": 3
+          },
+          "rate_limit": {
+            "calls": 4,
+            "period_seconds": 60
+          }
+        }
+      ]
+    },
+    "WPI": {
+      "period": "Monthly",
+      "unit": "%",
+      "freshness_window_hours": 48,
+      "release_schedule": "monthly_post_release",
+      "sources": [
+        {
+          "name": "oea_wpi_primary",
+          "source_type": "official_api",
+          "url_pattern": "https://eaindustry.nic.in/*wholesale-price-index*",
+          "retry": {
+            "max_attempts": 3,
+            "base_backoff_seconds": 2
+          },
+          "rate_limit": {
+            "calls": 6,
+            "period_seconds": 60
+          }
+        },
+        {
+          "name": "rbi_wpi_fallback",
+          "source_type": "fallback_scraper",
+          "url_pattern": "https://www.rbi.org.in/scripts/Statistics.aspx",
+          "retry": {
+            "max_attempts": 2,
+            "base_backoff_seconds": 3
+          },
+          "rate_limit": {
+            "calls": 4,
+            "period_seconds": 60
+          }
+        }
+      ]
+    },
+    "IIP": {
+      "period": "Monthly",
+      "unit": "%",
+      "freshness_window_hours": 48,
+      "release_schedule": "monthly_post_release",
+      "sources": [
+        {
+          "name": "mospi_iip_primary",
+          "source_type": "official_api",
+          "url_pattern": "https://www.mospi.gov.in/documents/*index-of-industrial-production*",
+          "retry": {
+            "max_attempts": 3,
+            "base_backoff_seconds": 2
+          },
+          "rate_limit": {
+            "calls": 6,
+            "period_seconds": 60
+          }
+        }
+      ]
+    },
+    "FII_FLOW": {
+      "period": "Daily",
+      "unit": "INR_Cr",
+      "freshness_window_hours": 4,
+      "release_schedule": "daily_eod_plus_4h",
+      "sources": [
+        {
+          "name": "nsdl_fii_primary",
+          "source_type": "official_api",
+          "url_pattern": "https://www.fpi.nsdl.co.in/web/Reports/Latest.aspx",
+          "retry": {
+            "max_attempts": 3,
+            "base_backoff_seconds": 2
+          },
+          "rate_limit": {
+            "calls": 12,
+            "period_seconds": 60
+          }
+        },
+        {
+          "name": "nse_fii_fallback",
+          "source_type": "fallback_scraper",
+          "url_pattern": "https://www.nseindia.com/reports/fii-dii",
+          "retry": {
+            "max_attempts": 2,
+            "base_backoff_seconds": 2
+          },
+          "rate_limit": {
+            "calls": 6,
+            "period_seconds": 60
+          }
+        }
+      ]
+    },
+    "DII_FLOW": {
+      "period": "Daily",
+      "unit": "INR_Cr",
+      "freshness_window_hours": 4,
+      "release_schedule": "daily_eod_plus_4h",
+      "sources": [
+        {
+          "name": "nsdl_dii_primary",
+          "source_type": "official_api",
+          "url_pattern": "https://www.fpi.nsdl.co.in/web/Reports/Latest.aspx",
+          "retry": {
+            "max_attempts": 3,
+            "base_backoff_seconds": 2
+          },
+          "rate_limit": {
+            "calls": 12,
+            "period_seconds": 60
+          }
+        },
+        {
+          "name": "nse_dii_fallback",
+          "source_type": "fallback_scraper",
+          "url_pattern": "https://www.nseindia.com/reports/fii-dii",
+          "retry": {
+            "max_attempts": 2,
+            "base_backoff_seconds": 2
+          },
+          "rate_limit": {
+            "calls": 6,
+            "period_seconds": 60
+          }
+        }
+      ]
+    },
+    "FX_RESERVES": {
+      "period": "Weekly",
+      "unit": "USD_Bn",
+      "freshness_window_hours": 24,
+      "release_schedule": "friday_release_plus_24h",
+      "sources": [
+        {
+          "name": "rbi_fx_reserves_primary",
+          "source_type": "official_api",
+          "url_pattern": "https://www.rbi.org.in/scripts/WSSView.aspx?Id=1",
+          "retry": {
+            "max_attempts": 3,
+            "base_backoff_seconds": 2
+          },
+          "rate_limit": {
+            "calls": 6,
+            "period_seconds": 60
+          }
+        }
+      ]
+    },
+    "RBI_BULLETIN": {
+      "period": "Irregular",
+      "unit": "count",
+      "event_encoding": {
+        "value": 1.0,
+        "field_mapping": "publication_event_marker"
+      },
+      "freshness_window_hours": 24,
+      "release_schedule": "post_publication_plus_24h",
+      "sources": [
+        {
+          "name": "rbi_bulletin_primary",
+          "source_type": "official_api",
+          "url_pattern": "https://www.rbi.org.in/Scripts/BS_ViewBulletin.aspx",
+          "retry": {
+            "max_attempts": 3,
+            "base_backoff_seconds": 2
+          },
+          "rate_limit": {
+            "calls": 6,
+            "period_seconds": 60
+          }
+        }
+      ]
+    },
+    "INDIA_US_10Y_SPREAD": {
+      "period": "Daily",
+      "unit": "bps",
+      "freshness_window_hours": 6,
+      "release_schedule": "daily_market_close_plus_6h",
+      "calculation": {
+        "formula": "(india_10y_percent - us_10y_percent) * 100",
+        "india_leg_indicator_name": "INDIA_10Y",
+        "us_leg_indicator_name": "US_10Y"
+      },
+      "sources": [
+        {
+          "name": "rbi_india_10y_leg",
+          "source_type": "official_api",
+          "url_pattern": "https://www.rbi.org.in/scripts/Statistics.aspx",
+          "retry": {
+            "max_attempts": 3,
+            "base_backoff_seconds": 2
+          },
+          "rate_limit": {
+            "calls": 6,
+            "period_seconds": 60
+          }
+        },
+        {
+          "name": "fred_us_10y_leg",
+          "source_type": "official_api",
+          "url_pattern": "https://api.stlouisfed.org/fred/series/observations?series_id=DGS10",
+          "retry": {
+            "max_attempts": 3,
+            "base_backoff_seconds": 2
+          },
+          "rate_limit": {
+            "calls": 10,
+            "period_seconds": 60
+          }
+        },
+        {
+          "name": "treasury_us_10y_fallback",
+          "source_type": "fallback_scraper",
+          "url_pattern": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates",
+          "retry": {
+            "max_attempts": 2,
+            "base_backoff_seconds": 2
+          },
+          "rate_limit": {
+            "calls": 6,
+            "period_seconds": 60
+          }
+        }
+      ]
+    }
+  }
+}

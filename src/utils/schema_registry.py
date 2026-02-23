@@ -44,6 +44,7 @@ def _register_default_schemas():
     SchemaRegistry.register("Bar_v1.0", Bar)
     SchemaRegistry.register("CorporateAction_v1.0", CorporateAction)
     SchemaRegistry.register("MacroIndicator_v1.0", MacroIndicator)
+    SchemaRegistry.register("MacroIndicator_v1.1", MacroIndicator)
     SchemaRegistry.register("NewsArticle_v1.0", NewsArticle)
     SchemaRegistry.register("SocialPost_v1.0", SocialPost)
     SchemaRegistry.register("EarningsTranscript_v1.0", EarningsTranscript)
