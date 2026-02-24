@@ -34,6 +34,30 @@ Multi-Agent AI Trading System for Indian Markets (NSE/F&O/MCX).
     python3 scripts/smoke_test.py
     ```
 
+## Docker Setup
+
+Use this path if you want your partner to avoid local `pip` installation and run everything through the container.
+
+1.  **Build and start app container**:
+    ```bash
+    docker compose up --build -d
+    ```
+
+2.  **(Optional) Start local DB container**:
+    ```bash
+    docker compose -f docker-compose.db.yml up -d
+    ```
+
+3.  **Verify required Python packages inside container**:
+    ```bash
+    docker compose exec algo-trading python -c "import yfinance, nsepython, psycopg2; print('deps ok')"
+    ```
+
+4.  **Run scripts from inside container**:
+    ```bash
+    docker compose exec algo-trading python scripts/show_latest_data.py RELIANCE.NS --auto-fetch-missing-history --days 1
+    ```
+
 ## Data Utility CLIs
 
 ### 1) Show Latest Data
@@ -114,6 +138,3 @@ Both data scripts follow this convention:
 - `2`: CLI usage/validation error.
 - `3`: Fatal runtime error.
 - `130`: Interrupted (`Ctrl+C`).
-
-hi from partner 
-
