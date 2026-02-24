@@ -85,12 +85,12 @@ Only publicly released or contractually licensed feeds are permitted. Unpublishe
 - [x] **Deliverable:** Frozen schema + runtime config + proxy justification committed
 
 ### Day 2 (Tue, Feb 24) — Source Connector Skeletons
-- [ ] Create `src/agents/macro/` package
-- [ ] Define `MacroClientInterface` (Protocol) with `get_indicator(name, date_range)` method
-- [ ] Scaffold concrete client stubs: `MOSPIClient`, `RBIClient`, `NSEDIIFIIClient`, `FXReservesClient`, `BondSpreadClient`
-- [ ] Write `MacroSilverRecorder` (Parquet + DB persistence, following sentinel recorder patterns)
-- [ ] Ensure provenance tagging on every record (source_type, ingestion timestamps, schema_version, quality_status)
-- [ ] **Deliverable:** All skeletons committed, type-check passes
+- [x] Create `src/agents/macro/` package
+- [x] Define `MacroClientInterface` (Protocol) with `get_indicator(name, date_range)` method
+- [x] Scaffold concrete client stubs: `MOSPIClient`, `RBIClient`, `NSEDIIFIIClient`, `FXReservesClient`, `BondSpreadClient`
+- [x] Write `MacroSilverRecorder` (Parquet + DB persistence, following sentinel recorder patterns)
+- [x] Ensure provenance tagging on every record (source_type, ingestion timestamps, schema_version, quality_status)
+- [x] **Deliverable:** All skeletons committed, 28/28 tests pass ✅
 
 ### Day 3 (Wed, Feb 25) — Parsers: CPI / WPI / IIP / RBI Bulletins
 - [ ] Implement `CPIParser` — normalize MOSPI payload → `MacroIndicator`
