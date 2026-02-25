@@ -2,25 +2,25 @@
 
 ## Data Pipeline Metrics
 
-- **Total Records Processed (Silver):** 112
-- **OHLCV Records:** 104
-- **Corporate Action Records:** 8
+- **Total Records Processed (Silver):** 166
+- **OHLCV Records:** 142
+- **Corporate Action Records:** 24
 - **Unique Symbols:** 2
 - **Symbols Present:** RELIANCE.NS, TCS.NS
 
 ## Failover & Resilience
 
 - **Primary Source Records:** 0
-- **Fallback Source Records:** 112
+- **Fallback Source Records:** 166
 - **Fallback Percentage:** 100.00%
 
 ## Latency & Lag
 
-- **Average Ingest Latency (ms):** 8963.12
-- **Max Ingest Latency (ms):** 22836.65
-- **OHLCV Maximum Lag (seconds):** 537950.39
-- **OHLCV Minimum Lag (seconds):** 81266.48
-- **OHLCV Average Lag (seconds):** 289780.63
+- **Average Ingest Latency (ms):** 2198.50
+- **Max Ingest Latency (ms):** 5024.01
+- **OHLCV Maximum Lag (seconds):** 607004.41
+- **OHLCV Minimum Lag (seconds):** 2198.18
+- **OHLCV Average Lag (seconds):** 342606.91
 
 ## Parser + Tracing
 
@@ -32,4 +32,4 @@
 ## Source Artifacts
 
 - **Metrics File:** `/Users/juhi/Desktop/algo-trading/data/e2e_test/metrics/ingest_metrics.json`
-- **Generated At (UTC):** 2026-02-22T09:26:13.060427+00:00
+- **Generated At (UTC):** 2026-02-25T05:21:49.459150+00:00

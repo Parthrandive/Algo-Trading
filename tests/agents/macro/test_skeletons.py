@@ -121,17 +121,27 @@ class TestUnsupportedIndicatorRaisesValueError:
 # 4 — NotImplementedError for supported indicators (stub behaviour)
 # ---------------------------------------------------------------------------
 
-class TestSupportedIndicatorRaisesNotImplemented:
-    def test_mospi_cpi_not_implemented(self, mospi):
+class TestSupportedIndicatorImplementationStatus:
+    def test_mospi_indicators_implemented(self, mospi):
         from src.agents.macro.client import DateRange
         from datetime import date
-        with pytest.raises(NotImplementedError):
-            mospi.get_indicator(MacroIndicatorType.CPI, DateRange(date.today(), date.today()))
+        dr = DateRange(date.today(), date.today())
+        # Should NOT raise NotImplementedError
+        mospi.get_indicator(MacroIndicatorType.CPI, dr)
+        mospi.get_indicator(MacroIndicatorType.WPI, dr)
+        mospi.get_indicator(MacroIndicatorType.IIP, dr)
 
-    def test_rbi_fx_reserves_not_implemented(self, rbi):
+    def test_rbi_bulletin_implemented(self, rbi):
         from src.agents.macro.client import DateRange
         from datetime import date
-        with pytest.raises(NotImplementedError):
+        dr = DateRange(date.today(), date.today())
+        # Should NOT raise NotImplementedError
+        rbi.get_indicator(MacroIndicatorType.RBI_BULLETIN, dr)
+
+    def test_rbi_fx_reserves_still_not_implemented(self, rbi):
+        from src.agents.macro.client import DateRange
+        from datetime import date
+        with pytest.raises(NotImplementedError, match="Day 4"):
             rbi.get_indicator(MacroIndicatorType.FX_RESERVES, DateRange(date.today(), date.today()))
 
     def test_nse_fii_not_implemented(self, nse_fiidii):

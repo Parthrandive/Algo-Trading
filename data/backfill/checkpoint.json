@@ -31,11 +31,11 @@
     "error_code": null,
     "error_message": null,
     "attempt_count": 1,
-    "last_attempt_utc": "2026-02-24T16:11:36.997938+00:00",
-    "last_success_end_utc": "2026-02-24T16:11:31.839297+00:00",
-    "bars_fetched": 15,
-    "requested_start_utc": "2026-01-25T16:11:31.839297+00:00",
-    "requested_end_utc": "2026-02-24T16:11:31.839297+00:00",
+    "last_attempt_utc": "2026-02-24T16:13:18.468933+00:00",
+    "last_success_end_utc": "2026-02-24T16:13:13.857157+00:00",
+    "bars_fetched": 140,
+    "requested_start_utc": "2026-01-25T16:13:13.857157+00:00",
+    "requested_end_utc": "2026-02-24T16:13:13.857157+00:00",
     "interval": "1h"
   }
 }

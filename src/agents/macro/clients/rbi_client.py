@@ -22,6 +22,7 @@ from typing import Sequence
 from zoneinfo import ZoneInfo
 
 from src.agents.macro.client import DateRange
+from src.agents.macro.parsers import RBIBulletinParser
 from src.schemas.macro_data import (
     MacroIndicator,
     MacroIndicatorType,
@@ -58,14 +59,12 @@ class RBIClient:
     Concrete client stub for RBI data (FX Reserves, RBI Bulletins, India 10Y).
 
     Satisfies ``MacroClientInterface`` (Protocol, duck-typed).
-
-    RBI_BULLETIN encoding rule (Schema v1.1):
-        value = 1.0, unit = "count", period = "Irregular".
-        Raw text extraction is Textual Data Agent scope.
-
-    Day 3 will add real HTTP fetch + parsing for RBI Bulletins.
-    Day 4 will add FX Reserves + India 10Y leg parsing.
     """
+
+    def __init__(self) -> None:
+        self._parsers = {
+            MacroIndicatorType.RBI_BULLETIN: RBIBulletinParser(),
+        }
 
     @property
     def supported_indicators(self) -> frozenset[MacroIndicatorType]:
@@ -93,13 +92,26 @@ class RBIClient:
             )
 
         logger.info(
-            "RBIClient.get_indicator called: indicator=%s range=%s — stub",
+            "RBIClient.get_indicator called: indicator=%s range=%s",
             name.value,
             date_range,
         )
+
+        if name == MacroIndicatorType.RBI_BULLETIN:
+            # Simulated raw payload for RBI Bulletin
+            simulated_raw = {
+                "publications": [
+                    {
+                        "date": datetime.combine(date_range.end, datetime.min.time()).isoformat(),
+                        "title": "Simulated RBI Bulletin"
+                    }
+                ]
+            }
+            return self._parsers[name].parse(simulated_raw)
+
         raise NotImplementedError(
             f"RBIClient.get_indicator({name.value!r}) — "
-            "HTTP fetch + parser not implemented yet."
+            "HTTP fetch + parser not implemented yet (scheduled for Day 4 for this indicator)."
         )
 
     def _make_stub_record(

@@ -65,7 +65,7 @@ class MacroIndicatorDB(Base):
     quality_status = Column(String(8), nullable=False, default="pass")
     ingestion_timestamp_utc = Column(DateTime(timezone=True), nullable=False)
     ingestion_timestamp_ist = Column(DateTime(timezone=True), nullable=False)
-    schema_version = Column(String(8), nullable=False, default="1.0")
+    schema_version = Column(String(8), nullable=False, default="1.1")
 
 class TextItemDB(Base):
     __tablename__ = "text_items"
@@ -123,3 +123,5 @@ class IngestionLog(Base):
     status = Column(String(16), nullable=False, default="success")
     error_message = Column(Text, nullable=True)
     duration_ms = Column(Float, nullable=True)
+    dataset_snapshot_id = Column(String(128), nullable=True)
+    code_hash = Column(String(64), nullable=True)
