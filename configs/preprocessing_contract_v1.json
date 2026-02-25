@@ -1,7 +1,7 @@
 {
   "contract_version": "1.0",
   "accepted_input_schemas": [
-    "market.bar.v1",
+    "market.bar.1.0",
     "macro.indicator.v1.1"
   ],
   "output_schema_version": "preprocessing.output.v1.0",
