@@ -101,35 +101,25 @@ class CorporateActionValidator:
         ca_df["ex_date"] = pd.to_datetime(ca_df["ex_date"], utc=True)
         
         # Supported types: SPLIT, BONUS  (Dividends ignored for simple price ratios in this phase)
-        for _, row in ca_df[ca_df["action_type"].isin(["split", "bonus"])].iterrows():
+        for _, row in ca_df[ca_df["action_type"].isin(["SPLIT", "BONUS"])].iterrows():
             sym = row["symbol"]
             ex_date = row["ex_date"]
-            ratio_str = row.get("ratio")
+            ratio = row["ratio"]
             
-            if pd.isna(ratio_str) or not isinstance(ratio_str, str):
-                continue
-
-            try:
-                # Schema enforced format "numerator:denominator"
-                num, den = map(float, ratio_str.split(":"))
-                if num <= 0 or den <= 0:
-                    continue
-                ratio = num / den
-            except Exception:
+            if pd.isna(ratio) or ratio <= 0:
                 continue
 
             # Identify all rows for the symbol before the ex_date
             mask = (market_df["symbol"] == sym) & (market_df["timestamp"] < ex_date)
             
             # Adjust price thresholds backwards
-            # A 1:2 split (ratio 0.5) means historical prices should be multiplied by 0.5
             for col in ["open", "high", "low", "close"]:
                 if col in market_df.columns:
-                    market_df.loc[mask, col] = market_df.loc[mask, col] * ratio
+                    market_df.loc[mask, col] = market_df.loc[mask, col] / ratio
             
-            # Adjust volume equivalently up
+            # Adjust volume equivalently up (money is same, shares are more)
             if "volume" in market_df.columns:
-                 market_df.loc[mask, "volume"] = market_df.loc[mask, "volume"] / ratio
+                 market_df.loc[mask, "volume"] = market_df.loc[mask, "volume"] * ratio
                  
         return market_df
 

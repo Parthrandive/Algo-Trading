@@ -105,7 +105,7 @@ Your preprocessing I/O contract defines:
 - [x] Build initial replay support (Section 5.5):
   - Pipeline can reconstruct outputs from stored Bronze/Silver snapshots
   - Event-time playback mode (wall-clock playback deferred to Week 6)
-- [x] **Deliverable:** Full pipeline wired with replay support, end-to-end test with real NSE data passes
+- [x] **Deliverable:** Full pipeline wired with replay support, end-to-end test with mock data passes
 
 ### Day 5 (Fri, Feb 27) — Leakage + Reproducibility 🔒 CP2
 - [ ] Build `leakage_test.py`:
