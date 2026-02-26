@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List
 import logging
 
-from src.schemas.market_data import Bar, CorporateAction
+from src.schemas.market_data import Bar, CorporateAction, Tick
 from src.utils.validation import StreamMonotonicityChecker
 
 logger = logging.getLogger(__name__)
@@ -18,6 +18,9 @@ class SilverRecorder:
         self.base_dir = Path(base_dir)
         self.ohlcv_dir = self.base_dir / "ohlcv"
         self.ohlcv_dir.mkdir(parents=True, exist_ok=True)
+
+        self.ticks_dir = self.base_dir / "ticks"
+        self.ticks_dir.mkdir(parents=True, exist_ok=True)
         
         self.corp_action_dir = self.base_dir / "corporate_actions"
         self.corp_action_dir.mkdir(parents=True, exist_ok=True)
@@ -51,6 +54,29 @@ class SilverRecorder:
 
         self._persist_valid_bars(valid_bars)
         self._persist_quarantined_bars(quarantined_bars)
+
+    def save_ticks(self, ticks: List[Tick]):
+        """
+        Save a list of Tick objects to Parquet.
+        Partitions by Symbol -> Year -> Month.
+        """
+        if not ticks:
+            return
+
+        valid_ticks = []
+        quarantined_ticks = []
+
+        sorted_ticks = sorted(ticks, key=lambda t: t.timestamp)
+
+        for tick in sorted_ticks:
+            if self.monotonicity_checker.check(tick.symbol, tick.timestamp, "tick"):
+                valid_ticks.append(tick)
+            else:
+                logger.warning(f"Quarantining out-of-order tick for {tick.symbol} at {tick.timestamp}")
+                quarantined_ticks.append(tick)
+
+        self._persist_valid_ticks(valid_ticks)
+        self._persist_quarantined_ticks(quarantined_ticks)
 
     def save_corporate_actions(self, actions: List[CorporateAction]):
         """
@@ -102,6 +128,34 @@ class SilverRecorder:
             
         for symbol, group in df.groupby('symbol'):
             self._save_symbol_group(symbol, group, self.quarantine_dir)
+
+    def _persist_valid_ticks(self, ticks: List[Tick]):
+        if not ticks:
+            return
+
+        data = [tick.model_dump() for tick in ticks]
+        df = pd.DataFrame(data)
+
+        if "timestamp" in df.columns:
+            df["timestamp"] = pd.to_datetime(df["timestamp"])
+
+        for symbol, group in df.groupby("symbol"):
+            self._save_symbol_group(symbol, group, self.ticks_dir)
+
+    def _persist_quarantined_ticks(self, ticks: List[Tick]):
+        if not ticks:
+            return
+
+        data = [tick.model_dump() for tick in ticks]
+        df = pd.DataFrame(data)
+
+        if "timestamp" in df.columns:
+            df["timestamp"] = pd.to_datetime(df["timestamp"])
+
+        tick_quarantine_dir = self.quarantine_dir / "ticks"
+        tick_quarantine_dir.mkdir(parents=True, exist_ok=True)
+        for symbol, group in df.groupby("symbol"):
+            self._save_symbol_group(symbol, group, tick_quarantine_dir)
 
     def _save_symbol_group(self, symbol: str, df: pd.DataFrame, base_output_dir: Path):
         """

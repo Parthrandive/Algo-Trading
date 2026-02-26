@@ -32,7 +32,7 @@ Scope rule:
 - For `RBI_BULLETIN`, expect numeric event encoding from Macro Monitor: `value=1.0`, `unit="count"`, `period="Irregular"`.
 
 Your preprocessing I/O contract defines:
-- **Input:** Silver-layer `MacroIndicator` (v1.1) + `Bar` (v1.0) records
+- **Input:** Silver-layer `MacroIndicator` (v1.1) + market records (`Bar` v1.0, `Tick` v1.0)
 - **Output:** Gold-layer `TransformOutput` with output hash, config version, and processed records
 
 ### Key Acceptance Criteria (Section 5.3)
@@ -57,7 +57,7 @@ Your preprocessing I/O contract defines:
   - `TransformOutput` — output_hash (SHA-256), input_snapshot_id, transform_config_version, records
   - `PreprocessingContract` — input/output field specs with type + range constraints
 - [x] Create `configs/preprocessing_contract_v1.json`:
-  - Accepted input schemas: `MacroIndicator v1.1`, `Bar v1.0`
+  - Accepted input schemas: `MacroIndicator v1.1`, `Bar v1.0`, `Tick v1.0`
   - Output schema version: `TransformOutput v1.0`
   - Dataset snapshot ID format and deterministic identifier rules (Section 5.5)
 - [x] Verify partner's `MacroIndicatorType` enum matches the shared contract list
@@ -69,7 +69,7 @@ Your preprocessing I/O contract defines:
 - [x] Create `src/agents/preprocessing/` package
 - [x] Build `loader.py`:
   - `MacroLoader` — reads Silver Parquet/JSON, validates against `MacroIndicator` schema v1.1
-  - `MarketLoader` — reads Silver OHLCV Parquet, validates against `Bar` schema v1.0
+  - `MarketLoader` — reads Silver OHLCV + real-time tick Parquet, validates against `Bar`/`Tick` schemas
   - Schema version mismatch → raise `SchemaVersionError`
   - Assign dataset snapshot IDs to loaded data (Section 5.5)
 - [x] Build `transform_graph.py`:
@@ -163,7 +163,7 @@ Your preprocessing I/O contract defines:
 
 | CP | Date | Gate | Pass Criteria |
 |----|------|------|---------------|
-| CP1 | Feb 23 | Contract Freeze | `preprocessing_contract_v1.json` committed, accepted input = MacroIndicator v1.1 + Bar v1.0, feature approval workflow documented |
+| CP1 | Feb 23 | Contract Freeze | `preprocessing_contract_v1.json` committed, accepted input = MacroIndicator v1.1 + Bar/Tick v1.0, feature approval workflow documented |
 | CP2 | Feb 27 | Preprocessing Readiness | Leakage tests 100% green, reproducibility hash stable across 3 runs, dataset snapshot IDs assigned |
 | CP3 | Feb 28 | **Sync Gate A** | All 8 macro sample payloads load + transform through pipeline with valid provenance |
 | CP4 | Mar 1 | Week 3 Readiness | Deterministic replay passes, event-time replay verified, integration-readiness note published |
