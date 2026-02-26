@@ -109,3 +109,89 @@ def test_parser_malformed_data(cpi_parser):
     }
     records = cpi_parser.parse(raw)
     assert len(records) == 0
+
+from src.agents.macro.parsers import FIIDIIParser, FXReservesParser, BondSpreadParser
+
+@pytest.fixture
+def fiidii_parser():
+    return FIIDIIParser()
+
+@pytest.fixture
+def fx_parser():
+    return FXReservesParser()
+
+@pytest.fixture
+def bond_spread_parser():
+    return BondSpreadParser()
+
+def test_fiidii_parser_success(fiidii_parser):
+    raw = {
+        "date": "2026-02-26",
+        "fii_flow": -1500.5,
+        "dii_flow": 2000.0
+    }
+    records = fiidii_parser.parse(raw)
+    assert len(records) == 2
+    
+    fii_record = next(r for r in records if r.indicator_name == MacroIndicatorType.FII_FLOW)
+    assert fii_record.value == -1500.5
+    assert fii_record.unit == "INR_Cr"
+    assert fii_record.period == "Daily"
+    
+    dii_record = next(r for r in records if r.indicator_name == MacroIndicatorType.DII_FLOW)
+    assert dii_record.value == 2000.0
+    assert dii_record.unit == "INR_Cr"
+    assert dii_record.period == "Daily"
+
+def test_fx_parser_success(fx_parser):
+    raw = {
+        "date": "2026-02-20",
+        "value": 680.5
+    }
+    records = fx_parser.parse(raw)
+    assert len(records) == 1
+    assert records[0].indicator_name == MacroIndicatorType.FX_RESERVES
+    assert records[0].value == 680.5
+    assert records[0].unit == "USD_Bn"
+    assert records[0].period == "Weekly"
+
+def test_bond_spread_parser_success(bond_spread_parser):
+    raw = {
+        "date": "2026-02-26",
+        "india_10y_percent": 7.10,
+        "us_10y_percent": 4.25
+    }
+    records = bond_spread_parser.parse(raw)
+    assert len(records) == 1
+    assert records[0].indicator_name == MacroIndicatorType.INDIA_US_10Y_SPREAD
+    # (7.10 - 4.25) * 100 = 2.85 * 100 = 285.0
+    assert records[0].value == 285.0
+    assert records[0].unit == "bps"
+    assert records[0].period == "Daily"
+
+def test_fiidii_parser_partial_data(fiidii_parser):
+    raw = {
+        "date": "2026-02-26",
+        "fii_flow": -1500.5
+        # dii_flow missing
+    }
+    records = fiidii_parser.parse(raw)
+    assert len(records) == 1
+    assert records[0].indicator_name == MacroIndicatorType.FII_FLOW
+
+def test_fiidii_parser_missing_date(fiidii_parser):
+    raw = {
+        "fii_flow": -1500.5,
+        "dii_flow": 2000.0
+    }
+    records = fiidii_parser.parse(raw)
+    assert len(records) == 0
+
+def test_bond_spread_parser_missing_legs(bond_spread_parser):
+    raw = {
+        "date": "2026-02-26",
+        "india_10y_percent": 7.10
+        # us_10y missing
+    }
+    records = bond_spread_parser.parse(raw)
+    assert len(records) == 0

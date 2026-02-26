@@ -207,3 +207,158 @@ class RBIBulletinParser(BaseParser):
             except (KeyError, ValueError, TypeError) as e:
                 logger.error("Failed to parse RBI Bulletin item %s: %s", pub, e)
         return results
+
+class FIIDIIParser(BaseParser):
+    unit = "INR_Cr"
+    period = "Daily"
+    
+    def parse(self, raw_data: dict[str, Any]) -> Sequence[MacroIndicator]:
+        """
+        Expected schema:
+        {
+            "date": "2026-02-26",
+            "fii_flow": -1500.5,
+            "dii_flow": 2000.0
+        }
+        """
+        from zoneinfo import ZoneInfo
+        IST = ZoneInfo("Asia/Kolkata")
+        results = []
+        now = datetime.now(UTC)
+        
+        try:
+            dt_str = raw_data.get("date")
+            if not dt_str:
+                raise ValueError("Missing date")
+            dt = datetime.fromisoformat(dt_str).replace(tzinfo=UTC)
+            
+            if "fii_flow" in raw_data:
+                fii_val = float(raw_data["fii_flow"])
+                quality_fii = check_quality(MacroIndicatorType.FII_FLOW, fii_val, dt, now)
+                results.append(MacroIndicator(
+                    indicator_name=MacroIndicatorType.FII_FLOW,
+                    value=fii_val,
+                    unit=self.unit,
+                    period=self.period,
+                    timestamp=dt,
+                    source_type=self.source_type,
+                    ingestion_timestamp_utc=now,
+                    ingestion_timestamp_ist=now.astimezone(IST),
+                    schema_version="1.1",
+                    quality_status=quality_fii,
+                ))
+                
+            if "dii_flow" in raw_data:
+                dii_val = float(raw_data["dii_flow"])
+                quality_dii = check_quality(MacroIndicatorType.DII_FLOW, dii_val, dt, now)
+                results.append(MacroIndicator(
+                    indicator_name=MacroIndicatorType.DII_FLOW,
+                    value=dii_val,
+                    unit=self.unit,
+                    period=self.period,
+                    timestamp=dt,
+                    source_type=self.source_type,
+                    ingestion_timestamp_utc=now,
+                    ingestion_timestamp_ist=now.astimezone(IST),
+                    schema_version="1.1",
+                    quality_status=quality_dii,
+                ))
+                
+        except (ValueError, TypeError) as e:
+            logger.error("Failed to parse FIIDII data %s: %s", raw_data, e)
+            
+        return results
+
+class FXReservesParser(BaseParser):
+    indicator_type = MacroIndicatorType.FX_RESERVES
+    unit = "USD_Bn"
+    period = "Weekly"
+    
+    def parse(self, raw_data: dict[str, Any]) -> Sequence[MacroIndicator]:
+        """
+        Expected schema:
+        {
+            "date": "2026-02-20",
+            "value": 680.5
+        }
+        """
+        from zoneinfo import ZoneInfo
+        IST = ZoneInfo("Asia/Kolkata")
+        results = []
+        now = datetime.now(UTC)
+        
+        try:
+            dt_str = raw_data.get("date")
+            if not dt_str:
+                raise ValueError("Missing date")
+            dt = datetime.fromisoformat(dt_str).replace(tzinfo=UTC)
+            
+            val = float(raw_data["value"])
+            quality = check_quality(self.indicator_type, val, dt, now)
+            
+            results.append(MacroIndicator(
+                indicator_name=self.indicator_type,
+                value=val,
+                unit=self.unit,
+                period=self.period,
+                timestamp=dt,
+                source_type=self.source_type,
+                ingestion_timestamp_utc=now,
+                ingestion_timestamp_ist=now.astimezone(IST),
+                schema_version="1.1",
+                quality_status=quality,
+            ))
+            
+        except (KeyError, ValueError, TypeError) as e:
+            logger.error("Failed to parse FX Reserves data %s: %s", raw_data, e)
+            
+        return results
+
+class BondSpreadParser(BaseParser):
+    indicator_type = MacroIndicatorType.INDIA_US_10Y_SPREAD
+    unit = "bps"
+    period = "Daily"
+    
+    def parse(self, raw_data: dict[str, Any]) -> Sequence[MacroIndicator]:
+        """
+        Expected schema:
+        {
+            "date": "2026-02-26",
+            "india_10y_percent": 7.10,
+            "us_10y_percent": 4.25
+        }
+        """
+        from zoneinfo import ZoneInfo
+        IST = ZoneInfo("Asia/Kolkata")
+        results = []
+        now = datetime.now(UTC)
+        
+        try:
+            dt_str = raw_data.get("date")
+            if not dt_str:
+                raise ValueError("Missing date")
+            dt = datetime.fromisoformat(dt_str).replace(tzinfo=UTC)
+            
+            ind_val = float(raw_data["india_10y_percent"])
+            us_val = float(raw_data["us_10y_percent"])
+            
+            spread_bps = round((ind_val - us_val) * 100, 4)
+            quality = check_quality(self.indicator_type, spread_bps, dt, now)
+            
+            results.append(MacroIndicator(
+                indicator_name=self.indicator_type,
+                value=spread_bps,
+                unit=self.unit,
+                period=self.period,
+                timestamp=dt,
+                source_type=self.source_type,
+                ingestion_timestamp_utc=now,
+                ingestion_timestamp_ist=now.astimezone(IST),
+                schema_version="1.1",
+                quality_status=quality,
+            ))
+            
+        except (KeyError, ValueError, TypeError) as e:
+            logger.error("Failed to parse Bond Spread data %s: %s", raw_data, e)
+            
+        return results
