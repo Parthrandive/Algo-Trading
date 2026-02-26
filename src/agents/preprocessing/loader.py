@@ -80,7 +80,11 @@ class MarketLoader(PreprocessingLoader):
         try:
             # Silver recorder outputs parquet
             if path.is_dir():
-                df = pd.read_parquet(path)
+                # Read all parquet files in the directory tree (e.g. symbol/year/month/*.parquet)
+                parquet_files = list(path.glob("**/*.parquet"))
+                if not parquet_files:
+                    return pd.DataFrame()
+                df = pd.concat([pd.read_parquet(f) for f in parquet_files], ignore_index=True)
             else:
                 df = pd.read_parquet(path)
         except Exception as e:
