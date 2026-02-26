@@ -93,22 +93,22 @@ Only publicly released or contractually licensed feeds are permitted. Unpublishe
 - [x] **Deliverable:** All skeletons committed, 28/28 tests pass ✅
 
 ### Day 3 (Wed, Feb 25) — Parsers: CPI / WPI / IIP / RBI Bulletins
-- [ ] Implement `CPIParser` — normalize MOSPI payload → `MacroIndicator`
-- [ ] Implement `WPIParser` — normalize OEA payload → `MacroIndicator`
-- [ ] Implement `IIPParser` — normalize MOSPI payload → `MacroIndicator`
-- [ ] Implement `RBIBulletinParser` — extract structured fields from bulletin HTML/PDF
-- [ ] Add data quality checks: missingness, outliers, and latency (Section 5.2 requirement)
-- [ ] Unit tests for all 4 parsers (`tests/agents/macro/test_parsers.py`)
-- [ ] **Deliverable:** All 4 parsers produce valid `MacroIndicator` records with quality checks
+- [x] Implement `CPIParser` — normalize MOSPI payload → `MacroIndicator`
+- [x] Implement `WPIParser` — normalize OEA payload → `MacroIndicator`
+- [x] Implement `IIPParser` — normalize MOSPI payload → `MacroIndicator`
+- [x] Implement `RBIBulletinParser` — extract structured fields from bulletin HTML/PDF
+- [x] Add data quality checks: missingness, outliers, and latency (Section 5.2 requirement)
+- [x] Unit tests for all 4 parsers (`tests/agents/macro/test_parsers.py`)
+- [x] **Deliverable:** All 4 parsers produce valid `MacroIndicator` records with quality checks
 
 ### Day 4 (Thu, Feb 26) — Parsers: FII/DII, FX Reserves, 10Y Spread
-- [ ] Implement `FIIDIIParser` — normalize NSDL/NSE daily flow data
-- [ ] Implement `FXReservesParser` — normalize RBI weekly supplement
-- [ ] Implement `BondSpreadParser` — compute India-US 10Y spread from RBI + FRED
-- [ ] `MacroIngestPipeline` — Bronze → Silver with provenance tags
-- [ ] Feed integrity failure → trigger `reduce-only` advisory flag (Section 5.1 pattern)
-- [ ] Unit tests for all 3 parsers + pipeline integration test
-- [ ] **Deliverable:** All parsers + pipeline working end-to-end with provenance
+- [x] Implement `FIIDIIParser` — normalize NSDL/NSE daily flow data
+- [x] Implement `FXReservesParser` — normalize RBI weekly supplement
+- [x] Implement `BondSpreadParser` — compute India-US 10Y spread from RBI + FRED
+- [x] `MacroIngestPipeline` — Bronze → Silver with provenance tags
+- [x] Feed integrity failure → trigger `reduce-only` advisory flag (Section 5.1 pattern)
+- [x] Unit tests for all 3 parsers + pipeline integration test
+- [x] **Deliverable:** All parsers + pipeline working end-to-end with provenance
 
 ### Day 5 (Fri, Feb 27) — Scheduler + Reliability 🔒 CP2
 - [ ] Implement `MacroScheduler` — cron jobs per indicator mapped to release cadence from runtime config

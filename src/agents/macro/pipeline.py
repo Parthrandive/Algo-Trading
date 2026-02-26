@@ -5,7 +5,7 @@ Macro Ingestion Pipeline orchestrating Bronze (raw) -> Silver (normalized) flow.
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Sequence, cast
+from typing import Any, Sequence, cast
 
 from src.agents.macro.client import DateRange, MacroClientInterface
 from src.agents.macro.parsers import BaseParser

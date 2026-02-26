@@ -1,11 +1,12 @@
 import pytest
-import shutil
-from pathlib import Path
 from datetime import UTC, datetime, timedelta
 
 from src.agents.macro.client import DateRange, MacroClientInterface
+from src.agents.macro.clients.bond_spread_client import BondSpreadClient
+from src.agents.macro.clients.fx_reserves_client import FXReservesClient
+from src.agents.macro.clients.nse_fiidii_client import NSEDIIFIIClient
 from src.agents.macro.pipeline import MacroIngestPipeline
-from src.agents.macro.parsers import BaseParser
+from src.agents.macro.parsers import BaseParser, BondSpreadParser, FIIDIIParser, FXReservesParser
 from src.agents.macro.recorder import MacroSilverRecorder
 from src.schemas.macro_data import MacroIndicator, MacroIndicatorType, SourceType, QualityFlag
 from src.agents.sentinel.failover_client import DegradationState
@@ -140,3 +141,40 @@ def test_pipeline_recovery(pipeline):
     
     assert len(records) == 1
     assert pipeline.degradation_state == DegradationState.NORMAL
+
+
+def test_pipeline_nse_fii_end_to_end(pipeline):
+    client = NSEDIIFIIClient()
+    parser = FIIDIIParser()
+    dr = DateRange(start=(datetime.now(UTC) - timedelta(days=1)).date(), end=datetime.now(UTC).date())
+
+    records = pipeline.run_ingest(client, MacroIndicatorType.FII_FLOW, dr, parser)
+
+    assert len(records) == 1
+    assert records[0].indicator_name == MacroIndicatorType.FII_FLOW
+    assert records[0].schema_version == "1.1"
+    assert pipeline.degradation_state == DegradationState.NORMAL
+
+
+def test_pipeline_fx_reserves_end_to_end(pipeline):
+    client = FXReservesClient()
+    parser = FXReservesParser()
+    dr = DateRange(start=(datetime.now(UTC) - timedelta(days=1)).date(), end=datetime.now(UTC).date())
+
+    records = pipeline.run_ingest(client, MacroIndicatorType.FX_RESERVES, dr, parser)
+
+    assert len(records) == 1
+    assert records[0].indicator_name == MacroIndicatorType.FX_RESERVES
+    assert records[0].schema_version == "1.1"
+
+
+def test_pipeline_bond_spread_end_to_end(pipeline):
+    client = BondSpreadClient()
+    parser = BondSpreadParser()
+    dr = DateRange(start=(datetime.now(UTC) - timedelta(days=1)).date(), end=datetime.now(UTC).date())
+
+    records = pipeline.run_ingest(client, MacroIndicatorType.INDIA_US_10Y_SPREAD, dr, parser)
+
+    assert len(records) == 1
+    assert records[0].indicator_name == MacroIndicatorType.INDIA_US_10Y_SPREAD
+    assert records[0].schema_version == "1.1"
