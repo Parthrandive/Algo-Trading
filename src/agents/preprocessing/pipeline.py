@@ -13,6 +13,7 @@ from src.agents.preprocessing.lag_alignment import LagAligner, CorporateActionVa
 from src.agents.preprocessing.transform_graph import TransformGraph
 from src.agents.preprocessing.normalizers import LogReturnNormalizer, ZScoreNormalizer, MinMaxNormalizer, DirectionalChangeDetector
 from src.schemas.preprocessing_data import TransformOutput
+from src.agents.preprocessing.reproducibility import ReproducibilityHasher
 
 logger = logging.getLogger(__name__)
 
@@ -109,27 +110,4 @@ class PreprocessingPipeline:
         """
         Produces the SHA-256 hash guaranteeing the identical snapshot/config pairing always results in the same artifact.
         """
-        # Sort values precisely before hashing to ensure determinism
-        df = df.sort_values(by=["symbol", "timestamp"])
-        df = df.fillna(0.0).infer_objects(copy=False) # Standardize representations of null
-        
-        # Dump robustly for the hashing
-        records = df.to_dict(orient="records")
-        for r in records:
-             # Ensure dict serialization of datetimes handles JSON natively
-             for k, v in r.items():
-                 if isinstance(v, (pd.Timestamp, datetime)):
-                     r[k] = v.isoformat()
-                 elif pd.isna(v):  # Handle any remaining NaNs 
-                     r[k] = None
-
-        serialized_data = json.dumps(records, sort_keys=True)
-        hash_digest = hashlib.sha256(f"{snapshot_id}|{serialized_data}".encode("utf-8")).hexdigest()
-        
-        # Section 5.3: Determinisitic hashing. Section 5.5: Event-time playback.
-        return TransformOutput(
-            output_hash=hash_digest,
-            input_snapshot_id=snapshot_id,
-            transform_config_version="v1.0", # Can be read from the parsed graph config metadata in the future
-            records=records
-        )
+        return ReproducibilityHasher.build_deterministic_output(df, snapshot_id, "v1.0")

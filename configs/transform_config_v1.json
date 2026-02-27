@@ -27,7 +27,7 @@
       "input_schema_version": "preprocessing.features.v1.0",
       "output_schema_version": "preprocessing.features.v1.0",
       "parameters": {
-        "target_column": "value",
+        "target_column": "CPI",
         "output_column": "macro_directional_flag",
         "threshold": 0.02
       }

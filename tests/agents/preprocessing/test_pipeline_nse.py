@@ -93,7 +93,7 @@ def test_real_nse_data_pipeline(nse_pipeline_setup):
         snapshot_id="snapshot_real_nse_01"
     )
     
-    # Asserts
+    # Asserts for base pipeline success
     assert output.input_snapshot_id == "snapshot_real_nse_01"
     assert len(output.records) > 1000  # 474 files * ~7 hours = ~3000 records
     
@@ -107,3 +107,21 @@ def test_real_nse_data_pipeline(nse_pipeline_setup):
     
     # FII_FLOW and CPI might be 0.0 or NaN filled depending on alignment, but they should be columns
     assert "FII_FLOW" in first_record or output.records[-1].get("FII_FLOW") is not None
+
+    # 1. Reproducibility Check (Section 5.3 + 5.5)
+    output_run_2 = pipeline.process_snapshot(
+        market_source_path=real_market_path,
+        macro_source_path=macro_path,
+        snapshot_id="snapshot_real_nse_01"
+    )
+    assert output.output_hash == output_run_2.output_hash, "NSE Pipeline output is not reproducible!"
+
+    # 2. Leakage Check (Section 5.3)
+    from src.agents.preprocessing.leakage_test import LeakageTestHarness
+    harness = LeakageTestHarness()
+    
+    market_df = pipeline.market_loader.load(real_market_path, "snapshot_real_nse_01")
+    macro_df = pipeline.macro_loader.load(macro_path, "snapshot_real_nse_01")
+    
+    assert harness.verify_time_alignment(output), "Time alignment test failed for real NSE data!"
+    assert harness.verify_no_lookahead(market_df, macro_df, output), "Lookahead leakage detected in real NSE data!"
