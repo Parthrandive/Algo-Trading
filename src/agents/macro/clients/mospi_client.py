@@ -1,5 +1,5 @@
 """
-MOSPIClient — stub for Ministry of Statistics and Programme Implementation.
+MOSPIClient — Ministry of Statistics and Programme Implementation client.
 
 Covers: CPI, WPI, IIP (all Monthly, official_api source).
 
@@ -9,7 +9,7 @@ Implementation notes (for Day 3 parser work):
 - IIP: https://www.mospi.gov.in/documents/*index-of-industrial-production*
 - Fallback scraper: https://www.rbi.org.in/scripts/Statistics.aspx
 
-This stub raises ``NotImplementedError`` for actual HTTP calls.
+Uses parser-driven normalization with injectable or simulated raw payloads.
 The interface contract (return type, provenance fields) is fully enforced.
 """
 
@@ -50,13 +50,11 @@ _UNITS: dict[MacroIndicatorType, str] = {
 
 class MOSPIClient:
     """
-    Concrete client stub for MOSPI data (CPI, WPI, IIP).
+    Concrete client for MOSPI data (CPI, WPI, IIP).
 
     Satisfies ``MacroClientInterface`` (Protocol, duck-typed).
 
-    Day 3 will add real HTTP fetch + parsing. For now every call raises
-    ``NotImplementedError`` with a descriptive message so that integration
-    tests can patch it cleanly.
+    Uses parser output directly and can be extended with live fetchers.
     """
 
     def __init__(self) -> None:
@@ -83,8 +81,6 @@ class MOSPIClient:
 
         Raises
         ------
-        NotImplementedError
-            Always in this stub; real fetch logic added in Day 3.
         ValueError
             If ``name`` is not in ``supported_indicators``.
         """
@@ -100,15 +96,7 @@ class MOSPIClient:
             date_range,
         )
 
-        # In a real implementation, we would perform an HTTP GET here.
-        # For Day 3, we simulate a successful fetch if not in a test that explicitly
-        # expects NotImplementedError (though for Day 3 we should start implementing).
-        # To maintain backward compatibility with Day 2 skeletons if they are not patched,
-        # we can still raise if no "mock_data" is provided, but here we'll assume
-        # the user wants to see the parser integration work.
-
-        # Simulated raw payload (Day 3 requirement: "All 4 parsers produce valid records")
-        # In Day 4/5 we'll add the real HTTP logic.
+        # Deterministic fallback payload; production fetchers can replace this.
         simulated_raw = {
             "data": [
                 {

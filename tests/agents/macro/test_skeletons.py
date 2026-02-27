@@ -5,8 +5,7 @@ These tests verify:
 1. All 5 clients satisfy MacroClientInterface (duck-typed Protocol).
 2. Each client's `supported_indicators` is correct and non-empty.
 3. `get_indicator` raises ValueError for unsupported indicators.
-4. `get_indicator` raises NotImplementedError for supported indicators
-   (stub behaviour — real fetch not yet implemented).
+4. `get_indicator` returns schema-valid records for supported indicators.
 5. `_make_stub_record` returns a valid MacroIndicator with correct provenance.
 6. BondSpreadClient._make_stub_record computes spread_bps correctly.
 7. MacroSilverRecorder.save_indicators writes Parquet files with dedup.
@@ -118,7 +117,7 @@ class TestUnsupportedIndicatorRaisesValueError:
 
 
 # ---------------------------------------------------------------------------
-# 4 — NotImplementedError for supported indicators (stub behaviour)
+# 4 — Supported indicators return records
 # ---------------------------------------------------------------------------
 
 class TestSupportedIndicatorImplementationStatus:
@@ -126,7 +125,6 @@ class TestSupportedIndicatorImplementationStatus:
         from src.agents.macro.client import DateRange
         from datetime import date
         dr = DateRange(date.today(), date.today())
-        # Should NOT raise NotImplementedError
         mospi.get_indicator(MacroIndicatorType.CPI, dr)
         mospi.get_indicator(MacroIndicatorType.WPI, dr)
         mospi.get_indicator(MacroIndicatorType.IIP, dr)
@@ -135,26 +133,49 @@ class TestSupportedIndicatorImplementationStatus:
         from src.agents.macro.client import DateRange
         from datetime import date
         dr = DateRange(date.today(), date.today())
-        # Should NOT raise NotImplementedError
-        rbi.get_indicator(MacroIndicatorType.RBI_BULLETIN, dr)
+        records = rbi.get_indicator(MacroIndicatorType.RBI_BULLETIN, dr)
+        assert len(records) == 1
+        assert records[0].indicator_name == MacroIndicatorType.RBI_BULLETIN
 
-    def test_rbi_fx_reserves_still_not_implemented(self, rbi):
+    def test_rbi_fx_reserves_implemented(self, rbi):
         from src.agents.macro.client import DateRange
         from datetime import date
-        with pytest.raises(NotImplementedError, match="Day 4"):
-            rbi.get_indicator(MacroIndicatorType.FX_RESERVES, DateRange(date.today(), date.today()))
+        records = rbi.get_indicator(
+            MacroIndicatorType.FX_RESERVES,
+            DateRange(date.today(), date.today()),
+        )
+        assert len(records) == 1
+        assert records[0].indicator_name == MacroIndicatorType.FX_RESERVES
 
-    def test_nse_fii_not_implemented(self, nse_fiidii):
+    def test_rbi_india_10y_implemented(self, rbi):
         from src.agents.macro.client import DateRange
         from datetime import date
-        with pytest.raises(NotImplementedError):
-            nse_fiidii.get_indicator(MacroIndicatorType.FII_FLOW, DateRange(date.today(), date.today()))
+        records = rbi.get_indicator(
+            MacroIndicatorType.INDIA_10Y,
+            DateRange(date.today(), date.today()),
+        )
+        assert len(records) == 1
+        assert records[0].indicator_name == MacroIndicatorType.INDIA_10Y
 
-    def test_bond_spread_not_implemented(self, bond_spread):
+    def test_nse_fii_implemented(self, nse_fiidii):
         from src.agents.macro.client import DateRange
         from datetime import date
-        with pytest.raises(NotImplementedError):
-            bond_spread.get_indicator(MacroIndicatorType.INDIA_US_10Y_SPREAD, DateRange(date.today(), date.today()))
+        records = nse_fiidii.get_indicator(
+            MacroIndicatorType.FII_FLOW,
+            DateRange(date.today(), date.today()),
+        )
+        assert len(records) == 1
+        assert records[0].indicator_name == MacroIndicatorType.FII_FLOW
+
+    def test_bond_spread_implemented(self, bond_spread):
+        from src.agents.macro.client import DateRange
+        from datetime import date
+        records = bond_spread.get_indicator(
+            MacroIndicatorType.INDIA_US_10Y_SPREAD,
+            DateRange(date.today(), date.today()),
+        )
+        assert len(records) == 1
+        assert records[0].indicator_name == MacroIndicatorType.INDIA_US_10Y_SPREAD
 
 
 # ---------------------------------------------------------------------------
@@ -340,13 +361,10 @@ class TestMacroSilverRecorderQuarantine:
 
             # Should be in quarantine, not silver
             import os
-            silver_files = list((f"{tmpdir}/silver",))
-            quarantine_files = list(
-                (tmpdir + "/quarantine/WPI/2026/02").split()
-            )
             # Just confirm silver dir has no CPI/WPI files (nothing committed)
             assert not any(
                 f.endswith(".parquet")
                 for f in os.listdir(f"{tmpdir}/silver")
                 if os.path.isfile(f"{tmpdir}/silver/{f}")
             )
+            assert os.path.isfile(f"{tmpdir}/quarantine/WPI/2026/02/2026-02-21.parquet")

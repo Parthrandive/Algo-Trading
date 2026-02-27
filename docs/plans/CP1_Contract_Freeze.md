@@ -14,7 +14,7 @@
 
 ### 3. Preprocessing I/O Contract
 - `configs/preprocessing_contract_v1.json` committed.
-- Accepts: `MacroIndicator v1.1` and `Bar v1.0`.
+- Accepts: `MacroIndicator v1.1`, `Bar v1.0`, and `Tick v1.0`.
 - Defines format for `dataset_snapshot_id` and hash generation rules for determinism (Section 5.5).
 
 ### 4. Feature Approval Workflow (Section 5.3)

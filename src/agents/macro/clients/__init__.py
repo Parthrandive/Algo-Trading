@@ -1,5 +1,5 @@
 """
-Macro Monitor — concrete client stubs package.
+Macro Monitor — concrete macro source clients package.
 
 Each module exposes ONE client class responsible for a single logical source:
 

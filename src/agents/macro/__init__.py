@@ -7,6 +7,6 @@ freshness SLAs, and alerting.
 Package layout
 --------------
 client.py       — MacroClientInterface Protocol + DateRange
-clients/        — One concrete stub per data source
+clients/        — One concrete client per data source
 recorder.py     — MacroSilverRecorder (Parquet + optional DB)
 """

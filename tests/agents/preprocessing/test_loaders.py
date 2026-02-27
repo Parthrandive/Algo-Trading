@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-from src.agents.preprocessing.loader import MacroLoader, MarketLoader, SchemaVersionError
+from src.agents.preprocessing.loader import MacroLoader, MarketLoader
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -62,3 +62,34 @@ def test_market_loader_success(tmp_path):
     assert not df.empty
     assert "dataset_snapshot_id" in df.columns
     assert df["dataset_snapshot_id"].iloc[0] == snapshot_id
+
+
+def test_market_loader_tick_success(tmp_path):
+    loader = MarketLoader()
+
+    now_utc = datetime.now(timezone.utc)
+    mock_tick = {
+        "symbol": "RELIANCE",
+        "timestamp": now_utc,
+        "source_type": "official_api",
+        "ingestion_timestamp_utc": now_utc,
+        "ingestion_timestamp_ist": now_utc.astimezone(IST),
+        "schema_version": "1.0",
+        "price": 105.5,
+        "volume": 1200,
+    }
+
+    test_file = tmp_path / "mock_tick.parquet"
+    pd.DataFrame([mock_tick]).to_parquet(test_file)
+
+    snapshot_id = "test_snapshot_tick_01"
+    df = loader.load(str(test_file), snapshot_id)
+
+    assert not df.empty
+    assert "dataset_snapshot_id" in df.columns
+    assert df["dataset_snapshot_id"].iloc[0] == snapshot_id
+    assert df["interval"].iloc[0] == "tick"
+    assert df["close"].iloc[0] == pytest.approx(105.5)
+    assert df["open"].iloc[0] == pytest.approx(105.5)
+    assert df["high"].iloc[0] == pytest.approx(105.5)
+    assert df["low"].iloc[0] == pytest.approx(105.5)

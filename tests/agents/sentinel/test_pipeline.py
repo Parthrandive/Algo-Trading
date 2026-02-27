@@ -151,3 +151,31 @@ def test_pipeline_writes_corporate_actions_to_bronze_and_silver(tmp_path):
     assert "action_type" in df.columns
     assert "ex_date" in df.columns
     assert "source_type" in df.columns
+
+
+def test_pipeline_writes_quote_to_bronze_and_silver(tmp_path):
+    symbol = "PIPELINE_TICK.NS"
+    client = StaticClient(bars=[])
+    silver = SilverRecorder(base_dir=str(tmp_path / "silver"), quarantine_dir=str(tmp_path / "quarantine"))
+    bronze = BronzeRecorder(base_dir=str(tmp_path / "bronze"))
+    pipeline = SentinelIngestPipeline(
+        client=client,
+        silver_recorder=silver,
+        bronze_recorder=bronze,
+        session_rules=None,
+    )
+
+    tick = pipeline.ingest_quote(symbol=symbol)
+
+    assert tick.symbol == symbol
+
+    bronze_files = list((tmp_path / "bronze").rglob("events.jsonl"))
+    assert bronze_files
+
+    tick_files = list((tmp_path / "silver" / "ticks").rglob("*.parquet"))
+    assert tick_files
+
+    df = pd.concat([pd.read_parquet(file) for file in tick_files], ignore_index=True)
+    assert "price" in df.columns
+    assert "volume" in df.columns
+    assert "source_type" in df.columns

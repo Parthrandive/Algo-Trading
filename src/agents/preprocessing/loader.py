@@ -1,12 +1,12 @@
 import json
 from pathlib import Path
-from typing import List, Generator
+from typing import List
 
 import pandas as pd
 from pydantic import TypeAdapter, ValidationError
 
 from src.schemas.macro_data import MacroIndicator
-from src.schemas.market_data import Bar
+from src.schemas.market_data import Bar, Tick
 from src.schemas.preprocessing_data import PreprocessingContract
 
 class SchemaVersionError(Exception):
@@ -68,10 +68,48 @@ class MacroLoader(PreprocessingLoader):
         return df
 
 class MarketLoader(PreprocessingLoader):
+    @staticmethod
+    def _tick_to_bar(tick: Tick) -> Bar:
+        """
+        Convert a real-time Tick into a synthetic Bar row so existing
+        preprocessing transforms can consume live data without schema drift.
+        """
+        return Bar(
+            symbol=tick.symbol,
+            exchange=tick.exchange,
+            timestamp=tick.timestamp,
+            source_type=tick.source_type,
+            ingestion_timestamp_utc=tick.ingestion_timestamp_utc,
+            ingestion_timestamp_ist=tick.ingestion_timestamp_ist,
+            schema_version=tick.schema_version,
+            quality_status=tick.quality_status,
+            interval="tick",
+            open=tick.price,
+            high=tick.price,
+            low=tick.price,
+            close=tick.price,
+            volume=tick.volume,
+        )
+
+    @staticmethod
+    def _select_market_files(base_path: Path) -> list[Path]:
+        parquet_files = list(base_path.glob("**/*.parquet"))
+        if not parquet_files:
+            return []
+
+        if base_path.name in {"ohlcv", "ticks"}:
+            return parquet_files
+
+        market_only = [p for p in parquet_files if ("ohlcv" in p.parts or "ticks" in p.parts)]
+        return market_only or parquet_files
+
     def load(self, source_path: str, snapshot_id: str) -> pd.DataFrame:
         """
-        Loads Bar data (OHLCV), validates against schema v1.0, and returns a DataFrame.
-        Supports reading raw parquet datasets from the Silver layer.
+        Loads market data (historical Bar and real-time Tick), validates against schema,
+        and returns a unified DataFrame.
+
+        Tick rows are converted to synthetic bars (interval="tick") so downstream
+        transforms can use the same interface (`close`, `volume`, timestamps).
         """
         path = Path(source_path)
         if not path.exists():
@@ -80,7 +118,11 @@ class MarketLoader(PreprocessingLoader):
         try:
             # Silver recorder outputs parquet
             if path.is_dir():
-                df = pd.read_parquet(path)
+                # Read market parquet files in the directory tree.
+                parquet_files = self._select_market_files(path)
+                if not parquet_files:
+                    return pd.DataFrame()
+                df = pd.concat([pd.read_parquet(f) for f in parquet_files], ignore_index=True)
             else:
                 df = pd.read_parquet(path)
         except Exception as e:
@@ -90,25 +132,46 @@ class MarketLoader(PreprocessingLoader):
             return df
             
         records: List[Bar] = []
-        bar_adapter = TypeAdapter(list[Bar])
-        
-        # Convert df back to dict records to run through pydantic validation
-        # Data loss or corruption at Silver level must trigger fail-fast
-        try:
-            # Convert timestamps correctly for pydantic
-            dict_records = df.to_dict(orient="records")
-            validated_batch = bar_adapter.validate_python(dict_records)
-            
-            for record in validated_batch:
-                if "market.bar." + record.schema_version not in self._accepted_schemas:
+
+        dict_records = df.to_dict(orient="records")
+        invalid_messages: List[str] = []
+
+        # Per-row dual-parse strategy:
+        # 1) Try canonical Bar
+        # 2) Fallback to Tick and convert to synthetic Bar
+        for idx, row in enumerate(dict_records):
+            try:
+                bar = Bar.model_validate(row)
+                schema_id = "market.bar." + bar.schema_version
+                if schema_id not in self._accepted_schemas:
                     raise SchemaVersionError(
-                        f"Schema version {record.schema_version} not accepted. "
+                        f"Schema version {bar.schema_version} not accepted for Bar. "
                         f"Allowed: {self._accepted_schemas}"
                     )
-                records.append(record)
-        except ValidationError as e:
-            raise ValueError(f"Market Validation failed: {e}")
-            
+                records.append(bar)
+                continue
+            except ValidationError as bar_error:
+                first_error = bar_error
+
+            try:
+                tick = Tick.model_validate(row)
+                schema_id = "market.tick." + tick.schema_version
+                if schema_id not in self._accepted_schemas:
+                    raise SchemaVersionError(
+                        f"Schema version {tick.schema_version} not accepted for Tick. "
+                        f"Allowed: {self._accepted_schemas}"
+                    )
+                records.append(self._tick_to_bar(tick))
+            except ValidationError as tick_error:
+                invalid_messages.append(
+                    f"row={idx} could not be parsed as Bar or Tick: "
+                    f"bar_error={first_error.errors()} tick_error={tick_error.errors()}"
+                )
+
+        if invalid_messages:
+            sample = " | ".join(invalid_messages[:3])
+            raise ValueError(f"Market Validation failed for {len(invalid_messages)} row(s): {sample}")
+
         validated_df = pd.DataFrame([r.model_dump() for r in records])
         validated_df["dataset_snapshot_id"] = snapshot_id
         

@@ -11,6 +11,7 @@ from src.schemas.market_data import Bar, Tick, CorporateAction
 
 class SilverRecorderProtocol(Protocol):
     def save_bars(self, bars: List[Bar]) -> None: ...
+    def save_ticks(self, ticks: List[Tick]) -> None: ...
     def save_corporate_actions(self, actions: List[CorporateAction]) -> None: ...
 
 
@@ -46,6 +47,7 @@ class SentinelIngestPipeline:
                 symbol=symbol,
                 schema_id=schema_id,
             )
+        self.silver_recorder.save_ticks([tick])
         return tick
 
     def ingest_historical(
