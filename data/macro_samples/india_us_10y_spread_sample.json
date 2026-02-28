@@ -1,0 +1,28 @@
+[
+  {
+    "indicator_name": "INDIA_US_10Y_SPREAD",
+    "value": 285.0,
+    "unit": "bps",
+    "period": "Daily",
+    "timestamp": "2026-02-23T00:00:00Z",
+    "region": "India",
+    "source_type": "official_api",
+    "ingestion_timestamp_utc": "2026-02-28T09:58:35.198973Z",
+    "ingestion_timestamp_ist": "2026-02-28T15:28:35.198973+05:30",
+    "schema_version": "1.1",
+    "quality_status": "pass"
+  },
+  {
+    "indicator_name": "INDIA_US_10Y_SPREAD",
+    "value": 290.0,
+    "unit": "bps",
+    "period": "Daily",
+    "timestamp": "2026-02-18T00:00:00Z",
+    "region": "India",
+    "source_type": "official_api",
+    "ingestion_timestamp_utc": "2026-02-28T09:58:35.198980Z",
+    "ingestion_timestamp_ist": "2026-02-28T15:28:35.198980+05:30",
+    "schema_version": "1.1",
+    "quality_status": "pass"
+  }
+]
