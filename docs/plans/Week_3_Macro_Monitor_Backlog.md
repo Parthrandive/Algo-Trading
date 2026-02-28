@@ -111,12 +111,12 @@ Only publicly released or contractually licensed feeds are permitted. Unpublishe
 - [x] **Deliverable:** All parsers + pipeline working end-to-end with provenance
 
 ### Day 5 (Fri, Feb 27) — Scheduler + Reliability 🔒 CP2
-- [ ] Implement `MacroScheduler` — cron jobs per indicator mapped to release cadence from runtime config
-- [ ] Add retry with exponential backoff
-- [ ] Add idempotent ingest guard (dedup on `indicator_name + timestamp`)
-- [ ] Add provenance logging to `IngestionLog` table (dataset snapshot IDs, code hashes — Section 13)
-- [ ] Scheduler unit tests (`tests/agents/macro/test_scheduler.py`)
-- [ ] **Deliverable:** CP2 evidence — all scheduled jobs configured, retry + dedup + provenance verified
+- [x] Implement `MacroScheduler` — cron jobs per indicator mapped to release cadence from runtime config
+- [x] Add retry with exponential backoff
+- [x] Add idempotent ingest guard (dedup on `indicator_name + timestamp`)
+- [x] Add provenance logging to `IngestionLog` table (dataset snapshot IDs, code hashes — Section 13)
+- [x] Scheduler unit tests (`tests/agents/macro/test_scheduler.py`)
+- [x] **Deliverable:** CP2 evidence — all scheduled jobs configured, retry + dedup + provenance verified
 
 ### Day 6 (Sat, Feb 28) — Freshness + Sample Payloads 🔒 CP3 (Sync Gate A)
 - [ ] Implement freshness window checks (per-indicator, from runtime config)
