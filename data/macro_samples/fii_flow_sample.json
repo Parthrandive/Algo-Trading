@@ -7,8 +7,8 @@
     "timestamp": "2026-02-23T00:00:00Z",
     "region": "India",
     "source_type": "official_api",
-    "ingestion_timestamp_utc": "2026-02-28T09:58:35.198335Z",
-    "ingestion_timestamp_ist": "2026-02-28T15:28:35.198335+05:30",
+    "ingestion_timestamp_utc": "2026-02-28T10:21:28.352100Z",
+    "ingestion_timestamp_ist": "2026-02-28T15:51:28.352100+05:30",
     "schema_version": "1.1",
     "quality_status": "pass"
   },
@@ -20,8 +20,8 @@
     "timestamp": "2026-02-18T00:00:00Z",
     "region": "India",
     "source_type": "official_api",
-    "ingestion_timestamp_utc": "2026-02-28T09:58:35.198343Z",
-    "ingestion_timestamp_ist": "2026-02-28T15:28:35.198343+05:30",
+    "ingestion_timestamp_utc": "2026-02-28T10:21:28.352107Z",
+    "ingestion_timestamp_ist": "2026-02-28T15:51:28.352107+05:30",
     "schema_version": "1.1",
     "quality_status": "pass"
   }
