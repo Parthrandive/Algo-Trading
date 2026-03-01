@@ -23,7 +23,7 @@ Actual: **100.0%**
 - [x] Provenance logging verified (IngestionLog entries created)
 
 ## 3. Evidence Table
-- **Test Window:** 2026-03-01T07:31:50.317949+00:00
+- **Test Window:** 2026-03-01T07:34:06.399902+00:00
 - **Scheduler Logs:** All success
 - **Dashboard Alerting:** Operational (WebhookAlerter verified)
 
