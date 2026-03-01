@@ -119,17 +119,17 @@ Only publicly released or contractually licensed feeds are permitted. Unpublishe
 - [x] **Deliverable:** CP2 evidence — all scheduled jobs configured, retry + dedup + provenance verified
 
 ### Day 6 (Sat, Feb 28) — Freshness + Sample Payloads 🔒 CP3 (Sync Gate A)
-- [ ] Implement freshness window checks (per-indicator, from runtime config)
-- [ ] Add stale marker logic — flag indicators past their freshness window
-- [ ] Add outlier and stale-value detection (Section 5.2 requirement)
-- [ ] Add alert rule definitions (log-based + configurable webhook stub)
-- [ ] Generate daily indicator completeness report
-- [ ] **Publish canonical sample payloads** to `data/macro_samples/`:
-  - One JSON file per indicator, each containing 5–10 sample `MacroIndicator` records
-  - Must pass list validation: `TypeAdapter(list[MacroIndicator]).validate_python(payload)`
-  - Must cover all 8 indicators in the Week 3 required publish set
-  - Must have realistic timestamps and values
-- [ ] **Deliverable:** CP3 evidence — sample payloads committed, freshness + anomaly checks active
+- [x] Implement freshness window checks (per-indicator, from runtime config)
+- [x] Add stale marker logic — flag indicators past their freshness window
+- [x] Add outlier and stale-value detection (Section 5.2 requirement)
+- [x] Add alert rule definitions (log-based + configurable webhook stub)
+- [x] Generate daily indicator completeness report
+- [x] **Publish canonical sample payloads** to `data/macro_samples/`:
+  - [x] One JSON file per indicator, each containing 5–10 sample `MacroIndicator` records
+  - [x] Must pass list validation: `TypeAdapter(list[MacroIndicator]).validate_python(payload)`
+  - [x] Must cover all 8 indicators in the Week 3 required publish set
+  - [x] Must have realistic timestamps and values
+- [x] **Deliverable:** CP3 evidence — sample payloads committed, freshness + anomaly checks active
 
 > **🔗 SYNC GATE A:** The Preprocessing Agent will consume files from `data/macro_samples/` on this day. Sample payloads must be valid `MacroIndicator` JSON (schema v1.1).
 

@@ -36,9 +36,11 @@ class LagAligner:
         if macro_df.empty:
             return market_df
 
-        # Ensure datetime typing explicitly 
-        market_df["timestamp"] = pd.to_datetime(market_df["timestamp"], utc=True)
-        macro_df["timestamp"] = pd.to_datetime(macro_df["timestamp"], utc=True)
+        # Work on copies and force nanosecond precision so merge_asof keys match
+        market_df = market_df.copy()
+        macro_df = macro_df.copy()
+        market_df["timestamp"] = pd.to_datetime(market_df["timestamp"], utc=True).astype("datetime64[ns, UTC]")
+        macro_df["timestamp"] = pd.to_datetime(macro_df["timestamp"], utc=True).astype("datetime64[ns, UTC]")
 
         # 1. Pivot Macro dataframe so each indicator is a column
         pivot_macro = macro_df.pivot_table(
@@ -47,6 +49,7 @@ class LagAligner:
             values="value", 
             aggfunc="last"
         ).reset_index()
+        pivot_macro["timestamp"] = pd.to_datetime(pivot_macro["timestamp"], utc=True).astype("datetime64[ns, UTC]")
 
         # 2. Shift the timestamps forward by their respective publication delays.
         # This creates 'effective_time' meaning "when did this data become known to the market?"
@@ -59,12 +62,13 @@ class LagAligner:
             
             # Create a localized dataframe for the indicator shifted forward
             ind_df = pivot_macro[["timestamp", col]].dropna().copy()
-            ind_df["effective_time"] = ind_df["timestamp"] + delay
+            ind_df["effective_time"] = (ind_df["timestamp"] + delay).astype("datetime64[ns, UTC]")
             ind_df = ind_df.sort_values("effective_time")
             
             # Merge this indicator into the market frame using standard backward asof
             # Match effective_time <= market timestamp
             market_df = market_df.sort_values("timestamp")
+            market_df["timestamp"] = market_df["timestamp"].astype("datetime64[ns, UTC]")
             market_df = pd.merge_asof(
                 market_df, 
                 ind_df[["effective_time", col]], 
@@ -122,4 +126,3 @@ class CorporateActionValidator:
                  market_df.loc[mask, "volume"] = market_df.loc[mask, "volume"] * ratio
                  
         return market_df
-
