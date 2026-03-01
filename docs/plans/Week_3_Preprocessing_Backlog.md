@@ -108,19 +108,19 @@ Your preprocessing I/O contract defines:
 - [x] **Deliverable:** Full pipeline wired with replay support, end-to-end test with mock data passes
 
 ### Day 5 (Fri, Feb 27) — Leakage + Reproducibility 🔒 CP2
-- [ ] Build `leakage_test.py`:
+- [x] Build `leakage_test.py`:
   - `LeakageTestHarness` — checks for future information leaking into transforms
   - Tests: timestamp ordering after alignment, no look-ahead bias, lag correctness
   - Strict time alignment and lagging verification (Section 5.3 acceptance)
-- [ ] Build `reproducibility.py`:
+- [x] Build `reproducibility.py`:
   - `ReproducibilityHasher` — SHA-256 of full output given frozen input snapshot + config
   - Deterministic replay: same input snapshot → identical hash
   - Dataset snapshot IDs tracked through pipeline (Section 5.5)
-- [ ] Tests:
+- [x] Tests:
   - `tests/agents/preprocessing/test_leakage.py` — with known-bad data (planted future leak)
   - `tests/agents/preprocessing/test_reproducibility.py` — hash stability across 3 runs
-- [ ] Create `docs/plans/CP2_Pipeline_Readiness.md`
-- [ ] **Deliverable:** CP2 evidence — leakage tests green (100% pass), reproducibility hash stable
+- [x] Create `docs/plans/CP2_Pipeline_Readiness.md`
+- [x] **Deliverable:** CP2 evidence — leakage tests green (100% pass), reproducibility hash stable
 
 ### Day 6 (Sat, Feb 28) — Consume Macro Samples 🔒 CP3 (Sync Gate A)
 - [x] **Consume** partner's `data/macro_samples/*.json` files

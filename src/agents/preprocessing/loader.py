@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 from typing import List
 
@@ -18,6 +19,21 @@ class PreprocessingLoader:
             self.contract = PreprocessingContract.model_validate_json(f.read())
             
         self._accepted_schemas = self.contract.accepted_input_schemas
+        self._accepted_schemas_canonical = {
+            self._canonical_schema_id(schema_id) for schema_id in self._accepted_schemas
+        }
+
+    @staticmethod
+    def _canonical_schema_id(schema_id: str) -> str:
+        """
+        Normalize schema IDs to a canonical form where the terminal version segment
+        does not require a leading 'v' (e.g., macro.indicator.v1.1 == macro.indicator.1.1).
+        """
+        return re.sub(r"\.v(?=\d)", ".", schema_id)
+
+    def _is_schema_allowed(self, prefix: str, schema_version: str) -> bool:
+        schema_id = self._canonical_schema_id(f"{prefix}.{schema_version}")
+        return schema_id in self._accepted_schemas_canonical
 
 class MacroLoader(PreprocessingLoader):
     def load(self, source_path: str, snapshot_id: str) -> pd.DataFrame:
@@ -47,7 +63,7 @@ class MacroLoader(PreprocessingLoader):
                         
                     validated_batch = macro_adapter.validate_python(payload)
                     for record in validated_batch:
-                        if "macro.indicator." + record.schema_version not in self._accepted_schemas:
+                        if not self._is_schema_allowed("macro.indicator", record.schema_version):
                             raise SchemaVersionError(
                                 f"Schema version {record.schema_version} not accepted by contract. "
                                 f"Allowed: {self._accepted_schemas}"
@@ -142,8 +158,7 @@ class MarketLoader(PreprocessingLoader):
         for idx, row in enumerate(dict_records):
             try:
                 bar = Bar.model_validate(row)
-                schema_id = "market.bar." + bar.schema_version
-                if schema_id not in self._accepted_schemas:
+                if not self._is_schema_allowed("market.bar", bar.schema_version):
                     raise SchemaVersionError(
                         f"Schema version {bar.schema_version} not accepted for Bar. "
                         f"Allowed: {self._accepted_schemas}"
@@ -155,8 +170,7 @@ class MarketLoader(PreprocessingLoader):
 
             try:
                 tick = Tick.model_validate(row)
-                schema_id = "market.tick." + tick.schema_version
-                if schema_id not in self._accepted_schemas:
+                if not self._is_schema_allowed("market.tick", tick.schema_version):
                     raise SchemaVersionError(
                         f"Schema version {tick.schema_version} not accepted for Tick. "
                         f"Allowed: {self._accepted_schemas}"

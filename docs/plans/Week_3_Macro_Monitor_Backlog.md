@@ -134,12 +134,12 @@ Only publicly released or contractually licensed feeds are permitted. Unpublishe
 > **🔗 SYNC GATE A:** The Preprocessing Agent will consume files from `data/macro_samples/` on this day. Sample payloads must be valid `MacroIndicator` JSON (schema v1.1).
 
 ### Day 7 (Sun, Mar 1) — Test Window + Report 🔒 CP4
-- [ ] Run scheduler in test mode for a simulated window
-- [ ] Generate completeness report: target **≥ 95%** scheduled jobs completed
-- [ ] Generate freshness report: all indicators within window or correctly flagged stale
-- [ ] Verify anomaly detection dashboards are operational with active alerting (Section 5.2 acceptance)
-- [ ] Publish `CP4_Week_3_Signoff.md` with evidence tables
-- [ ] **Deliverable:** Week 3 acceptance gate passed
+- [x] Run scheduler in test mode for a simulated window
+- [x] Generate completeness report: target **≥ 95%** scheduled jobs completed
+- [x] Generate freshness report: all indicators within window or correctly flagged stale
+- [x] Verify anomaly detection dashboards are operational with active alerting (Section 5.2 acceptance)
+- [x] Publish `CP4_Week_3_Signoff.md` with evidence tables
+- [x] **Deliverable:** Week 3 acceptance gate passed
 
 ---
 
