@@ -144,18 +144,18 @@ Your preprocessing I/O contract defines:
 > 3. Note discrepancy in CP3 document
 
 ### Day 7 (Sun, Mar 1) — Deterministic Replay + Sign-off 🔒 CP4
-- [ ] Freeze a baseline input snapshot (macro samples + OHLCV Silver data) with snapshot ID
-- [ ] Run deterministic replay: full pipeline 3 times → verify identical output hash
-- [ ] Run event-time replay from stored snapshots (Section 5.5 verification)
-- [ ] Publish baseline output hash as reference for future regression testing
-- [ ] Cross-reference partner's CP4 completeness report
-- [ ] Create `docs/plans/CP4_Week_3_Signoff.md`:
-  - Reproducibility: PASS (3 identical hashes)
-  - Leakage: PASS (all tests green — 100% per GO/NO-GO gate)
-  - Compatibility: PASS (partner samples consumed)
-  - Replay: PASS (event-time reconstruction verified)
-  - Integration readiness: READY for Week 4
-- [ ] **Deliverable:** CP4 evidence — integration-readiness note published
+- [x] Freeze a baseline input snapshot (macro samples + OHLCV Silver data) with snapshot ID
+- [x] Run deterministic replay: full pipeline 3 times → verify identical output hash
+- [x] Run event-time replay from stored snapshots (Section 5.5 verification)
+- [x] Publish baseline output hash as reference for future regression testing
+- [x] Cross-reference partner's CP4 completeness report
+- [x] Create `docs/plans/CP4_Week_3_Signoff_Preprocessing.md`:
+  - [x] Reproducibility: PASS (3 identical hashes)
+  - [x] Leakage: PASS (all tests green — 100% per GO/NO-GO gate)
+  - [x] Compatibility: PASS (partner samples consumed)
+  - [x] Replay: PASS (event-time reconstruction verified)
+  - [x] Integration readiness: READY for Week 4
+- [x] **Deliverable:** CP4 evidence — integration-readiness note published
 
 ---
 
