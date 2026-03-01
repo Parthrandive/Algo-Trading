@@ -64,7 +64,7 @@ class DirectionalChangeDetector(TransformNode):
         output_col = self.parameters.get("output_column", f"{target_col}_directional_flag")
         threshold = self.parameters.get("threshold", 0.05) # 5% change
         
-        pct_change = df[target_col].pct_change().fillna(0.0)
+        pct_change = df[target_col].pct_change(fill_method=None).fillna(0.0)
         
         conditions = [
             pct_change >= threshold,

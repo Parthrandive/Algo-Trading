@@ -123,20 +123,20 @@ Your preprocessing I/O contract defines:
 - [ ] **Deliverable:** CP2 evidence — leakage tests green (100% pass), reproducibility hash stable
 
 ### Day 6 (Sat, Feb 28) — Consume Macro Samples 🔒 CP3 (Sync Gate A)
-- [ ] **Consume** partner's `data/macro_samples/*.json` files
-- [ ] Run through `MacroLoader` → validate list payloads with `TypeAdapter(list[MacroIndicator]).validate_python(payload)`
-- [ ] Run through full `PreprocessingPipeline`:
-  - Lag alignment with macro sample timestamps
-  - Normalization transforms (z-score, min-max, log returns)
-  - Directional change detection
-  - Output hash generation with dataset snapshot ID
-- [ ] Compatibility test results:
-  - Schema validation: PASS/FAIL per indicator
-  - Transform execution: PASS/FAIL
-  - Output hash: recorded for baseline
-  - Provenance tags: verified on every output record
-- [ ] Create `docs/plans/CP3_Sync_Gate_A.md` with results table
-- [ ] **Deliverable:** CP3 evidence — all 8 Week 3 required indicators load + transform successfully
+- [x] **Consume** partner's `data/macro_samples/*.json` files
+- [x] Run through `MacroLoader` → validate list payloads with `TypeAdapter(list[MacroIndicator]).validate_python(payload)`
+- [x] Run through full `PreprocessingPipeline`:
+  - [x] Lag alignment with macro sample timestamps
+  - [x] Normalization transforms (z-score, min-max, log returns)
+  - [x] Directional change detection
+  - [x] Output hash generation with dataset snapshot ID
+- [x] Compatibility test results:
+  - [x] Schema validation: PASS/FAIL per indicator
+  - [x] Transform execution: PASS/FAIL
+  - [x] Output hash: recorded for baseline
+  - [x] Provenance tags: verified on every output record
+- [x] Create `docs/plans/CP3_Sync_Gate_A_Preprocessing.md` with results table
+- [x] **Deliverable:** CP3 evidence — all 8 Week 3 required indicators load + transform successfully
 
 > **🔗 SYNC GATE A:** You depend on partner publishing `data/macro_samples/` by end of Day 6. If samples are delayed:
 > 1. Use locally generated mock samples (matching schema v1.1) to unblock
