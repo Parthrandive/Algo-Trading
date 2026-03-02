@@ -1,0 +1,132 @@
+{
+  "version": "textual-data-agent-runtime-v1",
+  "schema_version": "1.0",
+  "timezone": "Asia/Kolkata",
+  "canonical_schema_keys": {
+    "news_article": "NewsArticle_v1.0",
+    "social_post": "SocialPost_v1.0",
+    "earnings_transcript": "EarningsTranscript_v1.0"
+  },
+  "sidecar_schema_key": "TextSidecarMetadata_v1.0",
+  "global_compliance_rules": {
+    "reject_if_unpublished": true,
+    "reject_if_embargoed": true,
+    "reject_if_unlicensed": true,
+    "require_public_release_timestamp": true,
+    "require_source_url": true
+  },
+  "source_allowlist": [
+    {
+      "source_name": "nse_news",
+      "source_type": "rss_feed",
+      "allowed": true,
+      "allowed_routes": [
+        "official_feed"
+      ],
+      "license_status": "approved_public_terms",
+      "legal_basis": "public_release_only",
+      "allow_fallback_scraper": false,
+      "compliance_checks": [
+        "published",
+        "licensed",
+        "non_embargoed"
+      ]
+    },
+    {
+      "source_name": "economic_times",
+      "source_type": "rss_feed",
+      "allowed": true,
+      "allowed_routes": [
+        "official_feed",
+        "fallback_scraper"
+      ],
+      "license_status": "approved_public_terms",
+      "legal_basis": "public_release_only",
+      "allow_fallback_scraper": true,
+      "compliance_checks": [
+        "published",
+        "licensed",
+        "non_embargoed"
+      ]
+    },
+    {
+      "source_name": "rbi_reports",
+      "source_type": "official_api",
+      "allowed": true,
+      "allowed_routes": [
+        "primary_api",
+        "official_feed"
+      ],
+      "license_status": "public_domain",
+      "legal_basis": "public_release_only",
+      "allow_fallback_scraper": false,
+      "compliance_checks": [
+        "published",
+        "licensed",
+        "non_embargoed"
+      ]
+    },
+    {
+      "source_name": "earnings_transcripts",
+      "source_type": "official_api",
+      "allowed": true,
+      "allowed_routes": [
+        "primary_api",
+        "official_feed"
+      ],
+      "license_status": "exchange_and_company_disclosures",
+      "legal_basis": "public_release_only",
+      "allow_fallback_scraper": false,
+      "compliance_checks": [
+        "published",
+        "licensed",
+        "non_embargoed"
+      ]
+    },
+    {
+      "source_name": "x_posts",
+      "source_type": "social_media",
+      "allowed": true,
+      "allowed_routes": [
+        "primary_api"
+      ],
+      "license_status": "platform_terms_only",
+      "legal_basis": "public_posts_only",
+      "allow_fallback_scraper": false,
+      "compliance_checks": [
+        "published",
+        "licensed",
+        "non_embargoed",
+        "india_relevance"
+      ]
+    }
+  ],
+  "x_query_templates": {
+    "market_scope": "india_equities_and_macro",
+    "keyword_templates": [
+      "NIFTY OR SENSEX OR BANKNIFTY (rally OR selloff OR correction)",
+      "(RBI OR MPC OR repo rate) (hike OR cut OR pause) india",
+      "(INFY OR TCS OR HDFCBANK OR RELIANCE) (results OR guidance OR earnings)",
+      "(FII OR DII) (inflow OR outflow) india market",
+      "(rupee OR INR) (weakness OR strength) against dollar"
+    ],
+    "semantic_intents": [
+      "Policy surprise likely to affect Indian rates, liquidity, or banking sentiment.",
+      "Earnings commentary changing expectations for major NSE index constituents.",
+      "Macro or geopolitical shock with direct India market impact.",
+      "Large flow or positioning narratives tied to FII and DII behavior."
+    ],
+    "negative_filters": [
+      "crypto giveaway",
+      "guaranteed returns",
+      "tip subscription",
+      "dm for jackpot",
+      "non india market"
+    ]
+  },
+  "default_ttl_seconds": {
+    "news_article": 21600,
+    "social_post": 7200,
+    "earnings_transcript": 604800
+  }
+}
