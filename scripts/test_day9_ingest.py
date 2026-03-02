@@ -19,7 +19,7 @@ from src.agents.sentinel.yfinance_client import YFinanceClient
 from src.utils.history import normalize_symbol
 
 
-def _build_failover_client() -> FailoverSentinelClient:
+def _build_failover_client(config) -> FailoverSentinelClient:
     primary = YFinanceClient()
     fallbacks = []
 
@@ -35,7 +35,13 @@ def _build_failover_client() -> FailoverSentinelClient:
 
     # NSEPython is the default Week 2 fallback path.
     fallbacks.append(NSEPythonClient())
-    return FailoverSentinelClient(primary, fallbacks, failure_threshold=2, cooldown_seconds=60, recovery_success_threshold=2)
+    return FailoverSentinelClient(
+        primary,
+        fallbacks,
+        failure_threshold=config.failover.failure_threshold,
+        cooldown_seconds=config.failover.cooldown_seconds,
+        recovery_success_threshold=config.failover.recovery_success_threshold,
+    )
 
 
 def test_ingest():
@@ -51,7 +57,7 @@ def test_ingest():
     start_date = end_date - timedelta(days=7)
 
     print("Initializing failover client + Bronze/Silver pipeline...")
-    failover_client = _build_failover_client()
+    failover_client = _build_failover_client(config)
     
     # Use the new Database Recorder
     from src.db.silver_db_recorder import SilverDBRecorder

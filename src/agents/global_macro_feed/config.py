@@ -5,6 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+ROOT_DIR = Path(__file__).resolve().parents[3]
+DEFAULT_RUNTIME_CONFIG_PATH = ROOT_DIR / "configs" / "global_macro_feed_runtime_v1.json"
+
 
 @dataclass(frozen=True)
 class RetryPolicy:
@@ -83,3 +86,7 @@ def load_global_macro_feed_config(config_path: str | Path) -> GlobalMacroFeedCon
         silver_jsonl_dir=silver_jsonl_dir,
         sources=tuple(sources),
     )
+
+
+def load_default_global_macro_feed_config() -> GlobalMacroFeedConfig:
+    return load_global_macro_feed_config(DEFAULT_RUNTIME_CONFIG_PATH)

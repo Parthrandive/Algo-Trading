@@ -159,6 +159,9 @@ def _is_parser_failure(exc: Exception) -> bool:
 def main():
     logger.info("Starting Day 13 E2E Validation...")
 
+    # 0. Load runtime config
+    config = load_default_sentinel_config()
+
     # 1. Initialize Clients
     primary = NSEPythonClient()
     fallback = YFinanceClient()
@@ -168,6 +171,9 @@ def main():
     client = FailoverSentinelClient(
         primary_client=primary,
         fallback_clients=[fallback, deterministic_fallback],
+        failure_threshold=config.failover.failure_threshold,
+        cooldown_seconds=config.failover.cooldown_seconds,
+        recovery_success_threshold=config.failover.recovery_success_threshold,
         fallback_source_type=SourceType.FALLBACK_SCRAPER,
     )
 
@@ -186,9 +192,6 @@ def main():
 
     bronze = BronzeRecorder(base_dir=str(bronze_dir))
     silver = SilverRecorder(base_dir=str(silver_dir), quarantine_dir=str(quarantine_dir))
-
-    # 4. Load Config
-    config = load_default_sentinel_config()
 
     # 5. Initialize Pipeline
     pipeline = SentinelIngestPipeline(

@@ -13,12 +13,21 @@ class ZScoreNormalizer(TransformNode):
         target_col = self.parameters.get("target_column", "value")
         output_col = self.parameters.get("output_column", f"{target_col}_zscore")
         
+        # Threshold parameters
+        regime_threshold = self.parameters.get("regime_threshold", 2.0)
+        anomaly_threshold = self.parameters.get("anomaly_threshold", 3.0)
+        
         mean = df[target_col].rolling(window=window, min_periods=1).mean()
         std = df[target_col].rolling(window=window, min_periods=1).std()
         
         # Handle zero division for stationary constants over period
         df[output_col] = (df[target_col] - mean) / std.replace(0, np.nan)
         df[output_col] = df[output_col].fillna(0.0)
+        
+        # Add threshold flags (1 if threshold met, else 0)
+        df[f"{output_col}_is_regime_shift"] = (df[output_col].abs() >= regime_threshold).astype(int)
+        df[f"{output_col}_is_anomaly"] = (df[output_col].abs() >= anomaly_threshold).astype(int)
+        
         return df
 
 class MinMaxNormalizer(TransformNode):

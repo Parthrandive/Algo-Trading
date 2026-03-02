@@ -85,7 +85,7 @@ def resolve_historical_dir(symbol_candidates: list[str]) -> tuple[str, Path]:
     return symbol_candidates[0], root / symbol_candidates[0]
 
 
-def _build_failover_client():
+def _build_failover_client(sentinel_config):
     from src.agents.sentinel.broker_client import BrokerAPIClient
     from src.agents.sentinel.failover_client import FailoverSentinelClient
     from src.agents.sentinel.nsepython_client import NSEPythonClient
@@ -105,7 +105,13 @@ def _build_failover_client():
         )
 
     fallbacks.append(NSEPythonClient())
-    return FailoverSentinelClient(primary, fallbacks, failure_threshold=2, cooldown_seconds=60, recovery_success_threshold=2)
+    return FailoverSentinelClient(
+        primary,
+        fallbacks,
+        failure_threshold=sentinel_config.failover.failure_threshold,
+        cooldown_seconds=sentinel_config.failover.cooldown_seconds,
+        recovery_success_threshold=sentinel_config.failover.recovery_success_threshold,
+    )
 
 
 def _build_autofetch_rerun_command(
@@ -229,7 +235,7 @@ def show_historical_data(
 
                 config = load_default_sentinel_config()
                 pipeline = SentinelIngestPipeline(
-                    client=_build_failover_client(),
+                    client=_build_failover_client(config),
                     silver_recorder=SilverRecorder(),
                     bronze_recorder=BronzeRecorder(),
                     session_rules=config.session_rules,

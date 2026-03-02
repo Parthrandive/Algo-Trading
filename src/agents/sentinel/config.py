@@ -87,6 +87,12 @@ class SessionRules(BaseModel):
         return self.regular_open <= local_dt.time() <= self.regular_close
 
 
+class FailoverPolicy(BaseModel):
+    failure_threshold: int = Field(default=2, ge=1)
+    cooldown_seconds: int = Field(default=60, ge=0)
+    recovery_success_threshold: int = Field(default=2, ge=1)
+
+
 class SentinelConfig(BaseModel):
     version: str = "nse-sentinel-runtime-v1"
     sources: List[DataSourceConfig]
@@ -95,6 +101,7 @@ class SentinelConfig(BaseModel):
     polling_interval_seconds: int = Field(default=60, ge=1)
     clock_drift_threshold_seconds: float = Field(default=0.5, ge=0)
     monotonicity_scope: str = Field(default="symbol_interval")
+    failover: FailoverPolicy = Field(default_factory=FailoverPolicy)
 
     @model_validator(mode="after")
     def validate_source_priorities(self):
