@@ -85,6 +85,13 @@ Implementation note:
 - Define baseline keyword/semantic query templates for X (India market context only).
 - Output: design note + schema file + adapter stubs.
 
+Day 1 implementation snapshot (2026-03-02):
+- Runtime policy and X query templates: `configs/textual_data_agent_runtime_v1.json`
+- Sidecar schema: `src/schemas/text_sidecar.py`
+- Textual skeleton package: `src/agents/textual/`
+- Design note: `docs/plans/week-4-textual-data-agent-day1-design-note.md`
+- Day 1 freeze tests: `tests/test_textual_day1.py`
+
 ### Day 2: March 3, 2026 (Tuesday) - Core Source Ingestion + Provenance
 - Implement collectors for NSE news, Economic Times, RBI reports.
 - Enforce canonical text fields (`source_id`, `timestamp`, `content`, `source_type`, ingestion timestamps, schema version, quality status).
