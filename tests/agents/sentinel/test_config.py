@@ -10,6 +10,9 @@ def test_default_runtime_config_loads():
     assert config.symbol_universe.version == "week2-core-v1"
     assert "RELIANCE.NS" in config.symbol_universe.all_symbols
     assert len(config.active_sources()) >= 2
+    assert config.failover.failure_threshold == 2
+    assert config.failover.cooldown_seconds == 60
+    assert config.failover.recovery_success_threshold == 2
 
 
 def test_session_rules_enforce_calendar():

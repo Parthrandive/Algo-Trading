@@ -12,6 +12,7 @@ from src.agents.macro.parsers import BaseParser
 from src.agents.macro.recorder import MacroSilverRecorder
 from src.agents.sentinel.failover_client import DegradationState
 from src.schemas.macro_data import MacroIndicator, MacroIndicatorType
+from src.utils.latency import timed
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ class MacroIngestPipeline:
         """
         return self._degradation_state
 
+    @timed("macro", "run_ingest")
     def run_ingest(
         self,
         client: MacroClientInterface,
