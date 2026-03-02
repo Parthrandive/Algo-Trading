@@ -7,6 +7,7 @@ from src.agents.sentinel.bronze_recorder import BronzeRecorder
 from src.agents.sentinel.client import NSEClientInterface
 from src.agents.sentinel.config import SessionRules
 from src.schemas.market_data import Bar, Tick, CorporateAction
+from src.utils.latency import timed
 
 
 class SilverRecorderProtocol(Protocol):
@@ -37,6 +38,7 @@ class SentinelIngestPipeline:
             return True
         return self.session_rules.is_trading_session(timestamp)
 
+    @timed("sentinel", "ingest_quote")
     def ingest_quote(self, symbol: str, schema_id: str = "market.tick.v1") -> Tick:
         tick = self.client.get_stock_quote(symbol)
         if self.bronze_recorder is not None:
@@ -50,6 +52,7 @@ class SentinelIngestPipeline:
         self.silver_recorder.save_ticks([tick])
         return tick
 
+    @timed("sentinel", "ingest_historical")
     def ingest_historical(
         self,
         symbol: str,
@@ -75,6 +78,7 @@ class SentinelIngestPipeline:
         self.silver_recorder.save_bars(accepted_bars)
         return accepted_bars
 
+    @timed("sentinel", "ingest_corporate_actions")
     def ingest_corporate_actions(
         self,
         symbol: str,
