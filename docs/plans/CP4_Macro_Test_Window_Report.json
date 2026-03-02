@@ -1,0 +1,58 @@
+{
+  "timestamp": "2026-03-01T08:35:49.869552+00:00",
+  "total_required": 8,
+  "healthy": 8,
+  "stale": 0,
+  "missing": 0,
+  "details": {
+    "CPI": {
+      "status": "FRESH",
+      "latency_hours": 0.0021896197222222224,
+      "sla_hours": 48,
+      "last_ingested": "2026-03-01T08:35:41.986921+00:00"
+    },
+    "WPI": {
+      "status": "FRESH",
+      "latency_hours": 0.0021657752777777778,
+      "sla_hours": 48,
+      "last_ingested": "2026-03-01T08:35:42.072761+00:00"
+    },
+    "IIP": {
+      "status": "FRESH",
+      "latency_hours": 0.002163443888888889,
+      "sla_hours": 48,
+      "last_ingested": "2026-03-01T08:35:42.081154+00:00"
+    },
+    "FII_FLOW": {
+      "status": "FRESH",
+      "latency_hours": 0.0021590269444444446,
+      "sla_hours": 4,
+      "last_ingested": "2026-03-01T08:35:42.097055+00:00"
+    },
+    "DII_FLOW": {
+      "status": "FRESH",
+      "latency_hours": 0.002155921388888889,
+      "sla_hours": 4,
+      "last_ingested": "2026-03-01T08:35:42.108235+00:00"
+    },
+    "FX_RESERVES": {
+      "status": "FRESH",
+      "latency_hours": 0.0021528730555555554,
+      "sla_hours": 24,
+      "last_ingested": "2026-03-01T08:35:42.119209+00:00"
+    },
+    "RBI_BULLETIN": {
+      "status": "FRESH",
+      "latency_hours": 0.0021503277777777776,
+      "sla_hours": 24,
+      "last_ingested": "2026-03-01T08:35:42.128372+00:00"
+    },
+    "INDIA_US_10Y_SPREAD": {
+      "status": "FRESH",
+      "latency_hours": 0.0021478441666666665,
+      "sla_hours": 6,
+      "last_ingested": "2026-03-01T08:35:42.137313+00:00"
+    }
+  },
+  "completion_percentage": 100.0
+}

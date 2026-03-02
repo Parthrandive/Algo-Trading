@@ -9,6 +9,7 @@ from src.agents.macro.clients.bond_spread_client import BondSpreadClient
 from src.agents.macro.clients.mospi_client import MOSPIClient
 from src.agents.macro.clients.nse_fiidii_client import NSEDIIFIIClient
 from src.agents.macro.clients.fx_reserves_client import FXReservesClient
+from src.agents.macro.clients.rbi_client import RBIClient
 from src.agents.macro.parsers import (
     BaseParser,
     BondSpreadParser,
@@ -41,7 +42,7 @@ registry: Dict[MacroIndicatorType, Tuple[MacroClientInterface, BaseParser]] = {
     MacroIndicatorType.FII_FLOW: (NSEDIIFIIClient(), FIIDIIParser()),
     MacroIndicatorType.DII_FLOW: (NSEDIIFIIClient(), FIIDIIParser()),
     MacroIndicatorType.FX_RESERVES: (FXReservesClient(), FXReservesParser()),
-    MacroIndicatorType.RBI_BULLETIN: (MOSPIClient(), RBIBulletinParser()), # Reusing for demo
+    MacroIndicatorType.RBI_BULLETIN: (RBIClient(), RBIBulletinParser()),
     MacroIndicatorType.INDIA_US_10Y_SPREAD: (BondSpreadClient(), BondSpreadParser()),
 }
 
