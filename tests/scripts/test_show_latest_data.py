@@ -48,7 +48,7 @@ def test_new_symbol_autofetch_fetches_live_and_writes_silver(monkeypatch, tmp_pa
         )
     ]
 
-    monkeypatch.setattr(show_latest_data, "_build_failover_client", lambda: FakeHistoricalClient(bars))
+    monkeypatch.setattr(show_latest_data, "_build_failover_client", lambda *args, **kwargs: FakeHistoricalClient(bars))
     monkeypatch.setattr(show_latest_data, "choose_client_order", lambda _: [("FakeLive", lambda: FakeLiveClient())])
 
     exit_code = show_latest_data.run([requested_symbol, "--from", "2026-02-18", "--to", "2026-02-20", "--json"])
