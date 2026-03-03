@@ -131,9 +131,18 @@ def test_textual_validator_allows_and_validates_canonical_payload():
     assert sidecar_record.source_route_detail == SourceRouteDetail.OFFICIAL_FEED
 
 
-def test_textual_agent_skeleton_runs_with_empty_adapter_stubs():
+def test_textual_agent_smoke_test_with_default_components():
+    """Verifies that the agent runs with all default components and produces the expected mock data."""
     agent = TextualDataAgent.from_default_components(_runtime_config_path())
     batch = agent.run_once(as_of_utc=datetime(2026, 3, 2, 10, 0, tzinfo=UTC))
 
-    assert batch.canonical_records == []
-    assert batch.sidecar_records == []
+    # We expect 5 canonical records (NSE, ET-pass, RBI, Transcript, X)
+    # and 6 sidecar records (5 allowed, 1 rejected from ET fallback)
+    assert len(batch.canonical_records) == 5
+    assert len(batch.sidecar_records) == 6
+
+    # Verify a few counts/types to be sure
+    record_types = [r.model_dump()["source_type"] for r in batch.canonical_records]
+    assert record_types.count("rss_feed") == 2
+    assert record_types.count("official_api") == 2
+    assert record_types.count("social_media") == 1
