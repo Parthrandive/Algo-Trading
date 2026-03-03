@@ -17,8 +17,9 @@ class ZScoreNormalizer(TransformNode):
         regime_threshold = self.parameters.get("regime_threshold", 2.0)
         anomaly_threshold = self.parameters.get("anomaly_threshold", 3.0)
         
-        mean = df[target_col].rolling(window=window, min_periods=1).mean()
-        std = df[target_col].rolling(window=window, min_periods=1).std()
+        rolling = df[target_col].rolling(window=window, min_periods=1)
+        mean = rolling.mean()
+        std = rolling.std()
         
         # Handle zero division for stationary constants over period
         df[output_col] = (df[target_col] - mean) / std.replace(0, np.nan)
@@ -40,8 +41,9 @@ class MinMaxNormalizer(TransformNode):
         target_col = self.parameters.get("target_column", "value")
         output_col = self.parameters.get("output_column", f"{target_col}_minmax")
         
-        rolling_min = df[target_col].rolling(window=window, min_periods=1).min()
-        rolling_max = df[target_col].rolling(window=window, min_periods=1).max()
+        rolling = df[target_col].rolling(window=window, min_periods=1)
+        rolling_min = rolling.min()
+        rolling_max = rolling.max()
         
         denominator = rolling_max - rolling_min
         df[output_col] = (df[target_col] - rolling_min) / denominator.replace(0, np.nan)

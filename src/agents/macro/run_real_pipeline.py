@@ -1,4 +1,5 @@
 import asyncio
+import concurrent.futures
 from datetime import UTC, datetime
 from typing import Dict, Tuple
 from unittest.mock import Mock
@@ -77,13 +78,16 @@ try:
         MacroIndicatorType.INDIA_US_10Y_SPREAD
     ]
     
-    for indicator in required_indicators:
+    def fetch_indicator(indicator):
         print(f"\n--- Fetching {indicator.value} ---")
         try:
             records = scheduler.run_job(indicator, date_range)
             print(f"Ingested {len(records)} {indicator.value} records.")
         except Exception as e:
             print(f"Failed to fetch {indicator.value}: {e}")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(10, len(required_indicators))) as executor:
+        executor.map(fetch_indicator, required_indicators)
             
 except Exception as e:
     print(f"Error orchestrating pipeline: {e}")

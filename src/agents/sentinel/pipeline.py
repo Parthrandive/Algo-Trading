@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import concurrent.futures
+import logging
 from datetime import datetime
 from typing import Optional, Protocol, List
 
@@ -9,6 +11,7 @@ from src.agents.sentinel.config import SessionRules
 from src.schemas.market_data import Bar, Tick, CorporateAction
 from src.utils.latency import timed
 
+logger = logging.getLogger(__name__)
 
 class SilverRecorderProtocol(Protocol):
     def save_bars(self, bars: List[Bar]) -> None: ...
@@ -51,6 +54,31 @@ class SentinelIngestPipeline:
             )
         self.silver_recorder.save_ticks([tick])
         return tick
+
+    @timed("sentinel", "ingest_quotes")
+    def ingest_quotes(self, symbols: list[str], schema_id: str = "market.tick.v1") -> list[Tick]:
+        ticks = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(10, len(symbols) if symbols else 1)) as executor:
+            future_to_symbol = {executor.submit(self.client.get_stock_quote, sym): sym for sym in symbols}
+            for future in concurrent.futures.as_completed(future_to_symbol):
+                symbol = future_to_symbol[future]
+                try:
+                    tick = future.result()
+                    ticks.append(tick)
+                    if self.bronze_recorder is not None:
+                        self.bronze_recorder.save_event(
+                            source_id=tick.source_type.value,
+                            payload=tick.model_dump(mode="json"),
+                            event_time=tick.timestamp,
+                            symbol=symbol,
+                            schema_id=schema_id,
+                        )
+                except Exception as e:
+                    logger.error("Failed to fetch quote for %s: %s", symbol, e)
+        
+        if ticks:
+            self.silver_recorder.save_ticks(ticks)
+        return ticks
 
     @timed("sentinel", "ingest_historical")
     def ingest_historical(
