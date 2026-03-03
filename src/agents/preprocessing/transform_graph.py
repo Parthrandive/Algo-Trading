@@ -26,6 +26,12 @@ class TransformNode(ABC):
                 f"Version mismatch: Config specifies v{self.version}, "
                 f"but node {self.__class__.__name__} is v{self.expected_version}"
             )
+        self._cache = {}
+
+    def _hash_df(self, df: pd.DataFrame) -> str:
+        # Fast hash utilizing pandas builtin
+        h = pd.util.hash_pandas_object(df, index=True).sum()
+        return str(h)
 
     @classmethod
     @abstractmethod
@@ -41,6 +47,13 @@ class TransformNode(ABC):
     def execute(self, df: pd.DataFrame) -> pd.DataFrame:
         """Wrapper to evaluate schema versions before transforming."""
         # Note: Extensive schema enforcement happens at the Dag/Output boundaries.
+        
+        df_hash = self._hash_df(df)
+        cache_key = f"{self.name}_{self.version}_{df_hash}"
+        
+        if cache_key in self._cache:
+            return self._cache[cache_key].copy(deep=True)
+            
         result_df = self.transform(df.copy(deep=True))
         
         # Attach provenance marker (schema versioning of the node)
@@ -51,6 +64,13 @@ class TransformNode(ABC):
             "output_schema_version": self.output_schema_version
         })
         
+        # Store in cache
+        self._cache[cache_key] = result_df.copy(deep=True)
+        # Limit cache size to prevent memory leaks in long-running processes (simple LRU-like behavior)
+        if len(self._cache) > 10:
+            # Remove oldest
+            self._cache.pop(next(iter(self._cache)))
+            
         return result_df
 
 class TransformGraph:

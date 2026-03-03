@@ -1,6 +1,7 @@
 import yfinance as yf
 from datetime import datetime, timezone
-from typing import List
+import requests
+from typing import List, Optional
 import logging
 
 from src.agents.sentinel.client import NSEClientInterface
@@ -14,8 +15,9 @@ class YFinanceClient(NSEClientInterface):
     Primary connector using yfinance to fetch market data & corporate actions.
     """
     
-    def __init__(self):
+    def __init__(self, session: Optional[requests.Session] = None):
         self.source_type = SourceType.OFFICIAL_API # Using yfinance as 'official' proxy for now per plan
+        self.session = session or requests.Session()
 
     @retry_with_backoff(retries=3, backoff_in_seconds=2)
     @rate_limit(calls=2, period=1) # Limit to 2 calls per second to be safe
@@ -24,7 +26,7 @@ class YFinanceClient(NSEClientInterface):
         Fetch real-time quote for a stock using yfinance.
         Note: yfinance real-time data might be delayed.
         """
-        ticker = yf.Ticker(symbol)
+        ticker = yf.Ticker(symbol, session=self.session)
         # fast_info is often faster/more reliable for current price than .info
         info = ticker.fast_info
         
@@ -61,7 +63,7 @@ class YFinanceClient(NSEClientInterface):
         """
         Fetch historical OHLCV data.
         """
-        ticker = yf.Ticker(symbol)
+        ticker = yf.Ticker(symbol, session=self.session)
         
         # yfinance expects YYYY-MM-DD string or datetime
         df = ticker.history(start=start_date, end=end_date, interval=interval)
@@ -104,7 +106,7 @@ class YFinanceClient(NSEClientInterface):
         """
         Fetch historical corporate actions (Dividends and Stock Splits) using yfinance.
         """
-        ticker = yf.Ticker(symbol)
+        ticker = yf.Ticker(symbol, session=self.session)
         actions_df = ticker.actions
         
         if actions_df.empty:
