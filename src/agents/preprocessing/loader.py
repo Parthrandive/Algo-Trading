@@ -36,6 +36,20 @@ class PreprocessingLoader:
         return schema_id in self._accepted_schemas_canonical
 
 class MacroLoader(PreprocessingLoader):
+    @staticmethod
+    def _read_macro_json(file_path: Path) -> pd.DataFrame:
+        with file_path.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+
+        if isinstance(payload, list):
+            return pd.DataFrame(payload)
+        if isinstance(payload, dict):
+            # Support either a single record or an envelope with a records key.
+            if "records" in payload and isinstance(payload["records"], list):
+                return pd.DataFrame(payload["records"])
+            return pd.DataFrame([payload])
+        raise ValueError(f"Unsupported JSON payload type in {file_path}: {type(payload).__name__}")
+
     def load(self, source_path: str, snapshot_id: str) -> pd.DataFrame:
         """
         Loads MacroIndicator data, validates against schema v1.1, and returns a DataFrame.
@@ -47,20 +61,24 @@ class MacroLoader(PreprocessingLoader):
         records: List[MacroIndicator] = []
         macro_adapter = TypeAdapter(list[MacroIndicator])
         
-        # Load logic defaults to json arrays matching Phase 1 sync gate specifications
+        # Macro inputs can be provided as parquet (silver outputs) or json fixtures.
         if path.is_dir():
-            files = list(path.glob("**/*.json"))
+            files = sorted([*path.glob("**/*.parquet"), *path.glob("**/*.json")])
         else:
             files = [path]
 
         for file_path in files:
             try:
-                with open(file_path, "r") as f:
-                    payload = json.load(f)
-                    
-                    if not isinstance(payload, list):
-                        payload = [payload]
-                        
+                if file_path.suffix.lower() == ".parquet":
+                    df_part = pd.read_parquet(file_path)
+                elif file_path.suffix.lower() == ".json":
+                    df_part = self._read_macro_json(file_path)
+                else:
+                    continue
+
+                if not df_part.empty:
+                    # Convert to records for schema validation
+                    payload = df_part.to_dict(orient="records")
                     validated_batch = macro_adapter.validate_python(payload)
                     for record in validated_batch:
                         if not self._is_schema_allowed("macro.indicator", record.schema_version):
