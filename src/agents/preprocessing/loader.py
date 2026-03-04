@@ -47,20 +47,19 @@ class MacroLoader(PreprocessingLoader):
         records: List[MacroIndicator] = []
         macro_adapter = TypeAdapter(list[MacroIndicator])
         
-        # Load logic defaults to json arrays matching Phase 1 sync gate specifications
+        # Load logic defaults to parquet matching Phase 1 sync gate specifications
         if path.is_dir():
-            files = list(path.glob("**/*.json"))
+            files = list(path.glob("**/*.parquet"))
         else:
             files = [path]
 
         for file_path in files:
             try:
-                with open(file_path, "r") as f:
-                    payload = json.load(f)
-                    
-                    if not isinstance(payload, list):
-                        payload = [payload]
-                        
+                # Read parquet
+                df_part = pd.read_parquet(file_path)
+                if not df_part.empty:
+                    # Convert to records for schema validation
+                    payload = df_part.to_dict(orient="records")
                     validated_batch = macro_adapter.validate_python(payload)
                     for record in validated_batch:
                         if not self._is_schema_allowed("macro.indicator", record.schema_version):
