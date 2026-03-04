@@ -86,12 +86,36 @@ class TextualDataAgent:
                     self._log_compliance_rejection(sidecar_record)
                 sidecar_records.append(sidecar_record)
 
+        # Day 3: Batch-level post-processing (Burst Detection)
+        self._detect_social_bursts(sidecar_records)
+
         if self.recorder and canonical_records:
             from src.schemas.text_data import TextDataBase
             # Cast for type checker if needed, SilverDBRecorder expects List[TextDataBase]
             self.recorder.save_text_items(canonical_records)  # type: ignore
 
         return self.exporter.build_batch(canonical_records, sidecar_records)
+
+    def _detect_social_bursts(self, sidecars: list[Any]) -> None:
+        """Simple burst detection: if many posts share hashtags/keywords, increase risk."""
+        social_indices = [
+            i for i, s in enumerate(sidecars) 
+            if s.source_type.value == "social_media" and s.compliance_status.value == "allow"
+        ]
+        
+        if len(social_indices) < 5:
+            return
+            
+        for i in social_indices:
+            s = sidecars[i]
+            updated_flags = list(s.quality_flags)
+            if "high_volume_burst" not in updated_flags:
+                updated_flags.append("high_volume_burst")
+                
+            sidecars[i] = s.model_copy(update={
+                "quality_flags": updated_flags,
+                "manipulation_risk_score": min(1.0, s.manipulation_risk_score + 0.2)
+            })
 
     def _log_compliance_rejection(self, sidecar: Any) -> None:
         """Logs compliance rejection details to a dedicated file."""

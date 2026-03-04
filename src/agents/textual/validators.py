@@ -33,6 +33,11 @@ class TextualValidator:
         self._canonical_schema_keys = dict(self.runtime_config.get("canonical_schema_keys", {}))
         self._default_ttl_seconds = dict(self.runtime_config.get("default_ttl_seconds", {}))
         self._global_rules = dict(self.runtime_config.get("global_compliance_rules", {}))
+        
+        # Day 3: X-specific templates and filters
+        x_templates = self.runtime_config.get("x_query_templates", {})
+        self._india_relevance_keywords = {"nifty", "sensex", "india", "rbi", "mpc", "repo", "nse", "infy", "tcs", "hdfc", "reliance"}
+        self._negative_filters = set(x_templates.get("negative_filters", []))
 
     @classmethod
     def from_config_path(cls, config_path: Path) -> "TextualValidator":
@@ -81,14 +86,23 @@ class TextualValidator:
         sidecar_quality_flags = self._extract_quality_flags(payload_dict, canonical_record)
         ingestion_timestamp_utc = getattr(canonical_record, "ingestion_timestamp_utc")
 
+        # Day 3: Reliability and confidence adjustments
+        base_confidence = float(payload_dict.get("confidence", 0.5))
+        adjusted_confidence = self._calculate_adjusted_confidence(record, payload_dict, base_confidence)
+        
+        manipulation_risk = float(payload_dict.get("manipulation_risk_score", 0.0))
+        if "potential_spam" in sidecar_quality_flags:
+            manipulation_risk = max(manipulation_risk, 0.7)
+            adjusted_confidence *= 0.5
+
         sidecar = TextSidecarMetadata(
             source_type=getattr(canonical_record, "source_type"),
             source_id=str(getattr(canonical_record, "source_id")),
             ingestion_timestamp_utc=ingestion_timestamp_utc,
             source_route_detail=record.source_route_detail,
             quality_flags=sidecar_quality_flags,
-            manipulation_risk_score=float(payload_dict.get("manipulation_risk_score", 0.0)),
-            confidence=float(payload_dict.get("confidence", 0.5)),
+            manipulation_risk_score=manipulation_risk,
+            confidence=min(max(adjusted_confidence, 0.0), 1.0),
             ttl_seconds=self.default_ttl_seconds(record.record_type),
             compliance_status=ComplianceStatus.ALLOW,
             compliance_reason=None,
@@ -115,6 +129,17 @@ class TextualValidator:
         if record.source_route_detail.value not in allowed_routes:
             return self._reject("route_not_allowed")
 
+        # Day 3: Source-specific compliance checks
+        compliance_checks = source_entry.get("compliance_checks", [])
+        content_lower = record.content.lower()
+
+        if any(neg in content_lower for neg in self._negative_filters):
+            return self._reject("negative_filter_match")
+
+        if "india_relevance" in compliance_checks:
+            if not any(kw in content_lower for kw in self._india_relevance_keywords):
+                return self._reject("low_india_relevance")
+
         if self._global_rules.get("reject_if_unpublished", False) and not bool(payload.get("is_published", True)):
             return self._reject("unpublished_content")
 
@@ -131,6 +156,36 @@ class TextualValidator:
             return self._reject("missing_source_url")
 
         return ComplianceDecision(status=ComplianceStatus.ALLOW, reason=None)
+
+    def _calculate_adjusted_confidence(
+        self, 
+        record: RawTextRecord, 
+        payload: Mapping[str, Any], 
+        base_confidence: float
+    ) -> float:
+        confidence = base_confidence
+        
+        # RSS feeds and official APIs get a boost
+        if record.source_type.value in ("rss_feed", "official_api"):
+            confidence += 0.2
+            
+        # Fallback scrapers get a penalty
+        if record.source_route_detail.value == "fallback_scraper":
+            confidence -= 0.3
+            
+        # Social media starts lower
+        if record.source_type.value == "social_media":
+            confidence -= 0.1
+            
+        # X-specific engagement boosting
+        if record.source_name == "x_posts":
+            likes = int(payload.get("likes", 0))
+            if likes > 1000:
+                confidence += 0.1
+            elif likes < 10:
+                confidence -= 0.1
+                
+        return confidence
 
     @staticmethod
     def _extract_quality_flags(payload: Mapping[str, Any], canonical_record: BaseModel) -> list[str]:
