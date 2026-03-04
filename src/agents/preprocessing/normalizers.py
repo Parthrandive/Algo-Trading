@@ -74,6 +74,11 @@ class DirectionalChangeDetector(TransformNode):
         target_col = self.parameters.get("target_column", "value")
         output_col = self.parameters.get("output_column", f"{target_col}_directional_flag")
         threshold = self.parameters.get("threshold", 0.05) # 5% change
+
+        # Some snapshots legitimately omit a configured macro column; emit neutral flags.
+        if target_col not in df.columns:
+            df[output_col] = 0
+            return df
         
         pct_change = df[target_col].pct_change(fill_method=None).fillna(0.0)
         
