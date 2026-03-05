@@ -136,10 +136,10 @@ def test_textual_agent_smoke_test_with_default_components():
     agent = TextualDataAgent.from_default_components(_runtime_config_path())
     batch = agent.run_once(as_of_utc=datetime(2026, 3, 2, 10, 0, tzinfo=UTC))
 
-    # We expect 5 canonical records (NSE, ET-pass, RBI, Transcript, X)
-    # and 6 sidecar records (5 allowed, 1 rejected from ET fallback)
+    # We expect 5 canonical records (NSE, ET-pass, RBI, Transcript, X-pass)
+    # and 8 sidecar records (5 allowed, 1 rejected from ET fallback, 2 rejected from X)
     assert len(batch.canonical_records) == 5
-    assert len(batch.sidecar_records) == 6
+    assert len(batch.sidecar_records) == 8
 
     # Verify a few counts/types to be sure
     record_types = [r.model_dump()["source_type"] for r in batch.canonical_records]
