@@ -122,7 +122,15 @@
       "tip subscription",
       "dm for jackpot",
       "non india market"
-    ]
+      ]
+  },
+  "pdf_quality": {
+    "warn_below": 0.8,
+    "fail_below": 0.6
+  },
+  "language_processing": {
+    "enable_hinglish_normalization": true,
+    "enable_transliteration": true
   },
   "default_ttl_seconds": {
     "news_article": 21600,

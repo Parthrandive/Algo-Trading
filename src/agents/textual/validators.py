@@ -39,9 +39,22 @@ class TextualValidator:
         x_templates = self.runtime_config.get("x_query_templates", {})
         self._india_relevance_keywords = {"nifty", "sensex", "india", "rbi", "mpc", "repo", "nse", "infy", "tcs", "hdfc", "reliance"}
         self._negative_filters = set(x_templates.get("negative_filters", []))
-        
-        # Day 4: Safety and PDF services
+
+        # Day 4: Safety and PDF scoring controls
         self.safety_service = SafetyService()
+        pdf_quality_config = dict(self.runtime_config.get("pdf_quality", {}))
+        self._pdf_warn_below = min(max(float(pdf_quality_config.get("warn_below", 0.8)), 0.0), 1.0)
+        self._pdf_fail_below = min(max(float(pdf_quality_config.get("fail_below", 0.6)), 0.0), 1.0)
+        if self._pdf_fail_below > self._pdf_warn_below:
+            self._pdf_fail_below, self._pdf_warn_below = self._pdf_warn_below, self._pdf_fail_below
+
+    @property
+    def pdf_warn_below(self) -> float:
+        return self._pdf_warn_below
+
+    @property
+    def pdf_fail_below(self) -> float:
+        return self._pdf_fail_below
 
     @classmethod
     def from_config_path(cls, config_path: Path) -> "TextualValidator":
@@ -66,16 +79,32 @@ class TextualValidator:
         payload: Mapping[str, Any],
     ) -> tuple[BaseModel | None, TextSidecarMetadata]:
         payload_dict = dict(payload)
+        scam_flags, scam_risk_increment = self.safety_service.check_for_scams(
+            record.content,
+            normalized_text=payload_dict.get("normalized_content") if isinstance(payload_dict.get("normalized_content"), str) else None,
+            transliterated_text=payload_dict.get("transliterated_content") if isinstance(payload_dict.get("transliterated_content"), str) else None,
+        )
+        pdf_quality_flags = self._pdf_quality_flags_for_payload(payload_dict)
+        extraction_score = self._extract_pdf_quality_score(payload_dict)
         decision = self.evaluate_compliance(record, payload_dict)
 
         if not decision.allowed:
+            reject_quality_flags = ["compliance_reject"]
+            reject_quality_flags.extend(self._extract_payload_quality_flags(payload_dict))
+            reject_quality_flags.extend(pdf_quality_flags)
+            reject_quality_flags.extend(scam_flags)
+
+            reject_risk = self._clamp01(float(payload_dict.get("manipulation_risk_score", 0.0)) + scam_risk_increment)
+            if "potential_spam" in reject_quality_flags:
+                reject_risk = max(reject_risk, 0.7)
+
             sidecar = TextSidecarMetadata(
                 source_type=record.source_type,
                 source_id=record.source_id,
                 ingestion_timestamp_utc=datetime.now(UTC),
                 source_route_detail=record.source_route_detail,
-                quality_flags=["compliance_reject"],
-                manipulation_risk_score=0.0,
+                quality_flags=reject_quality_flags,
+                manipulation_risk_score=reject_risk,
                 confidence=0.0,
                 ttl_seconds=0,
                 compliance_status=decision.status,
@@ -88,23 +117,21 @@ class TextualValidator:
             self._canonical_payload_only(payload_dict),
         )
         sidecar_quality_flags = self._extract_quality_flags(payload_dict, canonical_record)
+        sidecar_quality_flags.extend(pdf_quality_flags)
+        sidecar_quality_flags.extend(scam_flags)
         ingestion_timestamp_utc = getattr(canonical_record, "ingestion_timestamp_utc")
 
         # Day 3: Reliability and confidence adjustments
         base_confidence = float(payload_dict.get("confidence", 0.5))
         adjusted_confidence = self._calculate_adjusted_confidence(record, payload_dict, base_confidence)
-        
-        # Day 4: PDF Extraction Score integration
-        extraction_score = float(payload_dict.get("extraction_quality_score", 1.0))
-        adjusted_confidence *= extraction_score
-        
-        manipulation_risk = float(payload_dict.get("manipulation_risk_score", 0.0))
-        
-        # Day 4: Safety/Scam Lexicon Check
-        scam_flags, risk_inc = self.safety_service.check_for_scams(record.content)
-        sidecar_quality_flags.extend(scam_flags)
-        manipulation_risk = min(1.0, manipulation_risk + risk_inc)
-        
+
+        # Day 4: PDF extraction quality should downgrade confidence on weak extraction.
+        if extraction_score is not None:
+            adjusted_confidence *= extraction_score
+            if extraction_score < self._pdf_fail_below:
+                adjusted_confidence *= 0.8
+
+        manipulation_risk = self._clamp01(float(payload_dict.get("manipulation_risk_score", 0.0)) + scam_risk_increment)
         if "potential_spam" in sidecar_quality_flags:
             manipulation_risk = max(manipulation_risk, 0.7)
             adjusted_confidence *= 0.5
@@ -203,13 +230,7 @@ class TextualValidator:
 
     @staticmethod
     def _extract_quality_flags(payload: Mapping[str, Any], canonical_record: BaseModel) -> list[str]:
-        quality_flags: list[str] = []
-
-        payload_flags = payload.get("quality_flags")
-        if isinstance(payload_flags, list):
-            for item in payload_flags:
-                if isinstance(item, str):
-                    quality_flags.append(item)
+        quality_flags = TextualValidator._extract_payload_quality_flags(payload)
 
         quality_status = getattr(canonical_record, "quality_status", None)
         if quality_status is not None:
@@ -226,9 +247,47 @@ class TextualValidator:
             "manipulation_risk_score",
             "confidence",
             "quality_flags",
+            "extraction_quality_score",
+            "pdf_quality_status",
+            "pdf_extracted_char_count",
+            "normalized_content",
+            "transliterated_content",
         }
         return {key: value for key, value in payload.items() if key not in operational_keys}
 
     @staticmethod
     def _reject(reason: str) -> ComplianceDecision:
         return ComplianceDecision(status=ComplianceStatus.REJECT, reason=reason)
+
+    @staticmethod
+    def _extract_payload_quality_flags(payload: Mapping[str, Any]) -> list[str]:
+        quality_flags: list[str] = []
+        payload_flags = payload.get("quality_flags")
+        if isinstance(payload_flags, list):
+            for item in payload_flags:
+                if isinstance(item, str):
+                    quality_flags.append(item)
+        return quality_flags
+
+    def _extract_pdf_quality_score(self, payload: Mapping[str, Any]) -> float | None:
+        raw_score = payload.get("extraction_quality_score")
+        if raw_score is None:
+            return None
+        try:
+            return self._clamp01(float(raw_score))
+        except (TypeError, ValueError):
+            return None
+
+    def _pdf_quality_flags_for_payload(self, payload: Mapping[str, Any]) -> list[str]:
+        extraction_score = self._extract_pdf_quality_score(payload)
+        if extraction_score is None:
+            return []
+        if extraction_score < self._pdf_fail_below:
+            return ["pdf_extraction_low_quality"]
+        if extraction_score < self._pdf_warn_below:
+            return ["pdf_extraction_warn"]
+        return ["pdf_extraction_pass"]
+
+    @staticmethod
+    def _clamp01(value: float) -> float:
+        return min(max(value, 0.0), 1.0)

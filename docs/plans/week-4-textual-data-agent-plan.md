@@ -113,6 +113,13 @@ Day 1 implementation snapshot (2026-03-02):
 - Add slang-scam lexicon hooks used by manipulation detection.
 - Output: validated PDF + language pipeline with spot-check report.
 
+Day 4 implementation snapshot (2026-03-05):
+- Day 4 spot-check report: `docs/plans/week-4-textual-data-agent-day4-spot-check-report.md`
+- PDF extraction service and metrics hooks: `src/agents/textual/services/pdf_service.py`
+- Language detection/normalization/transliteration hooks: `src/agents/textual/services/language_service.py`
+- Scam lexicon safety hooks: `src/agents/textual/services/safety_service.py`
+- Day 4 validation tests: `tests/test_textual_day4.py`
+
 ### Day 5: March 6, 2026 (Friday) - Quality, Safety, and Sentiment Handoff
 - Add missingness, deduplication, outlier-length, and malformed timestamp checks.
 - Add adversarial/spam/manipulation filters and `manipulation_risk_score`.
