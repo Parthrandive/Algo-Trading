@@ -1,0 +1,289 @@
+{
+  "trading_day": "2026-03-05",
+  "cutoff_utc": "2026-03-05T23:59:59+00:00",
+  "dataset_snapshot_id": "snapshot_20260305_182828_UTC",
+  "deterministic_replay": true,
+  "gold_hash": "0542a912ffe2e595bf0892715091e6a34893299a0bc4feddf721b8fc923500fc",
+  "snapshot_alignment_pass": true,
+  "snapshot_cross_reference": [
+    {
+      "stream": "sentinel_ohlcv_silver",
+      "dataset_snapshot_id": "snapshot_20260305_182828_UTC",
+      "record_count": 14,
+      "trace_ref": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/market_slice_2026-03-05.parquet"
+    },
+    {
+      "stream": "sentinel_corporate_actions_silver",
+      "dataset_snapshot_id": "snapshot_20260305_182828_UTC",
+      "record_count": 8,
+      "trace_ref": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/corp_slice_asof_2026-03-05.parquet"
+    },
+    {
+      "stream": "macro_indicator_tables",
+      "dataset_snapshot_id": "snapshot_20260305_182828_UTC",
+      "record_count": 16,
+      "trace_ref": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/macro_slice_asof_2026-03-05.parquet"
+    },
+    {
+      "stream": "textual_silver_plus_sidecar",
+      "dataset_snapshot_id": "snapshot_20260305_182828_UTC",
+      "record_count": 4,
+      "trace_ref": "local_textual_replay_slice"
+    },
+    {
+      "stream": "preprocessing_gold_features",
+      "dataset_snapshot_id": "snapshot_20260305_182828_UTC",
+      "record_count": 14,
+      "trace_ref": "0542a912ffe2e595bf0892715091e6a34893299a0bc4feddf721b8fc923500fc"
+    }
+  ],
+  "schema_maps": {
+    "gold_preprocessing_features": {
+      "symbol": "string",
+      "exchange": "string",
+      "timestamp": "datetime",
+      "source_type": "string",
+      "ingestion_timestamp_utc": "datetime",
+      "ingestion_timestamp_ist": "datetime",
+      "schema_version": "string",
+      "quality_status": "string",
+      "interval": "string",
+      "open": "float64",
+      "high": "float64",
+      "low": "float64",
+      "close": "float64",
+      "volume": "int64",
+      "vwap": "float64",
+      "dataset_snapshot_id": "string",
+      "CPI": "float64",
+      "DII_FLOW": "float64",
+      "FII_FLOW": "float64",
+      "FX_RESERVES": "float64",
+      "IIP": "float64",
+      "INDIA_US_10Y_SPREAD": "float64",
+      "RBI_BULLETIN": "float64",
+      "WPI": "float64",
+      "close_log_return": "float64",
+      "close_log_return_zscore": "float64",
+      "close_log_return_zscore_is_regime_shift": "int64",
+      "close_log_return_zscore_is_anomaly": "int64",
+      "macro_directional_flag": "int64"
+    },
+    "macro_indicator_table": {
+      "indicator_name": "string",
+      "value": "float64",
+      "unit": "string",
+      "period": "string",
+      "timestamp": "datetime",
+      "region": "string",
+      "source_type": "string",
+      "ingestion_timestamp_utc": "datetime",
+      "ingestion_timestamp_ist": "datetime",
+      "schema_version": "string",
+      "quality_status": "string",
+      "dataset_snapshot_id": "string"
+    },
+    "text_silver_canonical": {
+      "source_id": "string",
+      "timestamp": "datetime",
+      "content": "string",
+      "url": "string",
+      "author": "string",
+      "language": "string",
+      "source_type": "string",
+      "ingestion_timestamp_utc": "datetime",
+      "ingestion_timestamp_ist": "datetime",
+      "schema_version": "string",
+      "quality_status": "string",
+      "sentiment_score": "unknown",
+      "embedding": "unknown",
+      "entities": "unknown",
+      "headline": "string",
+      "publisher": "string",
+      "platform": "string",
+      "likes": "float64",
+      "shares": "float64",
+      "dataset_snapshot_id": "string"
+    },
+    "text_sidecar_metadata": {
+      "source_type": "string",
+      "source_id": "string",
+      "ingestion_timestamp_utc": "datetime",
+      "source_route_detail": "string",
+      "quality_flags": "array",
+      "manipulation_risk_score": "float64",
+      "confidence": "float64",
+      "ttl_seconds": "int64",
+      "compliance_status": "string",
+      "compliance_reason": "unknown",
+      "dataset_snapshot_id": "string"
+    },
+    "corp_actions_table": {
+      "symbol": "string",
+      "exchange": "string",
+      "timestamp": "datetime",
+      "source_type": "string",
+      "ingestion_timestamp_utc": "datetime",
+      "ingestion_timestamp_ist": "datetime",
+      "schema_version": "string",
+      "quality_status": "string",
+      "action_type": "string",
+      "ratio": "float64",
+      "value": "float64",
+      "ex_date": "datetime",
+      "record_date": "datetime",
+      "dataset_snapshot_id": "string"
+    }
+  },
+  "pairwise_compatibility": [
+    {
+      "left_table": "gold_preprocessing_features",
+      "right_table": "macro_indicator_table",
+      "shared_column_count": 7,
+      "conflict_columns": [],
+      "status": "compatible"
+    },
+    {
+      "left_table": "gold_preprocessing_features",
+      "right_table": "text_silver_canonical",
+      "shared_column_count": 7,
+      "conflict_columns": [],
+      "status": "compatible"
+    },
+    {
+      "left_table": "gold_preprocessing_features",
+      "right_table": "text_sidecar_metadata",
+      "shared_column_count": 3,
+      "conflict_columns": [],
+      "status": "compatible"
+    },
+    {
+      "left_table": "gold_preprocessing_features",
+      "right_table": "corp_actions_table",
+      "shared_column_count": 9,
+      "conflict_columns": [],
+      "status": "compatible"
+    },
+    {
+      "left_table": "macro_indicator_table",
+      "right_table": "text_silver_canonical",
+      "shared_column_count": 7,
+      "conflict_columns": [],
+      "status": "compatible"
+    },
+    {
+      "left_table": "macro_indicator_table",
+      "right_table": "text_sidecar_metadata",
+      "shared_column_count": 3,
+      "conflict_columns": [],
+      "status": "compatible"
+    },
+    {
+      "left_table": "macro_indicator_table",
+      "right_table": "corp_actions_table",
+      "shared_column_count": 8,
+      "conflict_columns": [],
+      "status": "compatible"
+    },
+    {
+      "left_table": "text_silver_canonical",
+      "right_table": "text_sidecar_metadata",
+      "shared_column_count": 4,
+      "conflict_columns": [],
+      "status": "compatible"
+    },
+    {
+      "left_table": "text_silver_canonical",
+      "right_table": "corp_actions_table",
+      "shared_column_count": 7,
+      "conflict_columns": [],
+      "status": "compatible"
+    },
+    {
+      "left_table": "text_sidecar_metadata",
+      "right_table": "corp_actions_table",
+      "shared_column_count": 3,
+      "conflict_columns": [],
+      "status": "compatible"
+    }
+  ],
+  "schema_conflict_count": 0,
+  "sidecar_type_checks": [
+    {
+      "source_id": "nse_news_2026-03-05_001",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "x_post_2026-03-05_001",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    }
+  ],
+  "all_sidecar_types_valid": true,
+  "volumes_gb": {
+    "sentinel_ohlcv_gb": 1.0301358997821808e-05,
+    "sentinel_corp_actions_gb": 9.964220225811005e-06,
+    "macro_indicator_gb": 8.013099431991577e-06,
+    "text_canonical_gb": 1.0235235095024109e-06,
+    "text_sidecar_gb": 6.295740604400635e-07,
+    "preprocessing_gold_gb": 1.1144205927848816e-05,
+    "total_input_streams_gb": 2.9931776225566864e-05
+  },
+  "roadmap_targets": [
+    {
+      "checkpoint": "Q2 2026",
+      "target_total_input_gb_per_day": 1.0,
+      "focus": "Stabilize replay determinism and complete partner text replay automation."
+    },
+    {
+      "checkpoint": "Q3 2026",
+      "target_total_input_gb_per_day": 5.0,
+      "focus": "Scale to full NSE universe and add textual partner production feed."
+    },
+    {
+      "checkpoint": "Q4 2026",
+      "target_total_input_gb_per_day": 20.0,
+      "focus": "Introduce warm-tier compaction, catalog partitioning, and retention automation."
+    },
+    {
+      "checkpoint": "Q1 2027",
+      "target_total_input_gb_per_day": 75.0,
+      "focus": "Phase 2 throughput readiness with replay SLA and quarterly backfill drills."
+    }
+  ],
+  "defects": [
+    {
+      "id": "DEF-001",
+      "severity": "Medium",
+      "title": "Corporate action records failed strict validation",
+      "status": "Open",
+      "owner": "Data Platform",
+      "detail": "16 row(s) failed schema validation during replay prep."
+    },
+    {
+      "id": "DEF-002",
+      "severity": "Medium",
+      "title": "Gold replay output is in-memory only",
+      "status": "Open",
+      "owner": "Preprocessing",
+      "detail": "Preprocessing replay returns TransformOutput hash and records but does not persist to data/gold."
+    },
+    {
+      "id": "DEF-003",
+      "severity": "Low",
+      "title": "Partner textual replay evidence not attached",
+      "status": "Open",
+      "owner": "Partner Textual Agent",
+      "detail": "S2 validation used local synthetic textual slice; external partner run artifact still pending."
+    }
+  ],
+  "decision": "GO_WITH_CONDITIONS",
+  "paths": {
+    "market_slice": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/market_slice_2026-03-05.parquet",
+    "macro_slice": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/macro_slice_asof_2026-03-05.parquet",
+    "corp_slice": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/corp_slice_asof_2026-03-05.parquet"
+  }
+}

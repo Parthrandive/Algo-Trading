@@ -71,3 +71,17 @@ Template:
 - **PnL Attribution Check**: per-agent and per-signal attribution health
 - **Incident Count**:
 - **Decision**: keep / rollback / hotfix
+
+## 6. Resilience Drill Outcomes & Targets (Phase 1)
+
+### Sentinel Primary Feed Outage
+- **Scenario**: NSE Primary API becomes unreachable or returns malformed data (integrity failure).
+- **Observed Behavior**: Sentinel client triggers `DegradationState.REDUCE_ONLY`, falls back to Web Scraper, flags ticks with `QualityFlag.WARN`. Engine enters "Close-Only Advisory" if all fallbacks fail.
+- **Measured MTTR**: Automatic fallback engages instantly. Full recovery to NORMAL state measured at **~7.5 seconds** (after 3s cooldown + 2 successes).
+- **Target MTTR**: < 10 seconds.
+- **Escalation Path**: If fallback scraper fails, alert SEV2 to L1 On-Call to investigate vendor status.
+
+### Macro Stale-Source
+- **Scenario**: Scheduled macro indicators (e.g. CPI, WPI) fail to publish on expected date.
+- **Observed Behavior**: Freshness Checker raises `STALE` and/or `MISSING` alerts if latency exceeds SLA hours (e.g., >48h for CPI).
+- **Target Response**: Downstream feature normalizers apply pre-configured penalty weights. Alert SEV3 to L1 On-Call for manual investigation or fallback vendor patching.
