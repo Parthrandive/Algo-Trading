@@ -1,3 +1,4 @@
+
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -5,6 +6,7 @@ from typing import Protocol, Sequence
 
 from src.schemas.text_data import SourceType as TextSourceType
 from src.schemas.text_sidecar import SourceRouteDetail
+from src.agents.textual.services.pdf_service import PDFExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -113,21 +115,31 @@ class RBIReportsAdapter(BaseTextAdapter):
     source_type = TextSourceType.OFFICIAL_API
     source_route_detail = SourceRouteDetail.PRIMARY_API
 
+    def __init__(self):
+        self.pdf_extractor = PDFExtractor()
+
     def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
         now = as_of_utc or datetime.now(UTC)
+        
+        # Simulate fetching a PDF file
+        mock_pdf_content = b"%PDF-1.4 ... RBI Bulletin Content ..."
+        extracted_text = self.pdf_extractor.extract_text(mock_pdf_content)
+        quality_score = self.pdf_extractor.get_extraction_quality_score(mock_pdf_content)
+
         return [
             RawTextRecord(
-                record_type="news_article", # Mapped to NewsArticle for simplicity during Day 2
+                record_type="news_article",
                 source_name=self.source_name,
                 source_id="rbi_report_feb_2026",
                 timestamp=now,
-                content="MPC maintains repo rate at 6.5% citing inflation concerns.",
+                content=extracted_text,
                 payload={
-                    "headline": "RBI MPC Policy Update",
+                    "headline": "RBI MPC Policy Update (Extracted)",
                     "publisher": "Reserve Bank of India",
-                    "url": "https://rbi.org.in/reports/feb_2026",
+                    "url": "https://rbi.org.in/reports/feb_2026.pdf",
                     "is_published": True,
                     "license_ok": True,
+                    "extraction_quality_score": quality_score,
                 },
                 source_type=self.source_type,
                 source_route_detail=self.source_route_detail,
@@ -140,22 +152,32 @@ class EarningsTranscriptAdapter(BaseTextAdapter):
     source_type = TextSourceType.OFFICIAL_API
     source_route_detail = SourceRouteDetail.OFFICIAL_FEED
 
+    def __init__(self):
+        self.pdf_extractor = PDFExtractor()
+
     def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
         now = as_of_utc or datetime.now(UTC)
+        
+        # Simulate fetching an earnings transcript PDF
+        mock_pdf_content = b"%PDF-1.4 ... INFY Q3 Transcript ..."
+        extracted_text = self.pdf_extractor.extract_text(mock_pdf_content)
+        quality_score = self.pdf_extractor.get_extraction_quality_score(mock_pdf_content)
+
         return [
             RawTextRecord(
                 record_type="earnings_transcript",
                 source_name=self.source_name,
                 source_id="infosys_q3_2026",
                 timestamp=now,
-                content="Infosys reports 5% revenue growth in constant currency.",
+                content=extracted_text,
                 payload={
                     "symbol": "INFY",
                     "quarter": "Q3",
                     "year": 2026,
-                    "url": "https://infosys.com/investors/q3_2026",
+                    "url": "https://infosys.com/investors/q3_2026.pdf",
                     "is_published": True,
                     "license_ok": True,
+                    "extraction_quality_score": quality_score,
                 },
                 source_type=self.source_type,
                 source_route_detail=self.source_route_detail,

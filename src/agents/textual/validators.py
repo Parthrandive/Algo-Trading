@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from src.agents.textual.adapters import RawTextRecord
 from src.schemas.text_sidecar import ComplianceStatus, TextSidecarMetadata
 from src.utils.schema_registry import SchemaRegistry
+from src.agents.textual.services.safety_service import SafetyService
 
 
 @dataclass(frozen=True)
@@ -38,6 +39,9 @@ class TextualValidator:
         x_templates = self.runtime_config.get("x_query_templates", {})
         self._india_relevance_keywords = {"nifty", "sensex", "india", "rbi", "mpc", "repo", "nse", "infy", "tcs", "hdfc", "reliance"}
         self._negative_filters = set(x_templates.get("negative_filters", []))
+        
+        # Day 4: Safety and PDF services
+        self.safety_service = SafetyService()
 
     @classmethod
     def from_config_path(cls, config_path: Path) -> "TextualValidator":
@@ -90,7 +94,17 @@ class TextualValidator:
         base_confidence = float(payload_dict.get("confidence", 0.5))
         adjusted_confidence = self._calculate_adjusted_confidence(record, payload_dict, base_confidence)
         
+        # Day 4: PDF Extraction Score integration
+        extraction_score = float(payload_dict.get("extraction_quality_score", 1.0))
+        adjusted_confidence *= extraction_score
+        
         manipulation_risk = float(payload_dict.get("manipulation_risk_score", 0.0))
+        
+        # Day 4: Safety/Scam Lexicon Check
+        scam_flags, risk_inc = self.safety_service.check_for_scams(record.content)
+        sidecar_quality_flags.extend(scam_flags)
+        manipulation_risk = min(1.0, manipulation_risk + risk_inc)
+        
         if "potential_spam" in sidecar_quality_flags:
             manipulation_risk = max(manipulation_risk, 0.7)
             adjusted_confidence *= 0.5
