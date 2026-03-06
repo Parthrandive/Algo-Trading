@@ -35,10 +35,15 @@ def normalize_symbol(symbol: str) -> str:
     Normalize symbols for this project:
     - NSE equities: TCS -> TCS.NS
     - FX pairs: USDINR -> USDINR=X
+    - Indices: NIFTY -> ^NSEI
     """
     sym = symbol.strip().upper()
     if not sym:
         return sym
+    if sym in ("NIFTY", "NIFTY 50"):
+        return "^NSEI"
+    if sym in ("BANKNIFTY", "NIFTY BANK"):
+        return "^NSEBANK"
     if "." in sym or "=" in sym or "^" in sym:
         return sym
     if _looks_like_forex_pair(sym):

@@ -90,13 +90,13 @@ Harden every agent, run end-to-end integration across all four data streams, exe
 
 **Theme**: Prove all four data streams can replay together and produce consistent snapshot IDs.
 
-- [ ] **Cross-agent integration test**: Run a joint replay harness that covers:
+- [x] **Cross-agent integration test**: Run a joint replay harness that covers:
   - Sentinel OHLCV + Corp Actions → Preprocessing → Gold.
   - Macro indicators → indicator tables.
   - Textual canonical records → Silver text + sidecar metadata *(partner's pipeline)*.
-- [ ] **Snapshot ID cross-reference**: Verify that all four streams' `dataset_snapshot_id` values for the same trading day are traceable and linkable.
-- [ ] **Schema compatibility matrix**: Validate that Gold-tier outputs from all streams can be loaded into a unified data catalog without field conflicts.
-- [ ] **Data scale roadmap draft**: Document current daily processing volumes (GB), target volumes for Phase 2, and quarterly checkpoints (per §5.5).
+- [x] **Snapshot ID cross-reference**: Verify that all four streams' `dataset_snapshot_id` values for the same trading day are traceable and linkable.
+- [x] **Schema compatibility matrix**: Validate that Gold-tier outputs from all streams can be loaded into a unified data catalog without field conflicts.
+- [x] **Data scale roadmap draft**: Document current daily processing volumes (GB), target volumes for Phase 2, and quarterly checkpoints (per §5.5).
 
 > **🔄 Sync S2 — with Partner**
 > - Partner runs textual replay slice for the same trading day.
@@ -105,6 +105,7 @@ Harden every agent, run end-to-end integration across all four data streams, exe
 > - Log any integration issues in a shared defect tracker.
 
 **Output**: Cross-agent replay report, schema compatibility matrix, data scale roadmap v1, S2 decision log.
+**Status**: Completed with conditions; see `docs/reports/day4_sync_s2/`.
 
 ---
 
