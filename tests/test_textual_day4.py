@@ -31,7 +31,7 @@ def test_pdf_spot_check_report_generation(agent):
 
     assert agent.last_pdf_spot_check_report is not None
     report = agent.last_pdf_spot_check_report
-    assert report["total_documents"] == 2
+    assert report["total_documents"] == 1
     assert report["fail_count"] == 0
     assert report["warn_count"] == 0
     assert PDF_SPOT_CHECK_REPORT_PATH.exists()

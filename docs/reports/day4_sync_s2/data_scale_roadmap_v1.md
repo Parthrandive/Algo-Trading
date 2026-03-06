@@ -1,7 +1,7 @@
 # Data Scale Roadmap v1
 
 - **Baseline trading day**: 2026-03-05
-- **Snapshot**: `snapshot_20260305_182828_UTC`
+- **Snapshot**: `snapshot_20260305_185928_UTC`
 
 ## Current Volume Baseline
 | Stream | Current Daily Volume (GB) |
@@ -9,10 +9,10 @@
 | Sentinel OHLCV | 0.00001030 |
 | Sentinel Corporate Actions | 0.00000996 |
 | Macro Indicators | 0.00000801 |
-| Text Canonical | 0.00000102 |
-| Text Sidecar | 0.00000063 |
+| Text Canonical | 0.00003510 |
+| Text Sidecar | 0.00001482 |
 | Preprocessing Gold (derived output) | 0.00001114 |
-| Total Input Streams | 0.00002993 |
+| Total Input Streams | 0.00007820 |
 
 ## Phase 2 Targets and Quarterly Checkpoints
 | Checkpoint | Target Total Input GB/Day | Focus |

@@ -21,11 +21,12 @@
       "source_type": "rss_feed",
       "allowed": true,
       "allowed_routes": [
-        "official_feed"
+        "official_feed",
+        "fallback_scraper"
       ],
       "license_status": "approved_public_terms",
       "legal_basis": "public_release_only",
-      "allow_fallback_scraper": false,
+      "allow_fallback_scraper": true,
       "compliance_checks": [
         "published",
         "licensed",
@@ -122,7 +123,7 @@
       "tip subscription",
       "dm for jackpot",
       "non india market"
-      ]
+    ]
   },
   "pdf_quality": {
     "warn_below": 0.8,

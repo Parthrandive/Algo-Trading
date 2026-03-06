@@ -1,7 +1,7 @@
 # S2 Decision Log - 2026-03-05
 
-- **Decision timestamp (UTC)**: 2026-03-05T18:28:29.195329+00:00
-- **dataset_snapshot_id**: `snapshot_20260305_182828_UTC`
+- **Decision timestamp (UTC)**: 2026-03-05T18:59:28.592130+00:00
+- **dataset_snapshot_id**: `snapshot_20260305_185928_UTC`
 - **Decision**: `GO_WITH_CONDITIONS`
 
 ## Decision Inputs
@@ -9,9 +9,9 @@
 - Snapshot ID alignment across streams: `True`
 - Text sidecar typing checks: `True`
 - Schema conflict pairs: `0`
+- Textual source mode: `persisted_silver_artifacts_filtered`
 
 ## Condition Notes
-- Partner textual replay artifact remains pending and is tracked in the defect tracker.
 - Gold persistence path is pending; replay evidence currently uses output hash + record payload.
 
 ## Artifact Links

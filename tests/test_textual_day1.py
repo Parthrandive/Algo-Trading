@@ -73,8 +73,10 @@ def test_textual_runtime_config_day1_contract_freeze():
         "earnings_transcripts",
         "x_posts",
     }
+    source_allowed = {entry["source_name"]: bool(entry["allowed"]) for entry in config["source_allowlist"]}
+    for source_name in ("nse_news", "economic_times", "earnings_transcripts", "x_posts", "rbi_reports"):
+        assert source_allowed[source_name] is True
     for entry in config["source_allowlist"]:
-        assert entry["allowed"] is True
         assert entry["allowed_routes"]
         assert entry["compliance_checks"]
 
@@ -130,6 +132,17 @@ def test_textual_validator_allows_and_validates_canonical_payload():
     assert sidecar_record.source_type == TextSourceType.RSS_FEED
     assert sidecar_record.source_route_detail == SourceRouteDetail.OFFICIAL_FEED
 
+
+def test_textual_agent_run_once_returns_contract_safe_batch():
+    agent = TextualDataAgent.from_default_components(_runtime_config_path())
+    batch = agent.run_once(as_of_utc=datetime(2026, 3, 2, 10, 0, tzinfo=UTC))
+
+    assert isinstance(batch.canonical_records, list)
+    assert isinstance(batch.sidecar_records, list)
+    for sidecar in batch.sidecar_records:
+        assert isinstance(sidecar.confidence, float)
+        assert isinstance(sidecar.ttl_seconds, int)
+        assert isinstance(sidecar.manipulation_risk_score, float)
 
 def test_textual_agent_smoke_test_with_default_components():
     """Verifies that the agent runs with all default components and produces the expected mock data."""

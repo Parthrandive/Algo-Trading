@@ -1,40 +1,40 @@
 {
   "trading_day": "2026-03-05",
   "cutoff_utc": "2026-03-05T23:59:59+00:00",
-  "dataset_snapshot_id": "snapshot_20260305_182828_UTC",
+  "dataset_snapshot_id": "snapshot_20260305_185928_UTC",
   "deterministic_replay": true,
-  "gold_hash": "0542a912ffe2e595bf0892715091e6a34893299a0bc4feddf721b8fc923500fc",
+  "gold_hash": "209c6b1a32fa3e68b94ef9a9ba949d15414430489f727e49116c41dbe14c7e00",
   "snapshot_alignment_pass": true,
   "snapshot_cross_reference": [
     {
       "stream": "sentinel_ohlcv_silver",
-      "dataset_snapshot_id": "snapshot_20260305_182828_UTC",
+      "dataset_snapshot_id": "snapshot_20260305_185928_UTC",
       "record_count": 14,
       "trace_ref": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/market_slice_2026-03-05.parquet"
     },
     {
       "stream": "sentinel_corporate_actions_silver",
-      "dataset_snapshot_id": "snapshot_20260305_182828_UTC",
+      "dataset_snapshot_id": "snapshot_20260305_185928_UTC",
       "record_count": 8,
       "trace_ref": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/corp_slice_asof_2026-03-05.parquet"
     },
     {
       "stream": "macro_indicator_tables",
-      "dataset_snapshot_id": "snapshot_20260305_182828_UTC",
+      "dataset_snapshot_id": "snapshot_20260305_185928_UTC",
       "record_count": 16,
       "trace_ref": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/macro_slice_asof_2026-03-05.parquet"
     },
     {
       "stream": "textual_silver_plus_sidecar",
-      "dataset_snapshot_id": "snapshot_20260305_182828_UTC",
-      "record_count": 4,
-      "trace_ref": "local_textual_replay_slice"
+      "dataset_snapshot_id": "snapshot_20260305_185928_UTC",
+      "record_count": 90,
+      "trace_ref": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/textual_canonical_2026-03-05.parquet|/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/textual_sidecar_2026-03-05.parquet"
     },
     {
       "stream": "preprocessing_gold_features",
-      "dataset_snapshot_id": "snapshot_20260305_182828_UTC",
+      "dataset_snapshot_id": "snapshot_20260305_185928_UTC",
       "record_count": 14,
-      "trace_ref": "0542a912ffe2e595bf0892715091e6a34893299a0bc4feddf721b8fc923500fc"
+      "trace_ref": "209c6b1a32fa3e68b94ef9a9ba949d15414430489f727e49116c41dbe14c7e00"
     }
   ],
   "schema_maps": {
@@ -100,9 +100,6 @@
       "entities": "unknown",
       "headline": "string",
       "publisher": "string",
-      "platform": "string",
-      "likes": "float64",
-      "shares": "float64",
       "dataset_snapshot_id": "string"
     },
     "text_sidecar_metadata": {
@@ -210,13 +207,271 @@
   "schema_conflict_count": 0,
   "sidecar_type_checks": [
     {
-      "source_id": "nse_news_2026-03-05_001",
+      "source_id": "nse_news_eb77ac94137a2ade",
       "confidence_is_float": true,
       "ttl_seconds_is_int": true,
       "manipulation_risk_score_is_float": true
     },
     {
-      "source_id": "x_post_2026-03-05_001",
+      "source_id": "nse_news_614c8e13cdd5359c",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "nse_news_371613b00c41fbc4",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "nse_news_4fcf03bf260e289f",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "nse_news_374825b94e040621",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "nse_news_272473817149126e",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "nse_news_404b2d86ca30310d",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "nse_news_9184456fe70b661e",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "nse_news_0de5e2749aa10dea",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "nse_news_98096bbc5713386b",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "nse_news_525bbddc9ff4b505",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "nse_news_d334407e1516da16",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "nse_news_f15b3e69f48be100",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "nse_news_92fbed6a3221d877",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "nse_news_2e269d4f9b34fa5f",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "nse_news_e7e6c68a4220076a",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "nse_news_787f7ec7cb7feb71",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "nse_news_f0302eec0366bec2",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "nse_news_a172a9717550e429",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "nse_news_ed705e70b655bf79",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_3baa3cce97d98bd2",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_6c9c79e1cdb8b200",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_2ad582253c3c6406",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_c3cc9d970610a5e9",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_9ce1d5ad8c9a293f",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_ded418aeff076afc",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_73115e47fbe7d3c5",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_4e705873e1e45bc7",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_b0579f3db88b0a49",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_de17b7b49c933d84",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_74a53477f001cbc4",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_06f046942ce35a7d",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_c640ab31151923a0",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_781f59e0490cecc2",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_3c2c204a928b2e06",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_15d63a948a7568a3",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_1d0839dd8fb0d816",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_373b63877c13a62d",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_4531a692f2c9a239",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_5800c5bec22f21ef",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_4235e8265a7a54e2",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_2ea84cf110e06865",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_90f80d671f688a38",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_72a0441f6ebeed90",
+      "confidence_is_float": true,
+      "ttl_seconds_is_int": true,
+      "manipulation_risk_score_is_float": true
+    },
+    {
+      "source_id": "et_news_ed82ee70dea4bcc1",
       "confidence_is_float": true,
       "ttl_seconds_is_int": true,
       "manipulation_risk_score_is_float": true
@@ -227,10 +482,10 @@
     "sentinel_ohlcv_gb": 1.0301358997821808e-05,
     "sentinel_corp_actions_gb": 9.964220225811005e-06,
     "macro_indicator_gb": 8.013099431991577e-06,
-    "text_canonical_gb": 1.0235235095024109e-06,
-    "text_sidecar_gb": 6.295740604400635e-07,
+    "text_canonical_gb": 3.509502857923508e-05,
+    "text_sidecar_gb": 1.482199877500534e-05,
     "preprocessing_gold_gb": 1.1144205927848816e-05,
-    "total_input_streams_gb": 2.9931776225566864e-05
+    "total_input_streams_gb": 7.819570600986481e-05
   },
   "roadmap_targets": [
     {
@@ -270,20 +525,15 @@
       "status": "Open",
       "owner": "Preprocessing",
       "detail": "Preprocessing replay returns TransformOutput hash and records but does not persist to data/gold."
-    },
-    {
-      "id": "DEF-003",
-      "severity": "Low",
-      "title": "Partner textual replay evidence not attached",
-      "status": "Open",
-      "owner": "Partner Textual Agent",
-      "detail": "S2 validation used local synthetic textual slice; external partner run artifact still pending."
     }
   ],
   "decision": "GO_WITH_CONDITIONS",
   "paths": {
     "market_slice": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/market_slice_2026-03-05.parquet",
     "macro_slice": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/macro_slice_asof_2026-03-05.parquet",
-    "corp_slice": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/corp_slice_asof_2026-03-05.parquet"
-  }
+    "corp_slice": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/corp_slice_asof_2026-03-05.parquet",
+    "textual_canonical_slice": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/textual_canonical_2026-03-05.parquet",
+    "textual_sidecar_slice": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/textual_sidecar_2026-03-05.parquet"
+  },
+  "textual_source_mode": "persisted_silver_artifacts_filtered"
 }
