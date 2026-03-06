@@ -43,13 +43,16 @@ class LanguageService:
     _SLANG_NORMALIZATION = {
         "paisa": "money",
         "girega": "will fall",
+        "gira": "fell",
         "jayega": "will move",
         "kya": "what",
         "lagta": "seems",
         "hoga": "will be",
         "lelo": "take",
         "karo": "do",
-        "bhai": "bro",
+        "bhai": "brother",
+        "profit book karlo": "book your profits",
+        "fake hai": "is fake",
     }
     _DEVANAGARI_TO_LATIN = {
         "अ": "a",

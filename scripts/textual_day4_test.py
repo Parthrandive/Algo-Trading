@@ -42,9 +42,11 @@ def run_tests():
     logger.info(f"Original: {sample_text}")
     logger.info(f"Cleaned:  {cleaned_record.content}")
     logger.info(f"Language Tag: {cleaned_record.payload.get('language')}")
-    assert "fell" in cleaned_record.content, "Hinglish transliteration failed"
-    assert "brother" in cleaned_record.content, "Hinglish transliteration failed"
-    assert "book your profits" in cleaned_record.content, "Hinglish transliteration failed"
+    
+    normalized_content = cleaned_record.payload.get("normalized_content", "")
+    assert "fell" in normalized_content, "Hinglish transliteration failed"
+    assert "brother" in normalized_content, "Hinglish transliteration failed"
+    assert "book your profits" in normalized_content, "Hinglish transliteration failed"
     assert cleaned_record.payload.get("language") == "code_mixed", "Did not tag as code_mixed"
     
     # 2. Test Slang/Scam Hooks

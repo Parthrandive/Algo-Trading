@@ -1,7 +1,7 @@
 # Data Scale Roadmap v1
 
 - **Baseline trading day**: 2026-03-05
-- **Snapshot**: `snapshot_20260305_185928_UTC`
+- **Snapshot**: `snapshot_20260306_153759_UTC`
 
 ## Current Volume Baseline
 | Stream | Current Daily Volume (GB) |
