@@ -10,7 +10,6 @@ from src.agents.textual.adapters import (
     EconomicTimesAdapter,
     EarningsTranscriptAdapter,
     NSENewsAdapter,
-    RBIReportsAdapter,
     RawTextRecord,
     TextSourceAdapter,
     XPostAdapter,
@@ -45,7 +44,6 @@ class TextualDataAgent:
             adapters=[
                 NSENewsAdapter(),
                 EconomicTimesAdapter(),
-                RBIReportsAdapter(),
                 EarningsTranscriptAdapter(),
                 XPostAdapter(),
             ],

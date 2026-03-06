@@ -1,6 +1,6 @@
 # Schema Compatibility Matrix - 2026-03-05
 
-- **dataset_snapshot_id**: `snapshot_20260305_182828_UTC`
+- **dataset_snapshot_id**: `snapshot_20260305_185928_UTC`
 - **Conflict pair count**: `0`
 
 ## Pairwise Matrix
@@ -80,13 +80,10 @@
 | ingestion_timestamp_ist | datetime |
 | ingestion_timestamp_utc | datetime |
 | language | string |
-| likes | float64 |
-| platform | string |
 | publisher | string |
 | quality_status | string |
 | schema_version | string |
 | sentiment_score | unknown |
-| shares | float64 |
 | source_id | string |
 | source_type | string |
 | timestamp | datetime |

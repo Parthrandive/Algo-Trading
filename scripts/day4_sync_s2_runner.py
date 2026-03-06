@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import numbers
 import sys
 from datetime import UTC, date, datetime, time
 from pathlib import Path
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -17,12 +17,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.agents.preprocessing.loader import MacroLoader, MarketLoader
 from src.agents.preprocessing.pipeline import PreprocessingPipeline
-from src.agents.textual.adapters import RawTextRecord
-from src.agents.textual.exporters import TextualExporter
-from src.agents.textual.validators import TextualValidator
+from src.agents.textual.textual_data_agent import TextualDataAgent
 from src.schemas.market_data import CorporateAction
-from src.schemas.text_data import SourceType as TextSourceType
-from src.schemas.text_sidecar import SourceRouteDetail
 
 EXIT_SUCCESS = 0
 EXIT_FAILURE = 1
@@ -73,6 +69,24 @@ def normalize_ratio(value: Any) -> float | None:
 
 def bytes_to_gb(value: int) -> float:
     return float(value) / (1024**3)
+
+
+def to_json_safe(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): to_json_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [to_json_safe(item) for item in value]
+    if isinstance(value, tuple):
+        return [to_json_safe(item) for item in value]
+    if isinstance(value, (datetime, pd.Timestamp)):
+        return pd.to_datetime(value, utc=True).isoformat()
+    if hasattr(value, "tolist") and not isinstance(value, (str, bytes, bytearray)):
+        return to_json_safe(value.tolist())
+    return value
+
+
+def normalize_record_list(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [to_json_safe(record) for record in records]
 
 
 def find_market_files_for_day(base_path: Path, trading_day: date) -> list[Path]:
@@ -142,106 +156,146 @@ def build_corp_action_slice(
     return corp_df, validation_errors
 
 
+def resolve_textual_silver_paths(trading_day: date) -> tuple[Path, Path]:
+    year = f"{trading_day.year:04d}"
+    month = f"{trading_day.month:02d}"
+    base = PROJECT_ROOT / "data" / "silver" / "text"
+    canonical_path = base / "canonical" / year / month / f"{trading_day.isoformat()}.parquet"
+    sidecar_path = base / "sidecar" / year / month / f"{trading_day.isoformat()}.parquet"
+    return canonical_path, sidecar_path
+
+
+def load_textual_runtime_config() -> dict[str, Any]:
+    config_path = PROJECT_ROOT / "configs" / "textual_data_agent_runtime_v1.json"
+    if not config_path.exists():
+        return {}
+    return json.loads(config_path.read_text(encoding="utf-8"))
+
+
+def blocked_source_id_prefixes(runtime_config: dict[str, Any]) -> tuple[str, ...]:
+    # Prefix mapping for source_id formats produced by adapters.
+    source_prefix_map: dict[str, tuple[str, ...]] = {
+        "nse_news": ("nse_news_", "nse_fallback_"),
+        "economic_times": ("et_news_",),
+        "rbi_reports": ("rbi_pr_",),
+        "earnings_transcripts": ("earnings_pdf_",),
+        "x_posts": ("x_post_",),
+    }
+    blocked_sources = {
+        str(entry.get("source_name", ""))
+        for entry in runtime_config.get("source_allowlist", [])
+        if not bool(entry.get("allowed", False))
+    }
+    prefixes: list[str] = []
+    for source_name in blocked_sources:
+        prefixes.extend(source_prefix_map.get(source_name, (f"{source_name}_",)))
+    return tuple(prefixes)
+
+
+def filter_blocked_text_sources(
+    canonical_df: pd.DataFrame,
+    sidecar_df: pd.DataFrame,
+    prefixes: tuple[str, ...],
+) -> tuple[pd.DataFrame, pd.DataFrame, int]:
+    if not prefixes:
+        return canonical_df, sidecar_df, 0
+
+    removed = 0
+    filtered_canonical = canonical_df
+    filtered_sidecar = sidecar_df
+
+    if not canonical_df.empty and "source_id" in canonical_df.columns:
+        canonical_mask = ~canonical_df["source_id"].astype(str).str.startswith(prefixes)
+        removed += int((~canonical_mask).sum())
+        filtered_canonical = canonical_df.loc[canonical_mask].reset_index(drop=True)
+    if not sidecar_df.empty and "source_id" in sidecar_df.columns:
+        sidecar_mask = ~sidecar_df["source_id"].astype(str).str.startswith(prefixes)
+        removed += int((~sidecar_mask).sum())
+        filtered_sidecar = sidecar_df.loc[sidecar_mask].reset_index(drop=True)
+
+    return filtered_canonical, filtered_sidecar, removed
+
+
 def build_textual_replay_slice(trading_day: date) -> dict[str, Any]:
-    validator = TextualValidator.from_config_path(
-        PROJECT_ROOT / "configs" / "textual_data_agent_runtime_v1.json"
-    )
-    exporter = TextualExporter()
+    day_start_utc = datetime.combine(trading_day, time.min, tzinfo=UTC)
+    day_end_utc = datetime.combine(trading_day, time.max, tzinfo=UTC)
+    runtime_config = load_textual_runtime_config()
+    blocked_prefixes = blocked_source_id_prefixes(runtime_config)
 
-    replay_ts_utc = datetime.combine(trading_day, time(9, 30), tzinfo=UTC)
-    replay_ts_ist = replay_ts_utc.astimezone(ZoneInfo("Asia/Kolkata"))
+    canonical_path, sidecar_path = resolve_textual_silver_paths(trading_day)
+    if canonical_path.exists() and sidecar_path.exists():
+        canonical_df = pd.read_parquet(canonical_path)
+        sidecar_df = pd.read_parquet(sidecar_path)
+        canonical_df, sidecar_df, removed_rows = filter_blocked_text_sources(
+            canonical_df, sidecar_df, blocked_prefixes
+        )
+        if removed_rows > 0:
+            canonical_df.to_parquet(canonical_path, index=False)
+            sidecar_df.to_parquet(sidecar_path, index=False)
+            source_mode = "persisted_silver_artifacts_filtered"
+        else:
+            source_mode = "persisted_silver_artifacts"
+        batch_dict = {
+            "canonical_records": normalize_record_list(canonical_df.to_dict(orient="records")),
+            "sidecar_records": normalize_record_list(sidecar_df.to_dict(orient="records")),
+        }
+    else:
+        agent = TextualDataAgent.from_default_components()
+        batch = agent.run_once(as_of_utc=day_end_utc)
 
-    records = [
-        (
-            RawTextRecord(
-                record_type="news_article",
-                source_name="nse_news",
-                source_id=f"nse_news_{trading_day.isoformat()}_001",
-                timestamp=replay_ts_utc,
-                content="NSE benchmark indices closed positive after broad-based buying.",
-                payload={},
-                source_type=TextSourceType.RSS_FEED,
-                source_route_detail=SourceRouteDetail.OFFICIAL_FEED,
+        canonical_records = []
+        for record in batch.canonical_records:
+            ts = pd.to_datetime(getattr(record, "timestamp"), utc=True)
+            if day_start_utc <= ts <= day_end_utc:
+                canonical_records.append(record)
+
+        sidecar_records = []
+        for record in batch.sidecar_records:
+            ts = pd.to_datetime(record.ingestion_timestamp_utc, utc=True)
+            if day_start_utc <= ts <= day_end_utc:
+                sidecar_records.append(record)
+
+        batch_dict = {
+            "canonical_records": normalize_record_list(
+                [record.model_dump(mode="json") for record in canonical_records]
             ),
-            {
-                "source_id": f"nse_news_{trading_day.isoformat()}_001",
-                "timestamp": replay_ts_utc,
-                "content": "NSE benchmark indices closed positive after broad-based buying.",
-                "url": "https://example.com/nse-news/day4-sync",
-                "author": "Desk",
-                "language": "en",
-                "source_type": "rss_feed",
-                "ingestion_timestamp_utc": replay_ts_utc,
-                "ingestion_timestamp_ist": replay_ts_ist,
-                "schema_version": "1.0",
-                "quality_status": "pass",
-                "headline": "NSE closes higher on broad participation",
-                "publisher": "NSE Bulletin",
-                "is_published": True,
-                "is_embargoed": False,
-                "license_ok": True,
-                "manipulation_risk_score": 0.08,
-                "confidence": 0.82,
-                "quality_flags": ["pass", "integration_replay"],
-            },
-        ),
-        (
-            RawTextRecord(
-                record_type="social_post",
-                source_name="x_posts",
-                source_id=f"x_post_{trading_day.isoformat()}_001",
-                timestamp=replay_ts_utc,
-                content="FII activity remained net-positive in late session.",
-                payload={},
-                source_type=TextSourceType.SOCIAL_MEDIA,
-                source_route_detail=SourceRouteDetail.PRIMARY_API,
+            "sidecar_records": normalize_record_list(
+                [record.model_dump(mode="json") for record in sidecar_records]
             ),
-            {
-                "source_id": f"x_post_{trading_day.isoformat()}_001",
-                "timestamp": replay_ts_utc,
-                "content": "FII activity remained net-positive in late session.",
-                "url": "https://example.com/x/day4-sync",
-                "author": "market_watcher",
-                "language": "en",
-                "source_type": "social_media",
-                "ingestion_timestamp_utc": replay_ts_utc,
-                "ingestion_timestamp_ist": replay_ts_ist,
-                "schema_version": "1.0",
-                "quality_status": "warn",
-                "platform": "X",
-                "likes": 42,
-                "shares": 9,
-                "is_published": True,
-                "is_embargoed": False,
-                "license_ok": True,
-                "manipulation_risk_score": 0.22,
-                "confidence": 0.64,
-                "quality_flags": ["warn", "social_source"],
-            },
-        ),
-    ]
+        }
 
-    canonical_records = []
-    sidecar_records = []
-    for raw_record, payload in records:
-        canonical, sidecar = validator.validate_record(raw_record, payload)
-        if canonical is not None:
-            canonical_records.append(canonical)
-        sidecar_records.append(sidecar)
+        canonical_df = pd.DataFrame(batch_dict["canonical_records"])
+        sidecar_df = pd.DataFrame(batch_dict["sidecar_records"])
+        canonical_df, sidecar_df, removed_rows = filter_blocked_text_sources(
+            canonical_df, sidecar_df, blocked_prefixes
+        )
+        batch_dict = {
+            "canonical_records": normalize_record_list(canonical_df.to_dict(orient="records")),
+            "sidecar_records": normalize_record_list(sidecar_df.to_dict(orient="records")),
+        }
+        canonical_path.parent.mkdir(parents=True, exist_ok=True)
+        sidecar_path.parent.mkdir(parents=True, exist_ok=True)
+        canonical_df.to_parquet(canonical_path, index=False)
+        sidecar_df.to_parquet(sidecar_path, index=False)
+        source_mode = "live_adapter_fetch_filtered" if removed_rows > 0 else "live_adapter_fetch"
 
-    batch = exporter.build_batch(canonical_records, sidecar_records)
-    batch_dict = exporter.as_dict(batch)
+    canonical_records = batch_dict["canonical_records"]
+    sidecar_records = batch_dict["sidecar_records"]
 
     sidecar_type_checks: list[dict[str, Any]] = []
-    for sidecar in batch.sidecar_records:
+    for sidecar in sidecar_records:
+        confidence = sidecar.get("confidence")
+        ttl_seconds = sidecar.get("ttl_seconds")
+        manipulation_risk = sidecar.get("manipulation_risk_score")
         sidecar_type_checks.append(
             {
-                "source_id": sidecar.source_id,
-                "confidence_is_float": isinstance(sidecar.confidence, float),
-                "ttl_seconds_is_int": isinstance(sidecar.ttl_seconds, int),
-                "manipulation_risk_score_is_float": isinstance(
-                    sidecar.manipulation_risk_score, float
-                ),
+                "source_id": str(sidecar.get("source_id", "")),
+                "confidence_is_float": isinstance(confidence, numbers.Real)
+                and not isinstance(confidence, bool),
+                "ttl_seconds_is_int": isinstance(ttl_seconds, numbers.Integral)
+                and not isinstance(ttl_seconds, bool),
+                "manipulation_risk_score_is_float": isinstance(manipulation_risk, numbers.Real)
+                and not isinstance(manipulation_risk, bool),
             }
         )
 
@@ -253,11 +307,15 @@ def build_textual_replay_slice(trading_day: date) -> dict[str, Any]:
     )
 
     return {
-        "canonical_records": batch.canonical_records,
-        "sidecar_records": batch.sidecar_records,
+        "canonical_records": canonical_records,
+        "sidecar_records": sidecar_records,
         "batch_dict": batch_dict,
         "sidecar_type_checks": sidecar_type_checks,
         "all_sidecar_types_valid": all_sidecar_types_valid,
+        "source_mode": source_mode,
+        "blocked_source_id_prefixes": list(blocked_prefixes),
+        "canonical_silver_path": str(canonical_path),
+        "sidecar_silver_path": str(sidecar_path),
     }
 
 
@@ -287,7 +345,7 @@ def normalize_dtype(series: pd.Series) -> str:
     if isinstance(first, str):
         column_name = str(series.name).lower()
         if "timestamp" in column_name or column_name.endswith("_date"):
-            parsed = pd.to_datetime(non_null, utc=True, errors="coerce")
+            parsed = pd.to_datetime(non_null, utc=True, errors="coerce", format="mixed")
             if len(parsed) > 0 and float(parsed.notna().mean()) >= 0.95:
                 return "datetime"
         return "string"
@@ -385,8 +443,18 @@ def run_day4_sync(
     textual_slice = build_textual_replay_slice(trading_day)
     canonical_df = pd.DataFrame(textual_slice["batch_dict"]["canonical_records"])
     sidecar_df = pd.DataFrame(textual_slice["batch_dict"]["sidecar_records"])
+    if canonical_df.empty and sidecar_df.empty:
+        raise RuntimeError(
+            "No real textual records were produced for the selected trading day. "
+            "Run textual ingestion first or verify feed connectivity."
+        )
     canonical_df["dataset_snapshot_id"] = snapshot_id
     sidecar_df["dataset_snapshot_id"] = snapshot_id
+
+    textual_canonical_slice_path = artifacts_dir / f"textual_canonical_{trading_day.isoformat()}.parquet"
+    textual_sidecar_slice_path = artifacts_dir / f"textual_sidecar_{trading_day.isoformat()}.parquet"
+    canonical_df.to_parquet(textual_canonical_slice_path, index=False)
+    sidecar_df.to_parquet(textual_sidecar_slice_path, index=False)
 
     market_snapshot_value = (
         loaded_market_df["dataset_snapshot_id"].iloc[0]
@@ -427,7 +495,7 @@ def run_day4_sync(
             "stream": "textual_silver_plus_sidecar",
             "dataset_snapshot_id": snapshot_id,
             "record_count": int(len(canonical_df) + len(sidecar_df)),
-            "trace_ref": "local_textual_replay_slice",
+            "trace_ref": f"{textual_canonical_slice_path}|{textual_sidecar_slice_path}",
         },
         {
             "stream": "preprocessing_gold_features",
@@ -549,17 +617,6 @@ def run_day4_sync(
                 "detail": "Preprocessing replay returns TransformOutput hash and records but does not persist to data/gold.",
             }
         )
-    defects.append(
-        {
-            "id": "DEF-003",
-            "severity": "Low",
-            "title": "Partner textual replay evidence not attached",
-            "status": "Open",
-            "owner": "Partner Textual Agent",
-            "detail": "S2 validation used local synthetic textual slice; external partner run artifact still pending.",
-        }
-    )
-
     local_checks_pass = (
         deterministic_replay
         and snapshot_alignment_pass
@@ -589,7 +646,10 @@ def run_day4_sync(
             "market_slice": str(market_slice_path),
             "macro_slice": str(macro_slice_path),
             "corp_slice": str(corp_slice_path) if corp_slice_path.exists() else "",
+            "textual_canonical_slice": str(textual_canonical_slice_path),
+            "textual_sidecar_slice": str(textual_sidecar_slice_path),
         },
+        "textual_source_mode": textual_slice["source_mode"],
     }
     return result
 
@@ -659,10 +719,11 @@ def write_outputs(output_dir: Path, result: dict[str, Any]) -> None:
             sidecar_table,
             "",
             f"- **All required sidecar fields typed correctly**: `{result['all_sidecar_types_valid']}`",
+            f"- **Textual replay source mode**: `{result.get('textual_source_mode', 'unknown')}`",
             "",
             "## Status",
             f"- **S2 decision status**: `{result['decision']}`",
-            "- **Note**: Partner textual replay evidence is tracked in defect log until external artifact is attached.",
+            "- **Note**: Textual slice is generated from live/cached adapters and persisted in artifact parquet files.",
             "",
         ]
     )
@@ -800,9 +861,9 @@ def write_outputs(output_dir: Path, result: dict[str, Any]) -> None:
             f"- Snapshot ID alignment across streams: `{result['snapshot_alignment_pass']}`",
             f"- Text sidecar typing checks: `{result['all_sidecar_types_valid']}`",
             f"- Schema conflict pairs: `{result['schema_conflict_count']}`",
+            f"- Textual source mode: `{result.get('textual_source_mode', 'unknown')}`",
             "",
             "## Condition Notes",
-            "- Partner textual replay artifact remains pending and is tracked in the defect tracker.",
             "- Gold persistence path is pending; replay evidence currently uses output hash + record payload.",
             "",
             "## Artifact Links",

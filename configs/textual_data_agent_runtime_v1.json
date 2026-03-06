@@ -21,11 +21,12 @@
       "source_type": "rss_feed",
       "allowed": true,
       "allowed_routes": [
-        "official_feed"
+        "official_feed",
+        "fallback_scraper"
       ],
       "license_status": "approved_public_terms",
       "legal_basis": "public_release_only",
-      "allow_fallback_scraper": false,
+      "allow_fallback_scraper": true,
       "compliance_checks": [
         "published",
         "licensed",
@@ -52,7 +53,7 @@
     {
       "source_name": "rbi_reports",
       "source_type": "official_api",
-      "allowed": true,
+      "allowed": false,
       "allowed_routes": [
         "primary_api",
         "official_feed"
