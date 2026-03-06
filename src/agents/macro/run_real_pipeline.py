@@ -27,10 +27,16 @@ from src.db.connection import get_engine, get_session
 from src.db.models import Base
 from src.schemas.macro_data import MacroIndicatorType
 
-# Create a local SQLite database for this run
-DB_URL = "sqlite:///data/real_macro_data_fetch.db"
 import os
+import shutil
+from sqlalchemy import text
+
+DB_PATH = "data/real_macro_data_fetch.db"
+DB_URL = f"sqlite:///{DB_PATH}"
+
 os.makedirs("data", exist_ok=True)
+if os.path.exists(DB_PATH):
+    os.remove(DB_PATH)
 
 engine = get_engine(DB_URL)
 Base.metadata.create_all(engine)
@@ -61,10 +67,11 @@ try:
         database_url=DB_URL
     )
     
-    # Range covering the latest release window
+    # Range covering the latest release window up to today
+    now = datetime.now(UTC)
     date_range = DateRange(
         start=datetime(2026, 2, 20, tzinfo=UTC),
-        end=datetime(2026, 2, 28, tzinfo=UTC)
+        end=now
     )
     
     required_indicators = [
