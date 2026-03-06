@@ -56,19 +56,36 @@ class TextualDataAgent:
         recorder: SilverDBRecorder | None = None,
     ) -> "TextualDataAgent":
         config_path = runtime_config_path or DEFAULT_RUNTIME_CONFIG_PATH
+        runtime_config = cls._load_runtime_config(config_path)
+        pdf_input_paths = dict(runtime_config.get("pdf_input_paths", {}))
+        rbi_pdf_paths = cls._coerce_path_list(pdf_input_paths.get("rbi_reports"))
+        earnings_pdf_paths = cls._coerce_path_list(pdf_input_paths.get("earnings_transcripts"))
         return cls(
             adapters=[
                 NSENewsAdapter(),
                 EconomicTimesAdapter(),
-                RBIReportsAdapter(),
-                EarningsTranscriptAdapter(),
+                RBIReportsAdapter(pdf_paths=rbi_pdf_paths),
+                EarningsTranscriptAdapter(pdf_paths=earnings_pdf_paths),
                 XPostAdapter(),
             ],
             cleaner=TextCleaner(),
-            validator=TextualValidator.from_config_path(config_path),
+            validator=TextualValidator(runtime_config),
             exporter=TextualExporter(),
             recorder=recorder,
         )
+
+    @staticmethod
+    def _load_runtime_config(config_path: Path) -> dict[str, Any]:
+        with config_path.open("r", encoding="utf-8") as handle:
+            return json.load(handle)
+
+    @staticmethod
+    def _coerce_path_list(value: Any) -> list[str]:
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, list):
+            return [str(item) for item in value if isinstance(item, str)]
+        return []
 
     def run_once(self, *, as_of_utc: datetime | None = None) -> TextualExportBatch:
         run_timestamp = as_of_utc or datetime.now(UTC)

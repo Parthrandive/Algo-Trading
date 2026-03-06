@@ -1,7 +1,8 @@
-
 import logging
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Protocol, Sequence
 
 from src.schemas.text_data import SourceType as TextSourceType
@@ -9,6 +10,71 @@ from src.schemas.text_sidecar import SourceRouteDetail
 from src.agents.textual.services.pdf_service import PDFExtractor
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_token(value: str) -> str:
+    token = re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
+    return token or "document"
+
+
+def _expand_pdf_paths(pdf_paths: Sequence[str]) -> list[Path]:
+    resolved: list[Path] = []
+    for candidate in pdf_paths:
+        raw_path = Path(candidate).expanduser()
+        path = raw_path if raw_path.is_absolute() else (Path.cwd() / raw_path).resolve()
+
+        if path.is_dir():
+            resolved.extend(sorted(path.glob("*.pdf")))
+            continue
+
+        if path.suffix.lower() == ".pdf":
+            resolved.append(path)
+            continue
+
+        logger.warning("Ignoring non-PDF path in textual runtime config: %s", path)
+    return resolved
+
+
+def _read_pdf_documents(pdf_paths: Sequence[str]) -> list[tuple[Path, bytes]]:
+    docs: list[tuple[Path, bytes]] = []
+    for path in _expand_pdf_paths(pdf_paths):
+        if not path.exists():
+            logger.warning("Configured PDF path does not exist: %s", path)
+            continue
+        try:
+            docs.append((path, path.read_bytes()))
+        except OSError as exc:
+            logger.warning("Failed to read PDF path %s: %s", path, exc)
+    return docs
+
+
+def _infer_transcript_symbol(path: Path) -> str:
+    for token in re.split(r"[^A-Za-z0-9]+", path.stem):
+        if not token:
+            continue
+        lower = token.lower()
+        if re.fullmatch(r"q[1-4]", lower):
+            continue
+        if re.fullmatch(r"20\d{2}", token):
+            continue
+        if token.isalpha():
+            return token.upper()
+    return "UNKNOWN"
+
+
+def _infer_transcript_quarter(path: Path) -> str:
+    stem_lower = path.stem.lower()
+    for quarter in ("q1", "q2", "q3", "q4"):
+        if quarter in stem_lower:
+            return quarter.upper()
+    return "Q4"
+
+
+def _infer_year(path: Path, fallback_year: int) -> int:
+    match = re.search(r"(20\d{2})", path.stem)
+    if not match:
+        return fallback_year
+    return int(match.group(1))
 
 
 @dataclass(frozen=True)
@@ -115,11 +181,49 @@ class RBIReportsAdapter(BaseTextAdapter):
     source_type = TextSourceType.OFFICIAL_API
     source_route_detail = SourceRouteDetail.PRIMARY_API
 
-    def __init__(self):
+    def __init__(self, pdf_paths: Sequence[str] | None = None):
         self.pdf_extractor = PDFExtractor()
+        self.pdf_paths = list(pdf_paths or [])
+
+    @staticmethod
+    def _path_url(path: Path) -> str:
+        try:
+            return path.resolve().as_uri()
+        except ValueError:
+            return str(path.resolve())
 
     def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
         now = as_of_utc or datetime.now(UTC)
+
+        docs = _read_pdf_documents(self.pdf_paths)
+        if docs:
+            records: list[RawTextRecord] = []
+            for pdf_path, pdf_bytes in docs:
+                extraction = self.pdf_extractor.extract(pdf_bytes)
+                source_token = _safe_token(pdf_path.stem)
+                records.append(
+                    RawTextRecord(
+                        record_type="news_article",
+                        source_name=self.source_name,
+                        source_id=f"rbi_report_{source_token}",
+                        timestamp=now,
+                        content=extraction.text,
+                        payload={
+                            "headline": f"RBI Report Extract ({pdf_path.name})",
+                            "publisher": "Reserve Bank of India",
+                            "url": self._path_url(pdf_path),
+                            "is_published": True,
+                            "license_ok": True,
+                            "extraction_quality_score": extraction.quality_score,
+                            "pdf_quality_status": extraction.quality_status,
+                            "pdf_extracted_char_count": extraction.metrics["extracted_char_count"],
+                        },
+                        source_type=self.source_type,
+                        source_route_detail=self.source_route_detail,
+                    )
+                )
+            return records
+
         mock_pdf_content = b"%PDF-1.4 ... RBI Bulletin Content ... Monetary Policy ..."
         extraction = self.pdf_extractor.extract(mock_pdf_content)
 
@@ -151,11 +255,53 @@ class EarningsTranscriptAdapter(BaseTextAdapter):
     source_type = TextSourceType.OFFICIAL_API
     source_route_detail = SourceRouteDetail.OFFICIAL_FEED
 
-    def __init__(self):
+    def __init__(self, pdf_paths: Sequence[str] | None = None):
         self.pdf_extractor = PDFExtractor()
+        self.pdf_paths = list(pdf_paths or [])
+
+    @staticmethod
+    def _path_url(path: Path) -> str:
+        try:
+            return path.resolve().as_uri()
+        except ValueError:
+            return str(path.resolve())
 
     def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
         now = as_of_utc or datetime.now(UTC)
+
+        docs = _read_pdf_documents(self.pdf_paths)
+        if docs:
+            records: list[RawTextRecord] = []
+            for pdf_path, pdf_bytes in docs:
+                extraction = self.pdf_extractor.extract(pdf_bytes)
+                source_token = _safe_token(pdf_path.stem)
+                inferred_symbol = _infer_transcript_symbol(pdf_path)
+                inferred_quarter = _infer_transcript_quarter(pdf_path)
+                inferred_year = _infer_year(pdf_path, now.year)
+                records.append(
+                    RawTextRecord(
+                        record_type="earnings_transcript",
+                        source_name=self.source_name,
+                        source_id=f"earnings_transcript_{source_token}",
+                        timestamp=now,
+                        content=extraction.text,
+                        payload={
+                            "symbol": inferred_symbol,
+                            "quarter": inferred_quarter,
+                            "year": inferred_year,
+                            "url": self._path_url(pdf_path),
+                            "is_published": True,
+                            "license_ok": True,
+                            "extraction_quality_score": extraction.quality_score,
+                            "pdf_quality_status": extraction.quality_status,
+                            "pdf_extracted_char_count": extraction.metrics["extracted_char_count"],
+                        },
+                        source_type=self.source_type,
+                        source_route_detail=self.source_route_detail,
+                    )
+                )
+            return records
+
         mock_pdf_content = b"%PDF-1.4 ... INFY Q3 Transcript ... Earnings Call ..."
         extraction = self.pdf_extractor.extract(mock_pdf_content)
 

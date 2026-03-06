@@ -132,6 +132,10 @@
     "enable_hinglish_normalization": true,
     "enable_transliteration": true
   },
+  "pdf_input_paths": {
+    "rbi_reports": [],
+    "earnings_transcripts": []
+  },
   "default_ttl_seconds": {
     "news_article": 21600,
     "social_post": 7200,
