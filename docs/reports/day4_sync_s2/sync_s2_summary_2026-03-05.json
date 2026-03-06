@@ -1,40 +1,40 @@
 {
   "trading_day": "2026-03-05",
   "cutoff_utc": "2026-03-05T23:59:59+00:00",
-  "dataset_snapshot_id": "snapshot_20260305_185928_UTC",
+  "dataset_snapshot_id": "snapshot_20260306_151746_UTC",
   "deterministic_replay": true,
-  "gold_hash": "209c6b1a32fa3e68b94ef9a9ba949d15414430489f727e49116c41dbe14c7e00",
+  "gold_hash": "d18c31c657bf37eb882fc5a0c33827a2b78b1a0cde64a3f0ca1c276cd6861ade",
   "snapshot_alignment_pass": true,
   "snapshot_cross_reference": [
     {
       "stream": "sentinel_ohlcv_silver",
-      "dataset_snapshot_id": "snapshot_20260305_185928_UTC",
+      "dataset_snapshot_id": "snapshot_20260306_151746_UTC",
       "record_count": 14,
       "trace_ref": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/market_slice_2026-03-05.parquet"
     },
     {
       "stream": "sentinel_corporate_actions_silver",
-      "dataset_snapshot_id": "snapshot_20260305_185928_UTC",
+      "dataset_snapshot_id": "snapshot_20260306_151746_UTC",
       "record_count": 8,
       "trace_ref": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/corp_slice_asof_2026-03-05.parquet"
     },
     {
       "stream": "macro_indicator_tables",
-      "dataset_snapshot_id": "snapshot_20260305_185928_UTC",
+      "dataset_snapshot_id": "snapshot_20260306_151746_UTC",
       "record_count": 16,
       "trace_ref": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/macro_slice_asof_2026-03-05.parquet"
     },
     {
       "stream": "textual_silver_plus_sidecar",
-      "dataset_snapshot_id": "snapshot_20260305_185928_UTC",
+      "dataset_snapshot_id": "snapshot_20260306_151746_UTC",
       "record_count": 90,
       "trace_ref": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/textual_canonical_2026-03-05.parquet|/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/textual_sidecar_2026-03-05.parquet"
     },
     {
       "stream": "preprocessing_gold_features",
-      "dataset_snapshot_id": "snapshot_20260305_185928_UTC",
+      "dataset_snapshot_id": "snapshot_20260306_151746_UTC",
       "record_count": 14,
-      "trace_ref": "209c6b1a32fa3e68b94ef9a9ba949d15414430489f727e49116c41dbe14c7e00"
+      "trace_ref": "d18c31c657bf37eb882fc5a0c33827a2b78b1a0cde64a3f0ca1c276cd6861ade"
     }
   ],
   "schema_maps": {
@@ -484,7 +484,7 @@
     "macro_indicator_gb": 8.013099431991577e-06,
     "text_canonical_gb": 3.509502857923508e-05,
     "text_sidecar_gb": 1.482199877500534e-05,
-    "preprocessing_gold_gb": 1.1144205927848816e-05,
+    "preprocessing_gold_gb": 1.1138617992401123e-05,
     "total_input_streams_gb": 7.819570600986481e-05
   },
   "roadmap_targets": [
@@ -535,5 +535,5 @@
     "textual_canonical_slice": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/textual_canonical_2026-03-05.parquet",
     "textual_sidecar_slice": "/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/artifacts/textual_sidecar_2026-03-05.parquet"
   },
-  "textual_source_mode": "persisted_silver_artifacts_filtered"
+  "textual_source_mode": "persisted_silver_artifacts"
 }

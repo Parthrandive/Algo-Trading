@@ -1,7 +1,7 @@
 # Day 4 Sync S2 Defect Tracker
 
 - **Trading day**: 2026-03-05
-- **Snapshot**: `snapshot_20260305_185928_UTC`
+- **Snapshot**: `snapshot_20260306_151746_UTC`
 
 | ID | Severity | Status | Owner | Title | Detail |
 | --- | --- | --- | --- | --- | --- |

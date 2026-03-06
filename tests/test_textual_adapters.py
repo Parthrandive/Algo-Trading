@@ -46,36 +46,25 @@ def test_economic_times_adapter_parses_rss_item(tmp_path: Path):
     assert record.payload["url"] == "https://example.com/market/headline"
 
 
-def test_rbi_reports_adapter_parses_press_release_html(tmp_path: Path):
-    listing_payload = """
-<html><body>
-<a href="BS_PressReleaseDisplay.aspx?prid=62334">Release</a>
-</body></html>
+def test_rbi_reports_adapter_parses_rss_item(tmp_path: Path):
+    feed_payload = """<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <item>
+      <title><![CDATA[RBI publishes policy update]]></title>
+      <description><![CDATA[<p>Policy update paragraph one.</p>]]></description>
+      <link>https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=62334</link>
+      <guid>rbi-guid-62334</guid>
+      <pubDate>Thu, 05 Mar 2026 10:00:00 +0530</pubDate>
+    </item>
+  </channel>
+</rss>
 """
-    detail_payload = """
-<html><body>
-<table class="tablebg">
-  <tr><td class="tableheader"><b> Date : Mar 05, 2026</b></td></tr>
-  <tr><td align="center" class="tableheader"><b>RBI publishes policy update</b></td></tr>
-  <tr class="tablecontent1">
-    <td>
-      <table><tr><td>
-        <p>Policy update paragraph one.</p>
-        <p>Policy update paragraph two.</p>
-        <p class="head">Press Release: 2025-2026/2218</p>
-      </td></tr></table>
-    </td>
-  </tr>
-</table>
-</body></html>
-"""
-    detail_url = RBIReportsAdapter._DETAIL_URL_TEMPLATE.format(prid="62334")
     adapter = RBIReportsAdapter(
         max_items=5,
         http_get=_http_get_from_map(
             {
-                RBIReportsAdapter._LISTING_URL: listing_payload,
-                detail_url: detail_payload,
+                RBIReportsAdapter._FEED_URLS[0]: feed_payload,
             }
         ),
         cache_root=tmp_path / "cache",
@@ -87,8 +76,9 @@ def test_rbi_reports_adapter_parses_press_release_html(tmp_path: Path):
     assert record.source_name == "rbi_reports"
     assert record.payload["headline"] == "RBI publishes policy update"
     assert record.payload["publisher"] == "Reserve Bank of India"
-    assert record.payload["url"] == detail_url
+    assert record.payload["url"] == "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=62334"
     assert "Policy update paragraph one." in record.content
+    assert record.source_route_detail == SourceRouteDetail.OFFICIAL_FEED
 
 
 def test_nse_adapter_uses_et_fallback_when_nse_unavailable(tmp_path: Path):

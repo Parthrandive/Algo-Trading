@@ -1,7 +1,7 @@
 # S2 Decision Log - 2026-03-05
 
-- **Decision timestamp (UTC)**: 2026-03-05T18:59:28.592130+00:00
-- **dataset_snapshot_id**: `snapshot_20260305_185928_UTC`
+- **Decision timestamp (UTC)**: 2026-03-06T15:17:46.872599+00:00
+- **dataset_snapshot_id**: `snapshot_20260306_151746_UTC`
 - **Decision**: `GO_WITH_CONDITIONS`
 
 ## Decision Inputs
@@ -9,7 +9,7 @@
 - Snapshot ID alignment across streams: `True`
 - Text sidecar typing checks: `True`
 - Schema conflict pairs: `0`
-- Textual source mode: `persisted_silver_artifacts_filtered`
+- Textual source mode: `persisted_silver_artifacts`
 
 ## Condition Notes
 - Gold persistence path is pending; replay evidence currently uses output hash + record payload.

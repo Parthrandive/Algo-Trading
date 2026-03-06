@@ -177,7 +177,7 @@ def blocked_source_id_prefixes(runtime_config: dict[str, Any]) -> tuple[str, ...
     source_prefix_map: dict[str, tuple[str, ...]] = {
         "nse_news": ("nse_news_", "nse_fallback_"),
         "economic_times": ("et_news_",),
-        "rbi_reports": ("rbi_pr_",),
+        "rbi_reports": ("rbi_pr_", "rbi_rss_", "rbi_report_", "rbi_rss_fallback_"),
         "earnings_transcripts": ("earnings_pdf_",),
         "x_posts": ("x_post_",),
     }

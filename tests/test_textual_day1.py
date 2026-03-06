@@ -156,6 +156,6 @@ def test_textual_agent_smoke_test_with_default_components():
 
     # Verify a few counts/types to be sure
     record_types = [r.model_dump()["source_type"] for r in batch.canonical_records]
-    assert record_types.count("rss_feed") == 2
-    assert record_types.count("official_api") == 2
+    assert record_types.count("rss_feed") == 3
+    assert record_types.count("official_api") == 1
     assert record_types.count("social_media") == 1
