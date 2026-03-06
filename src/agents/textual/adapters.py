@@ -1,5 +1,5 @@
-from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
@@ -16,9 +16,13 @@ import tempfile
 import xml.etree.ElementTree as ET
 import pdfplumber
 from zoneinfo import ZoneInfo
+from src.agents.textual.services.pdf_service import PDFExtractor
 
 from src.schemas.text_data import SourceType as TextSourceType
 from src.schemas.text_sidecar import SourceRouteDetail
+from src.agents.textual.services.pdf_service import PDFExtractor
+
+logger = logging.getLogger(__name__)
 
 logger = logging.getLogger(__name__)
 IST = ZoneInfo("Asia/Kolkata")
@@ -288,6 +292,27 @@ class NSENewsAdapter(BaseTextAdapter):
             )
         return records
 
+    def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
+        now = as_of_utc or datetime.now(UTC)
+        return [
+            RawTextRecord(
+                record_type="news_article",
+                source_name=self.source_name,
+                source_id="nse_news_101",
+                timestamp=now,
+                content="NSE expands its derivatives segment with new index additions.",
+                payload={
+                    "headline": "NSE Index Expansion",
+                    "publisher": "NSE India",
+                    "url": "https://nseindia.com/news/101",
+                    "is_published": True,
+                    "license_ok": True,
+                },
+                source_type=self.source_type,
+                source_route_detail=self.source_route_detail,
+            )
+        ]
+
 
 class EconomicTimesAdapter(BaseTextAdapter):
     source_name = "economic_times"
@@ -350,6 +375,43 @@ class EconomicTimesAdapter(BaseTextAdapter):
                 )
             )
         return records
+
+    def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
+        now = as_of_utc or datetime.now(UTC)
+        return [
+            RawTextRecord(
+                record_type="news_article",
+                source_name=self.source_name,
+                source_id="et_news_202",
+                timestamp=now,
+                content="Indian markets hit record high as FII inflows surge.",
+                payload={
+                    "headline": "Markets at Record High",
+                    "publisher": "Economic Times",
+                    "url": "https://economictimes.indiatimes.com/news/202",
+                    "is_published": True,
+                    "license_ok": True,
+                },
+                source_type=self.source_type,
+                source_route_detail=self.source_route_detail,
+            ),
+            RawTextRecord(
+                record_type="news_article",
+                source_name=self.source_name,
+                source_id="et_news_blocked_303",
+                timestamp=now,
+                content="Unlicensed content example for compliance testing.",
+                payload={
+                    "headline": "Compliance Test Case",
+                    "publisher": "Economic Times",
+                    "url": "https://economictimes.indiatimes.com/news/303",
+                    "is_published": True,
+                    "license_ok": False,  # Should be rejected
+                },
+                source_type=self.source_type,
+                source_route_detail=SourceRouteDetail.FALLBACK_SCRAPER,
+            ),
+        ]
 
 
 class RBIReportsAdapter(BaseTextAdapter):
@@ -452,6 +514,36 @@ class RBIReportsAdapter(BaseTextAdapter):
                 break
         return " ".join(segments)
 
+    def __init__(self):
+        self.pdf_extractor = PDFExtractor()
+
+    def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
+        now = as_of_utc or datetime.now(UTC)
+        mock_pdf_content = b"%PDF-1.4 ... RBI Bulletin Content ... Monetary Policy ..."
+        extraction = self.pdf_extractor.extract(mock_pdf_content)
+
+        return [
+            RawTextRecord(
+                record_type="news_article",
+                source_name=self.source_name,
+                source_id="rbi_report_feb_2026",
+                timestamp=now,
+                content=extraction.text,
+                payload={
+                    "headline": "RBI MPC Policy Update (Extracted)",
+                    "publisher": "Reserve Bank of India",
+                    "url": "https://rbi.org.in/reports/feb_2026.pdf",
+                    "is_published": True,
+                    "license_ok": True,
+                    "extraction_quality_score": extraction.quality_score,
+                    "pdf_quality_status": extraction.quality_status,
+                    "pdf_extracted_char_count": extraction.metrics["extracted_char_count"],
+                },
+                source_type=self.source_type,
+                source_route_detail=self.source_route_detail,
+            )
+        ]
+
 
 class EarningsTranscriptAdapter(BaseTextAdapter):
     source_name = "earnings_transcripts"
@@ -465,7 +557,7 @@ class EarningsTranscriptAdapter(BaseTextAdapter):
     ]
 
     def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
-        now_utc = datetime.now(UTC)
+        now_utc = as_of_utc or datetime.now(UTC)
         records: list[RawTextRecord] = []
 
         for url in self._MOCK_PDF_URLS:
@@ -536,3 +628,71 @@ class XPostAdapter(BaseTextAdapter):
     source_type = TextSourceType.SOCIAL_MEDIA
     source_route_detail = SourceRouteDetail.PRIMARY_API
     cache_namespace = "x_posts"
+
+    def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
+        now = as_of_utc or datetime.now(UTC)
+        
+        # Simulate a rate-limit retry scenario (mock logs)
+        logger.info("XPostAdapter: Fetching posts using keyword templates from config...")
+        
+        return [
+            RawTextRecord(
+                record_type="social_post",
+                source_name=self.source_name,
+                source_id="x_post_india_market_1",
+                timestamp=now,
+                content="NIFTY 50 hits record high! FII inflows are surging today. #NSE #Nifty50",
+                payload={
+                    "platform": "X",
+                    "likes": 1250,
+                    "shares": 450,
+                    "url": "https://x.com/market_news/status/india_1",
+                    "is_published": True,
+                    "license_ok": True,
+                    "author": "market_pro_india",
+                    "language": "en",
+                },
+                source_type=self.source_type,
+                source_route_detail=self.source_route_detail,
+            ),
+            RawTextRecord(
+                record_type="social_post",
+                source_name=self.source_name,
+                source_id="x_post_spam_2",
+                timestamp=now,
+                content="Get 1000% returns guaranteed! DM for jackpot tips. crypto giveaway #stocks",
+                payload={
+                    "platform": "X",
+                    "likes": 10,
+                    "shares": 2,
+                    "url": "https://x.com/scammer/status/spam_2",
+                    "is_published": True,
+                    "license_ok": True,
+                    "author": "jackpot_tips_xyz",
+                    "language": "en",
+                    "quality_flags": ["potential_spam"],
+                },
+                source_type=self.source_type,
+                source_route_detail=self.source_route_detail,
+            ),
+            RawTextRecord(
+                record_type="social_post",
+                source_name=self.source_name,
+                source_id="x_post_us_market_3",
+                timestamp=now,
+                content="S&P 500 continues to rally after Fed comments. US markets look strong.",
+                payload={
+                    "platform": "X",
+                    "likes": 5000,
+                    "shares": 1000,
+                    "url": "https://x.com/us_markets/status/us_3",
+                    "is_published": True,
+                    "license_ok": True,
+                    "author": "us_market_watcher",
+                    "language": "en",
+                    # This should be caught by India-relevance filter
+                },
+                source_type=self.source_type,
+                source_route_detail=self.source_route_detail,
+            )
+        ]

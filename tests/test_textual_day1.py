@@ -74,8 +74,7 @@ def test_textual_runtime_config_day1_contract_freeze():
         "x_posts",
     }
     source_allowed = {entry["source_name"]: bool(entry["allowed"]) for entry in config["source_allowlist"]}
-    assert source_allowed["rbi_reports"] is False
-    for source_name in ("nse_news", "economic_times", "earnings_transcripts", "x_posts"):
+    for source_name in ("nse_news", "economic_times", "earnings_transcripts", "x_posts", "rbi_reports"):
         assert source_allowed[source_name] is True
     for entry in config["source_allowlist"]:
         assert entry["allowed_routes"]
@@ -144,3 +143,19 @@ def test_textual_agent_run_once_returns_contract_safe_batch():
         assert isinstance(sidecar.confidence, float)
         assert isinstance(sidecar.ttl_seconds, int)
         assert isinstance(sidecar.manipulation_risk_score, float)
+
+def test_textual_agent_smoke_test_with_default_components():
+    """Verifies that the agent runs with all default components and produces the expected mock data."""
+    agent = TextualDataAgent.from_default_components(_runtime_config_path())
+    batch = agent.run_once(as_of_utc=datetime(2026, 3, 2, 10, 0, tzinfo=UTC))
+
+    # We expect 5 canonical records (NSE, ET-pass, RBI, Transcript, X-pass)
+    # and 8 sidecar records (5 allowed, 1 rejected from ET fallback, 2 rejected from X)
+    assert len(batch.canonical_records) == 5
+    assert len(batch.sidecar_records) == 8
+
+    # Verify a few counts/types to be sure
+    record_types = [r.model_dump()["source_type"] for r in batch.canonical_records]
+    assert record_types.count("rss_feed") == 2
+    assert record_types.count("official_api") == 2
+    assert record_types.count("social_media") == 1
