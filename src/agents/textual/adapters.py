@@ -292,26 +292,6 @@ class NSENewsAdapter(BaseTextAdapter):
             )
         return records
 
-    def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
-        now = as_of_utc or datetime.now(UTC)
-        return [
-            RawTextRecord(
-                record_type="news_article",
-                source_name=self.source_name,
-                source_id="nse_news_101",
-                timestamp=now,
-                content="NSE expands its derivatives segment with new index additions.",
-                payload={
-                    "headline": "NSE Index Expansion",
-                    "publisher": "NSE India",
-                    "url": "https://nseindia.com/news/101",
-                    "is_published": True,
-                    "license_ok": True,
-                },
-                source_type=self.source_type,
-                source_route_detail=self.source_route_detail,
-            )
-        ]
 
 
 class EconomicTimesAdapter(BaseTextAdapter):
@@ -423,6 +403,10 @@ class RBIReportsAdapter(BaseTextAdapter):
     _LISTING_URL = "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx"
     _DETAIL_URL_TEMPLATE = "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid={prid}"
 
+    def __init__(self, **kwargs: Any):
+        super().__init__(**kwargs)
+        self.pdf_extractor = PDFExtractor()
+
     def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
         listing_html = self._fetch_text(url=self._LISTING_URL, cache_key="press_release_listing")
         if not listing_html.strip():
@@ -513,9 +497,6 @@ class RBIReportsAdapter(BaseTextAdapter):
             if len(segments) >= 4:
                 break
         return " ".join(segments)
-
-    def __init__(self):
-        self.pdf_extractor = PDFExtractor()
 
     def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
         now = as_of_utc or datetime.now(UTC)
