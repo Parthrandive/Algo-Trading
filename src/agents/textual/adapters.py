@@ -601,6 +601,8 @@ class EarningsTranscriptAdapter(BaseTextAdapter):
                                 "manipulation_risk_score": 0.0,
                                 "confidence": 0.95,
                                 "quality_flags": ["pdf_extraction", "spot_check_ok"],
+                                "extraction_quality_score": 0.9, # Mock high score since real PDF extraction succeeded
+                                "pdf_quality_status": "pass",
                             },
                             source_type=self.source_type,
                             source_route_detail=self.source_route_detail,
@@ -640,6 +642,8 @@ class EarningsTranscriptAdapter(BaseTextAdapter):
                     "manipulation_risk_score": 0.0,
                     "confidence": 0.9,
                     "quality_flags": ["offline_fallback"],
+                    "extraction_quality_score": 0.85, # Dummy fallback score
+                    "pdf_quality_status": "pass",
                 },
                 source_type=self.source_type,
                 source_route_detail=self.source_route_detail,

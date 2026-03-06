@@ -47,7 +47,8 @@ class TextCleaner:
         quality_flags = self._coerce_quality_flags(cleaned_payload.get("quality_flags"))
 
         if language == "code_mixed":
-            cleaned_payload["normalized_content"] = self.language_service.normalize_hinglish(cleaned_content)
+            normalized_hinglish = self.language_service.normalize_hinglish(cleaned_content)
+            cleaned_payload["normalized_content"] = normalized_hinglish
             quality_flags.append("code_mixed_detected")
         elif language == "hi":
             quality_flags.append("hindi_detected")

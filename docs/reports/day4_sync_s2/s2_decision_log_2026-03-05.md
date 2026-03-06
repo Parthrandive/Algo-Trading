@@ -1,7 +1,7 @@
 # S2 Decision Log - 2026-03-05
 
-- **Decision timestamp (UTC)**: 2026-03-06T15:17:46.872599+00:00
-- **dataset_snapshot_id**: `snapshot_20260306_151746_UTC`
+- **Decision timestamp (UTC)**: 2026-03-06T15:38:00.236136+00:00
+- **dataset_snapshot_id**: `snapshot_20260306_153759_UTC`
 - **Decision**: `GO_WITH_CONDITIONS`
 
 ## Decision Inputs

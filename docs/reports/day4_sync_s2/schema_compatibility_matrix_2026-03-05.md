@@ -1,6 +1,6 @@
 # Schema Compatibility Matrix - 2026-03-05
 
-- **dataset_snapshot_id**: `snapshot_20260306_151746_UTC`
+- **dataset_snapshot_id**: `snapshot_20260306_153759_UTC`
 - **Conflict pair count**: `0`
 
 ## Pairwise Matrix
