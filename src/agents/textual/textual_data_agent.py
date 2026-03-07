@@ -1,11 +1,11 @@
 from __future__ import annotations
 import logging
 import json
-import hashlib
 
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Sequence
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel
 
@@ -22,12 +22,12 @@ from src.agents.textual.cleaners import TextCleaner
 from src.agents.textual.exporters import TextualExportBatch, TextualExporter
 from src.agents.textual.validators import TextualValidator
 from src.db.silver_db_recorder import SilverDBRecorder
-from src.schemas.text_sidecar import ComplianceStatus, TextSidecarMetadata
 
 DEFAULT_RUNTIME_CONFIG_PATH = Path(__file__).resolve().parents[3] / "configs" / "textual_data_agent_runtime_v1.json"
 COMPLIANCE_LOG_PATH = Path(__file__).resolve().parents[3] / "logs" / "compliance_rejects.log"
 PDF_SPOT_CHECK_REPORT_PATH = Path(__file__).resolve().parents[3] / "logs" / "textual_pdf_spot_check_report.json"
-SIDECAR_ARTIFACT_PATH = Path(__file__).resolve().parents[3] / "logs" / "textual_sidecar_records.json"
+SIDECAR_HANDOFF_ARTIFACT_PATH = Path(__file__).resolve().parents[3] / "logs" / "textual_sidecar_handoff.json"
+IST = ZoneInfo("Asia/Kolkata")
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ class TextualDataAgent:
         # Ensure log directory exists
         COMPLIANCE_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         PDF_SPOT_CHECK_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
-        SIDECAR_ARTIFACT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        SIDECAR_HANDOFF_ARTIFACT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     @classmethod
     def from_default_components(
@@ -60,47 +60,62 @@ class TextualDataAgent:
         recorder: SilverDBRecorder | None = None,
     ) -> "TextualDataAgent":
         config_path = runtime_config_path or DEFAULT_RUNTIME_CONFIG_PATH
-        with config_path.open("r", encoding="utf-8") as handle:
-            runtime_config = json.load(handle)
-        runtime_flags = dict(runtime_config.get("runtime_flags", {}))
-        rbi_emergency_fallback_active = bool(runtime_flags.get("rbi_fallback_emergency_active", False))
-
+        runtime_config = cls._load_runtime_config(config_path)
+        pdf_input_paths = dict(runtime_config.get("pdf_input_paths", {}))
+        rbi_pdf_paths = cls._coerce_path_list(pdf_input_paths.get("rbi_reports"))
+        earnings_pdf_paths = cls._coerce_path_list(pdf_input_paths.get("earnings_transcripts"))
         return cls(
             adapters=[
                 NSENewsAdapter(),
                 EconomicTimesAdapter(),
-                RBIReportsAdapter(allow_emergency_fallback=rbi_emergency_fallback_active),
-                EarningsTranscriptAdapter(),
+                RBIReportsAdapter(pdf_paths=rbi_pdf_paths),
+                EarningsTranscriptAdapter(pdf_paths=earnings_pdf_paths),
                 XPostAdapter(),
             ],
             cleaner=TextCleaner(),
             validator=TextualValidator(runtime_config),
-            exporter=TextualExporter(),
+            exporter=TextualExporter(sidecar_output_path=SIDECAR_HANDOFF_ARTIFACT_PATH),
             recorder=recorder,
         )
+
+    @staticmethod
+    def _load_runtime_config(config_path: Path) -> dict[str, Any]:
+        with config_path.open("r", encoding="utf-8") as handle:
+            return json.load(handle)
+
+    @staticmethod
+    def _coerce_path_list(value: Any) -> list[str]:
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, list):
+            return [str(item) for item in value if isinstance(item, str)]
+        return []
 
     def run_once(self, *, as_of_utc: datetime | None = None) -> TextualExportBatch:
         run_timestamp = as_of_utc or datetime.now(UTC)
         canonical_records: list[BaseModel] = []
         sidecar_records = []
         pdf_spot_checks: list[dict[str, Any]] = []
-        seen_record_fingerprints: set[str] = set()
+        seen_source_keys: set[tuple[str, str]] = set()
+        seen_content_fingerprints: set[str] = set()
 
         for adapter in self.adapters:
             for raw_record in adapter.fetch(as_of_utc=run_timestamp):
                 cleaned_record = self.cleaner.clean(raw_record)
-                duplicate_fingerprint = self._record_fingerprint(cleaned_record)
-                if duplicate_fingerprint in seen_record_fingerprints:
-                    duplicate_sidecar = self._build_duplicate_sidecar(cleaned_record, run_timestamp)
-                    self._log_compliance_rejection(duplicate_sidecar)
-                    sidecar_records.append(duplicate_sidecar)
-                    continue
-                seen_record_fingerprints.add(duplicate_fingerprint)
-
                 pdf_spot_check = self._build_pdf_spot_check(cleaned_record)
                 if pdf_spot_check is not None:
                     pdf_spot_checks.append(pdf_spot_check)
-                canonical_payload = self._build_canonical_payload(cleaned_record)
+                canonical_payload = self._build_canonical_payload(
+                    cleaned_record,
+                    ingestion_timestamp_utc=run_timestamp,
+                )
+                canonical_payload = self.validator.apply_quality_controls(
+                    cleaned_record,
+                    canonical_payload,
+                    run_timestamp=run_timestamp,
+                    seen_source_keys=seen_source_keys,
+                    seen_content_fingerprints=seen_content_fingerprints,
+                )
                 canonical_record, sidecar_record = self.validator.validate_record(
                     cleaned_record,
                     canonical_payload,
@@ -115,7 +130,6 @@ class TextualDataAgent:
         # Day 3: Batch-level post-processing (Burst Detection)
         self._detect_social_bursts(sidecar_records)
         self._persist_pdf_spot_check_report(run_timestamp, pdf_spot_checks)
-        self._persist_sidecar_artifact(run_timestamp, sidecar_records)
 
         if self.recorder and canonical_records:
             from src.schemas.text_data import TextDataBase
@@ -150,44 +164,12 @@ class TextualDataAgent:
         log_entry = {
             "timestamp": datetime.now(UTC).isoformat(),
             "source_id": sidecar.source_id,
-            "source_type": sidecar.source_type,
+            "source_type": sidecar.source_type.value,
             "reason": sidecar.compliance_reason,
-            "route": sidecar.source_route_detail,
+            "route": sidecar.source_route_detail.value,
         }
         with open(COMPLIANCE_LOG_PATH, "a", encoding="utf-8") as f:
             f.write(f"{log_entry}\n")
-
-    def _persist_sidecar_artifact(self, run_timestamp: datetime, sidecars: list[TextSidecarMetadata]) -> None:
-        artifact = {
-            "generated_at_utc": run_timestamp.astimezone(UTC).isoformat(),
-            "total_records": len(sidecars),
-            "records": [sidecar.model_dump(mode="json") for sidecar in sidecars],
-        }
-        with open(SIDECAR_ARTIFACT_PATH, "w", encoding="utf-8") as handle:
-            json.dump(artifact, handle, indent=2)
-
-    @staticmethod
-    def _record_fingerprint(record: RawTextRecord) -> str:
-        token = f"{record.record_type}|{record.source_name}|{record.content.strip().lower()}"
-        return hashlib.sha1(token.encode("utf-8")).hexdigest()
-
-    def _build_duplicate_sidecar(self, record: RawTextRecord, run_timestamp: datetime) -> TextSidecarMetadata:
-        payload_flags = record.payload.get("quality_flags")
-        quality_flags = ["duplicate_record"]
-        if isinstance(payload_flags, list):
-            quality_flags.extend(flag for flag in payload_flags if isinstance(flag, str))
-        return TextSidecarMetadata(
-            source_type=record.source_type,
-            source_id=record.source_id,
-            ingestion_timestamp_utc=run_timestamp.astimezone(UTC),
-            source_route_detail=record.source_route_detail,
-            quality_flags=quality_flags,
-            manipulation_risk_score=min(max(float(record.payload.get("manipulation_risk_score", 0.0)), 0.0), 1.0),
-            confidence=0.0,
-            ttl_seconds=0,
-            compliance_status=ComplianceStatus.REJECT,
-            compliance_reason="duplicate_record",
-        )
 
     def _persist_pdf_spot_check_report(
         self,
@@ -242,23 +224,36 @@ class TextualDataAgent:
         }
 
     @staticmethod
-    def _build_canonical_payload(record: RawTextRecord) -> dict[str, Any]:
+    def _build_canonical_payload(
+        record: RawTextRecord,
+        *,
+        ingestion_timestamp_utc: datetime | None = None,
+    ) -> dict[str, Any]:
         payload = dict(record.payload)
+        resolved_ingestion_timestamp_utc = ingestion_timestamp_utc or datetime.now(UTC)
+        if resolved_ingestion_timestamp_utc.tzinfo is None:
+            resolved_ingestion_timestamp_utc = resolved_ingestion_timestamp_utc.replace(tzinfo=UTC)
+        else:
+            resolved_ingestion_timestamp_utc = resolved_ingestion_timestamp_utc.astimezone(UTC)
+
         canonical_payload: dict[str, Any] = {
             "source_id": record.source_id,
             "timestamp": record.timestamp,
             "content": record.content,
             "source_type": record.source_type.value,
+            "ingestion_timestamp_utc": payload.get("ingestion_timestamp_utc", resolved_ingestion_timestamp_utc),
+            "ingestion_timestamp_ist": payload.get(
+                "ingestion_timestamp_ist",
+                resolved_ingestion_timestamp_utc.astimezone(IST),
+            ),
+            "schema_version": payload.get("schema_version", "1.0"),
+            "quality_status": payload.get("quality_status", "pass"),
         }
 
         for optional_field in (
             "url",
             "author",
             "language",
-            "ingestion_timestamp_utc",
-            "ingestion_timestamp_ist",
-            "schema_version",
-            "quality_status",
         ):
             if optional_field in payload:
                 canonical_payload[optional_field] = payload[optional_field]
@@ -290,7 +285,6 @@ class TextualDataAgent:
             "pdf_extracted_char_count",
             "normalized_content",
             "transliterated_content",
-            "fallback_emergency_active",
         ):
             if operational_key in payload:
                 canonical_payload[operational_key] = payload[operational_key]
