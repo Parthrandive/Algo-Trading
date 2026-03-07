@@ -52,6 +52,23 @@ class _RBIResolvedRoute:
     source_url: str
     source_channel: str
 
+_RBI_DEFAULT_SOURCE_POLICY: dict[str, object] = {
+    "rss_feed_url": "https://www.rbi.org.in/Scripts/rss.aspx",
+    "dbie_download_url": "https://data.rbi.org.in/DBIE/#/",
+    "fallback_scraper_url": "https://www.rbi.org.in/Scripts/BS_ViewBulletin.aspx",
+    "simulate_rss_outage": False,
+    "simulate_dbie_outage": False,
+    "enable_emergency_fallback_scraper": False,
+}
+
+
+@dataclass(frozen=True)
+class _RBIResolvedRoute:
+    source_type: TextSourceType
+    route_detail: SourceRouteDetail
+    source_url: str
+    source_channel: str
+
 
 def _safe_token(value: str) -> str:
     token = re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
@@ -383,11 +400,15 @@ class RBIReportsAdapter(BaseTextAdapter):
         records: list[RawTextRecord] = []
         seen_source_ids: set[str] = set()
 <<<<<<< HEAD
+<<<<<<< HEAD
         rss_feed_urls = self._discover_rbi_rss_urls()
 >>>>>>> 701ccfb8293a2001f6b46632488e94f99447ad31
 
 =======
 
+=======
+
+>>>>>>> 7138034 (ee)
         # 3. RSS Route
         if resolved_route.source_type == TextSourceType.RSS_FEED:
             rss_feed_urls = self._discover_rbi_rss_urls()
@@ -483,7 +504,10 @@ class RBIReportsAdapter(BaseTextAdapter):
                 return records[: self.max_items]
 
         # 6. Offline Fallback (CI/Safety)
+<<<<<<< HEAD
 >>>>>>> 2ba82ae (Implement RBI source routing and emergency fallback for Textual Data Agent)
+=======
+>>>>>>> 7138034 (ee)
         return [
             RawTextRecord(
                 record_type="news_article",
@@ -496,13 +520,19 @@ class RBIReportsAdapter(BaseTextAdapter):
                 source_id="rbi_rss_fallback_001",
                 timestamp=record_timestamp,
                 content="RBI official channels unavailable; using deterministic fallback sample.",
+<<<<<<< HEAD
 >>>>>>> 2ba82ae (Implement RBI source routing and emergency fallback for Textual Data Agent)
+=======
+>>>>>>> 7138034 (ee)
                 payload={
                     "headline": "RBI MPC Policy Update (Extracted)",
                     "publisher": "Reserve Bank of India",
 <<<<<<< HEAD
+<<<<<<< HEAD
                     "url": "https://rbi.org.in/reports/feb_2026.pdf",
 =======
+=======
+>>>>>>> 7138034 (ee)
                     "url": resolved_route.source_url,
                     "author": "RBI",
                     "language": "en",
@@ -523,11 +553,15 @@ class RBIReportsAdapter(BaseTextAdapter):
                     "confidence": 0.6,
                     "quality_flags": ["official_feed", "offline_fallback", "rbi_rss_xml"],
                     "source_channel": resolved_route.source_channel,
+<<<<<<< HEAD
 >>>>>>> 2ba82ae (Implement RBI source routing and emergency fallback for Textual Data Agent)
+=======
+>>>>>>> 7138034 (ee)
                 },
                 source_type=resolved_route.source_type,
                 source_route_detail=resolved_route.route_detail,
             )
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
         ]
@@ -536,6 +570,9 @@ class RBIReportsAdapter(BaseTextAdapter):
 =======
         ]
 >>>>>>> 2ba82ae (Implement RBI source routing and emergency fallback for Textual Data Agent)
+=======
+        ]
+>>>>>>> 7138034 (ee)
 
     def _build_local_pdf_records(
         self,
