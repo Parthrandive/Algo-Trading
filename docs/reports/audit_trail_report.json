@@ -1,0 +1,3564 @@
+{
+  "overall_status": "FAIL",
+  "total_files": 587,
+  "total_records": 8410,
+  "clean_files": 585,
+  "files_with_gaps": 2,
+  "details": [
+    {
+      "file": "data/silver/macro/CPI/2026/02/2026-02-28.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/CPI/2026/03/2026-03-01.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/CPI/2026/03/2026-03-06.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/DII_FLOW/2026/02/2026-02-28.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/DII_FLOW/2026/03/2026-03-01.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/DII_FLOW/2026/03/2026-03-06.parquet",
+      "status": "clean",
+      "total_records": 2,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/FII_FLOW/2026/02/2026-02-28.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/FII_FLOW/2026/03/2026-03-01.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/FII_FLOW/2026/03/2026-03-06.parquet",
+      "status": "clean",
+      "total_records": 2,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/FX_RESERVES/2026/02/2026-02-28.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/FX_RESERVES/2026/03/2026-03-01.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/FX_RESERVES/2026/03/2026-03-06.parquet",
+      "status": "clean",
+      "total_records": 2,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/IIP/2026/02/2026-02-28.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/IIP/2026/03/2026-03-01.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/IIP/2026/03/2026-03-06.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/INDIA_US_10Y_SPREAD/2026/02/2026-02-28.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/INDIA_US_10Y_SPREAD/2026/03/2026-03-01.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/INDIA_US_10Y_SPREAD/2026/03/2026-03-06.parquet",
+      "status": "clean",
+      "total_records": 2,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/RBI_BULLETIN/2026/02/2026-02-28.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/RBI_BULLETIN/2026/03/2026-03-01.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/RBI_BULLETIN/2026/03/2026-03-06.parquet",
+      "status": "clean",
+      "total_records": 2,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/WPI/2026/02/2026-02-28.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/WPI/2026/03/2026-03-01.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/macro/WPI/2026/03/2026-03-06.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-01.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-02.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-07.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-08.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-14.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-15.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-21.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-22.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-24.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-27.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-28.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-29.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-30.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/01/2025-01-31.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/02/2025-02-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/02/2025-02-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/02/2025-02-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/02/2025-02-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/02/2025-02-07.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/02/2025-02-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/02/2025-02-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/02/2025-02-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/02/2025-02-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/02/2025-02-14.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/02/2025-02-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/02/2025-02-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/02/2025-02-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/02/2025-02-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/02/2025-02-21.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/02/2025-02-24.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/02/2025-02-25.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/02/2025-02-27.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/02/2025-02-28.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/03/2025-03-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/03/2025-03-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/03/2025-03-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/03/2025-03-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/03/2025-03-07.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/03/2025-03-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/03/2025-03-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/03/2025-03-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/03/2025-03-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/03/2025-03-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/03/2025-03-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/03/2025-03-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/03/2025-03-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/03/2025-03-21.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/03/2025-03-24.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/03/2025-03-25.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/03/2025-03-26.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/03/2025-03-27.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/03/2025-03-28.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/04/2025-04-01.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/04/2025-04-02.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/04/2025-04-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/04/2025-04-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/04/2025-04-07.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/04/2025-04-08.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/04/2025-04-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/04/2025-04-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/04/2025-04-15.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/04/2025-04-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/04/2025-04-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/04/2025-04-21.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/04/2025-04-22.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/04/2025-04-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/04/2025-04-24.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/04/2025-04-25.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/04/2025-04-28.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/04/2025-04-29.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/04/2025-04-30.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-02.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-07.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-08.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-14.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-15.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-21.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-22.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-26.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-27.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-28.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-29.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/05/2025-05-30.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-02.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-24.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-25.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-26.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-27.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/06/2025-06-30.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-01.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-02.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-07.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-08.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-14.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-15.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-21.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-22.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-24.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-25.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-28.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-29.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-30.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/07/2025-07-31.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/08/2025-08-01.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/08/2025-08-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/08/2025-08-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/08/2025-08-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/08/2025-08-07.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/08/2025-08-08.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/08/2025-08-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/08/2025-08-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/08/2025-08-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/08/2025-08-14.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/08/2025-08-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/08/2025-08-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/08/2025-08-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/08/2025-08-21.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/08/2025-08-22.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/08/2025-08-25.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/08/2025-08-26.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/08/2025-08-28.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/08/2025-08-29.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-01.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-02.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-08.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-15.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-22.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-24.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-25.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-26.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-29.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/09/2025-09-30.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-01.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-07.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-08.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-14.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-15.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-21.parquet",
+      "status": "clean",
+      "total_records": 2,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-24.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-27.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-28.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-29.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-30.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/10/2025-10-31.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/11/2025-11-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/11/2025-11-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/11/2025-11-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/11/2025-11-07.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/11/2025-11-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/11/2025-11-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/11/2025-11-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/11/2025-11-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/11/2025-11-14.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/11/2025-11-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/11/2025-11-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/11/2025-11-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/11/2025-11-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/11/2025-11-21.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/11/2025-11-24.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/11/2025-11-25.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/11/2025-11-26.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/11/2025-11-27.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/11/2025-11-28.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-01.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-02.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-08.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-15.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-22.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-24.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-26.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-29.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-30.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2025/12/2025-12-31.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-01.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-02.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-07.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-08.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-14.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-21.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-22.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-27.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-28.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-29.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/01/2026-01-30.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/02/2026-02-02.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/02/2026-02-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/02/2026-02-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/02/2026-02-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/02/2026-02-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/02/2026-02-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/02/2026-02-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/02/2026-02-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/02/2026-02-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/02/2026-02-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/02/2026-02-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/02/2026-02-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/02/2026-02-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/02/2026-02-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ASIANPAINT.NS/2026/02/2026-02-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/02/2026-02-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/02/2026-02-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/02/2026-02-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/02/2026-02-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/02/2026-02-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/02/2026-02-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/02/2026-02-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/02/2026-02-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/02/2026-02-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/02/2026-02-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/02/2026-02-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/02/2026-02-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/02/2026-02-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/02/2026-02-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/02/2026-02-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/02/2026-02-24.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/02/2026-02-25.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/02/2026-02-26.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/02/2026-02-27.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/03/2026-03-02.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/COALINDIA.NS/2026/03/2026-03-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/01/2026-01-21.parquet",
+      "status": "clean",
+      "total_records": 4,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/01/2026-01-22.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/01/2026-01-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/01/2026-01-27.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/01/2026-01-28.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/01/2026-01-29.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/01/2026-01-30.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/02/2026-02-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/02/2026-02-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/02/2026-02-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/02/2026-02-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/02/2026-02-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/02/2026-02-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/02/2026-02-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/02/2026-02-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/02/2026-02-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/02/2026-02-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/02/2026-02-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/02/2026-02-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/02/2026-02-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HDFCBANK.NS/2026/02/2026-02-20.parquet",
+      "status": "clean",
+      "total_records": 4,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/01/2026-01-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/01/2026-01-27.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/01/2026-01-28.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/01/2026-01-29.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/01/2026-01-30.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/02/2026-02-02.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/02/2026-02-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/02/2026-02-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/02/2026-02-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/02/2026-02-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/02/2026-02-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/02/2026-02-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/02/2026-02-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/02/2026-02-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/02/2026-02-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/02/2026-02-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/02/2026-02-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/02/2026-02-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/02/2026-02-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDALCO.NS/2026/02/2026-02-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/01/2026-01-23.parquet",
+      "status": "clean",
+      "total_records": 2,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/01/2026-01-27.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/01/2026-01-28.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/01/2026-01-29.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/01/2026-01-30.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/02/2026-02-02.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/02/2026-02-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/02/2026-02-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/02/2026-02-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/02/2026-02-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/02/2026-02-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/02/2026-02-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/02/2026-02-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/02/2026-02-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/02/2026-02-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/02/2026-02-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/02/2026-02-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/02/2026-02-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/02/2026-02-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/HINDUNILVR.NS/2026/02/2026-02-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/INFY.NS/2026/02/2026-02-13.parquet",
+      "status": "clean",
+      "total_records": 4,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/INFY.NS/2026/02/2026-02-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/INFY.NS/2026/02/2026-02-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/INFY.NS/2026/02/2026-02-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/INFY.NS/2026/02/2026-02-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/INFY.NS/2026/02/2026-02-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/01/2026-01-21.parquet",
+      "status": "clean",
+      "total_records": 4,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/01/2026-01-22.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/01/2026-01-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/01/2026-01-27.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/01/2026-01-28.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/01/2026-01-29.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/01/2026-01-30.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/02/2026-02-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/02/2026-02-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/02/2026-02-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/02/2026-02-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/02/2026-02-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/02/2026-02-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/02/2026-02-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/02/2026-02-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/02/2026-02-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/02/2026-02-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/02/2026-02-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/02/2026-02-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/02/2026-02-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/ITC.NS/2026/02/2026-02-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/01/2026-01-28.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/01/2026-01-29.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/01/2026-01-30.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/02/2026-02-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/02/2026-02-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/02/2026-02-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/02/2026-02-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/02/2026-02-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/02/2026-02-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/02/2026-02-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/02/2026-02-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/02/2026-02-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/02/2026-02-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/02/2026-02-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/02/2026-02-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/02/2026-02-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/02/2026-02-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/02/2026-02-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/02/2026-02-24.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/02/2026-02-25.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/MAXHEALTH.NS/2026/02/2026-02-26.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/NTPC.NS/2026/01/2026-01-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/NTPC.NS/2026/01/2026-01-27.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/NTPC.NS/2026/01/2026-01-28.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/NTPC.NS/2026/01/2026-01-29.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/NTPC.NS/2026/01/2026-01-30.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/NTPC.NS/2026/02/2026-02-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/NTPC.NS/2026/02/2026-02-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/NTPC.NS/2026/02/2026-02-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/NTPC.NS/2026/02/2026-02-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/NTPC.NS/2026/02/2026-02-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/NTPC.NS/2026/02/2026-02-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/NTPC.NS/2026/02/2026-02-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/NTPC.NS/2026/02/2026-02-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/NTPC.NS/2026/02/2026-02-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/NTPC.NS/2026/02/2026-02-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/NTPC.NS/2026/02/2026-02-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/NTPC.NS/2026/02/2026-02-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/NTPC.NS/2026/02/2026-02-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/NTPC.NS/2026/02/2026-02-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/01/2026-01-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/01/2026-01-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/01/2026-01-21.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/01/2026-01-22.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/01/2026-01-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/01/2026-01-27.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/01/2026-01-28.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/01/2026-01-29.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/01/2026-01-30.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/02/2026-02-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/02/2026-02-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/02/2026-02-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/02/2026-02-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/02/2026-02-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/02/2026-02-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/02/2026-02-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/02/2026-02-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/02/2026-02-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/02/2026-02-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/02/2026-02-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/02/2026-02-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/02/2026-02-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/02/2026-02-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/02/2026-02-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/02/2026-02-24.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/02/2026-02-25.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/02/2026-02-26.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/02/2026-02-27.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/03/2026-03-02.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/03/2026-03-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/03/2026-03-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/RELIANCE.NS/2026/03/2026-03-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/SBILIFE.NS/2026/02/2026-02-11.parquet",
+      "status": "clean",
+      "total_records": 2,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/SBILIFE.NS/2026/02/2026-02-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/SBILIFE.NS/2026/02/2026-02-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/SBILIFE.NS/2026/02/2026-02-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/SBILIFE.NS/2026/02/2026-02-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/SBILIFE.NS/2026/02/2026-02-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/SBILIFE.NS/2026/02/2026-02-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/SBILIFE.NS/2026/02/2026-02-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/01/2026-01-20.parquet",
+      "status": "clean",
+      "total_records": 4,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/01/2026-01-21.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/01/2026-01-22.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/01/2026-01-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/01/2026-01-27.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/01/2026-01-28.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/01/2026-01-29.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/01/2026-01-30.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/02/2026-02-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/02/2026-02-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/02/2026-02-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/02/2026-02-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/02/2026-02-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/02/2026-02-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/02/2026-02-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/02/2026-02-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/02/2026-02-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/02/2026-02-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/02/2026-02-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/02/2026-02-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/02/2026-02-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/02/2026-02-20.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/02/2026-02-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/02/2026-02-24.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/02/2026-02-25.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/02/2026-02-26.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/02/2026-02-27.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/03/2026-03-02.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/03/2026-03-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TATASTEEL.NS/2026/03/2026-03-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/02/2026-02-03.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/02/2026-02-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/02/2026-02-05.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/02/2026-02-06.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/02/2026-02-09.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/02/2026-02-10.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/02/2026-02-11.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/02/2026-02-12.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/02/2026-02-13.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/02/2026-02-16.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/02/2026-02-17.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/02/2026-02-18.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/02/2026-02-19.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/02/2026-02-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/02/2026-02-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/02/2026-02-24.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/02/2026-02-25.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/02/2026-02-26.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/02/2026-02-27.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/03/2026-03-02.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/TECHM.NS/2026/03/2026-03-04.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/01/2026-01-20.parquet",
+      "status": "clean",
+      "total_records": 15,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/01/2026-01-21.parquet",
+      "status": "clean",
+      "total_records": 23,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/01/2026-01-22.parquet",
+      "status": "clean",
+      "total_records": 24,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/01/2026-01-23.parquet",
+      "status": "clean",
+      "total_records": 23,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/01/2026-01-26.parquet",
+      "status": "clean",
+      "total_records": 22,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/01/2026-01-27.parquet",
+      "status": "clean",
+      "total_records": 24,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/01/2026-01-28.parquet",
+      "status": "clean",
+      "total_records": 24,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/01/2026-01-29.parquet",
+      "status": "clean",
+      "total_records": 23,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/01/2026-01-30.parquet",
+      "status": "clean",
+      "total_records": 16,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/02/2026-02-02.parquet",
+      "status": "clean",
+      "total_records": 2,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/02/2026-02-03.parquet",
+      "status": "clean",
+      "total_records": 21,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/02/2026-02-04.parquet",
+      "status": "clean",
+      "total_records": 22,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/02/2026-02-05.parquet",
+      "status": "clean",
+      "total_records": 23,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/02/2026-02-06.parquet",
+      "status": "clean",
+      "total_records": 21,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/02/2026-02-09.parquet",
+      "status": "clean",
+      "total_records": 21,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/02/2026-02-10.parquet",
+      "status": "clean",
+      "total_records": 22,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/02/2026-02-11.parquet",
+      "status": "clean",
+      "total_records": 23,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/02/2026-02-12.parquet",
+      "status": "clean",
+      "total_records": 22,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/02/2026-02-13.parquet",
+      "status": "clean",
+      "total_records": 21,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/02/2026-02-16.parquet",
+      "status": "clean",
+      "total_records": 22,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/02/2026-02-17.parquet",
+      "status": "clean",
+      "total_records": 24,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/02/2026-02-18.parquet",
+      "status": "clean",
+      "total_records": 22,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/02/2026-02-19.parquet",
+      "status": "clean",
+      "total_records": 11,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/02/2026-02-20.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/02/2026-02-23.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/02/2026-02-24.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/02/2026-02-25.parquet",
+      "status": "clean",
+      "total_records": 7,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/ohlcv/USDINR=X/2026/02/2026-02-26.parquet",
+      "status": "clean",
+      "total_records": 6,
+      "gaps": []
+    },
+    {
+      "file": "data/silver/text/canonical/2026/03/2026-03-05.parquet",
+      "status": "gaps_found",
+      "total_records": 45,
+      "gaps": [
+        {
+          "field": "source_type",
+          "issue": "invalid_enum_values",
+          "affected_records": 45,
+          "sample_values": [
+            "rss_feed"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "data/silver/text/sidecar/2026/03/2026-03-05.parquet",
+      "status": "gaps_found",
+      "total_records": 45,
+      "gaps": [
+        {
+          "field": "source_type",
+          "issue": "invalid_enum_values",
+          "affected_records": 45,
+          "sample_values": [
+            "rss_feed"
+          ]
+        },
+        {
+          "field": "ingestion_timestamp_ist",
+          "issue": "column_missing",
+          "affected_records": 45
+        },
+        {
+          "field": "schema_version",
+          "issue": "column_missing",
+          "affected_records": 45
+        },
+        {
+          "field": "quality_status",
+          "issue": "column_missing",
+          "affected_records": 45
+        }
+      ]
+    },
+    {
+      "file": "data/gold/preprocessing_snap_1.parquet",
+      "status": "clean",
+      "total_records": 2,
+      "gaps": []
+    },
+    {
+      "file": "data/gold/preprocessing_snap_replay.parquet",
+      "status": "clean",
+      "total_records": 1,
+      "gaps": []
+    },
+    {
+      "file": "data/gold/preprocessing_snapshot_123.parquet",
+      "status": "clean",
+      "total_records": 2,
+      "gaps": []
+    },
+    {
+      "file": "data/gold/preprocessing_snapshot_20260307_090424_UTC.parquet",
+      "status": "clean",
+      "total_records": 14,
+      "gaps": []
+    },
+    {
+      "file": "data/gold/preprocessing_snapshot_20260307_090558_UTC.parquet",
+      "status": "clean",
+      "total_records": 14,
+      "gaps": []
+    },
+    {
+      "file": "data/gold/preprocessing_snapshot_real_nse_01.parquet",
+      "status": "clean",
+      "total_records": 4112,
+      "gaps": []
+    },
+    {
+      "file": "data/gold/preprocessing_snapshot_ticks_01.parquet",
+      "status": "clean",
+      "total_records": 2,
+      "gaps": []
+    },
+    {
+      "file": "data/gold/preprocessing_test_cp3_sync_gate_a.parquet",
+      "status": "clean",
+      "total_records": 15,
+      "gaps": []
+    },
+    {
+      "file": "data/gold/preprocessing_test_cp4_deterministic_baseline.parquet",
+      "status": "clean",
+      "total_records": 15,
+      "gaps": []
+    },
+    {
+      "file": "data/gold/preprocessing_test_snap_001.parquet",
+      "status": "clean",
+      "total_records": 2,
+      "gaps": []
+    }
+  ]
+}

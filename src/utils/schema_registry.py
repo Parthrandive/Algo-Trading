@@ -30,6 +30,13 @@ class SchemaRegistry:
         return cls._registry[version_key]
 
     @classmethod
+    def mark_frozen(cls, version_key: str, tag: str = "FROZEN_FOR_PHASE_2"):
+        """Tag a registered schema version as frozen."""
+        if version_key not in cls._registry:
+            raise ValueError(f"Schema {version_key} not found in registry.")
+        cls._registry[f"{version_key}_{tag}"] = cls._registry[version_key]
+
+    @classmethod
     def validate(cls, version_key: str, data: Dict[str, Any]) -> BaseModel:
         """
         Validate raw dict data against the registered schema.
@@ -40,14 +47,18 @@ class SchemaRegistry:
 
 def _register_default_schemas():
     # Pre-registering current versions (Auto-discovery could be added later).
-    SchemaRegistry.register("Tick_v1.0", Tick)
-    SchemaRegistry.register("Bar_v1.0", Bar)
-    SchemaRegistry.register("CorporateAction_v1.0", CorporateAction)
-    SchemaRegistry.register("MacroIndicator_v1.0", MacroIndicator)
-    SchemaRegistry.register("MacroIndicator_v1.1", MacroIndicator)
-    SchemaRegistry.register("NewsArticle_v1.0", NewsArticle)
-    SchemaRegistry.register("SocialPost_v1.0", SocialPost)
-    SchemaRegistry.register("EarningsTranscript_v1.0", EarningsTranscript)
-
+    schemas = [
+        ("Tick_v1.0", Tick),
+        ("Bar_v1.0", Bar),
+        ("CorporateAction_v1.0", CorporateAction),
+        ("MacroIndicator_v1.0", MacroIndicator),
+        ("MacroIndicator_v1.1", MacroIndicator),
+        ("NewsArticle_v1.0", NewsArticle),
+        ("SocialPost_v1.0", SocialPost),
+        ("EarningsTranscript_v1.0", EarningsTranscript)
+    ]
+    for key, model in schemas:
+        SchemaRegistry.register(key, model)
+        SchemaRegistry.mark_frozen(key, "FROZEN_FOR_PHASE_2")
 
 _register_default_schemas()
