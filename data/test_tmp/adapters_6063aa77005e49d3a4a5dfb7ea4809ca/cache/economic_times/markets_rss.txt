@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <item>
+      <title><![CDATA[Test market headline]]></title>
+      <description><![CDATA[<p>Market moved higher after policy cues.</p>]]></description>
+      <link>https://example.com/market/headline</link>
+      <guid>guid-1</guid>
+      <pubDate>Thu, 05 Mar 2026 10:00:00 +0530</pubDate>
+    </item>
+  </channel>
+</rss>
