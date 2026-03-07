@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import Any, Callable, Protocol, Sequence
+from typing import Any, Callable, Mapping, Protocol, Sequence
 from urllib.parse import urljoin, urlparse
 from zoneinfo import ZoneInfo
 
@@ -30,6 +30,23 @@ _WS_RE = re.compile(r"\s+")
 _NSE_KEYWORDS = ("nse", "nifty", "sensex", "bank nifty")
 
 HTTPGetter = Callable[[str, dict[str, str] | None], str]
+
+_RBI_DEFAULT_SOURCE_POLICY: dict[str, object] = {
+    "rss_feed_url": "https://www.rbi.org.in/Scripts/rss.aspx",
+    "dbie_download_url": "https://data.rbi.org.in/DBIE/#/",
+    "fallback_scraper_url": "https://www.rbi.org.in/Scripts/BS_ViewBulletin.aspx",
+    "simulate_rss_outage": False,
+    "simulate_dbie_outage": False,
+    "enable_emergency_fallback_scraper": False,
+}
+
+
+@dataclass(frozen=True)
+class _RBIResolvedRoute:
+    source_type: TextSourceType
+    route_detail: SourceRouteDetail
+    source_url: str
+    source_channel: str
 
 
 def _safe_token(value: str) -> str:
@@ -531,6 +548,7 @@ class RBIReportsAdapter(BaseTextAdapter):
         allow_emergency_fallback: bool = False,
         dbie_catalog_urls: Sequence[str] | None = None,
         pdf_paths: Sequence[str] | None = None,
+        source_policy: Mapping[str, object] | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
@@ -538,121 +556,186 @@ class RBIReportsAdapter(BaseTextAdapter):
         self._dbie_catalog_urls = tuple(dbie_catalog_urls or (self._DBIE_CATALOG_URL,))
         self._pdf_paths = list(pdf_paths or [])
         self._pdf_extractor = PDFExtractor()
+        # Re-integrate the source policy for outage simulation (Day 3 requirement).
+        self.source_policy = self._normalize_source_policy(source_policy)
+
+    @classmethod
+    def _normalize_source_policy(
+        cls,
+        source_policy: Mapping[str, object] | None,
+    ) -> dict[str, object]:
+        normalized = dict(_RBI_DEFAULT_SOURCE_POLICY)
+        if source_policy is None:
+            return normalized
+
+        for key, value in source_policy.items():
+            if key not in normalized:
+                continue
+            if isinstance(normalized[key], bool):
+                normalized[key] = bool(value)
+                continue
+            if isinstance(value, str) and value.strip():
+                normalized[key] = value.strip()
+        return normalized
+
+    def _resolve_source_route_logic(self) -> _RBIResolvedRoute | None:
+        """Heuristic to resolve which route to use, supporting simulation modes."""
+        if not bool(self.source_policy["simulate_rss_outage"]):
+            return _RBIResolvedRoute(
+                source_type=TextSourceType.RSS_FEED,
+                route_detail=SourceRouteDetail.OFFICIAL_FEED,
+                source_url=str(self.source_policy["rss_feed_url"]),
+                source_channel="rbi_official_rss",
+            )
+
+        if not bool(self.source_policy["simulate_dbie_outage"]):
+            return _RBIResolvedRoute(
+                source_type=TextSourceType.OFFICIAL_API,
+                route_detail=SourceRouteDetail.PRIMARY_API,
+                source_url=str(self.source_policy["dbie_download_url"]),
+                source_channel="rbi_dbie_download",
+            )
+
+        if bool(self.source_policy["enable_emergency_fallback_scraper"]) or self._allow_emergency_fallback:
+            return _RBIResolvedRoute(
+                source_type=TextSourceType.FALLBACK_SCRAPER,
+                route_detail=SourceRouteDetail.FALLBACK_SCRAPER,
+                source_url=str(self.source_policy["fallback_scraper_url"]),
+                source_channel="rbi_emergency_scraper",
+            )
+
+        return None
 
     def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
         now_utc = datetime.now(UTC)
+        record_timestamp = as_of_utc or now_utc
+        
+        # 1. Local PDF processing (highest priority in upstream).
         local_pdf_records = self._build_local_pdf_records(
             now_utc=now_utc,
-            record_timestamp=as_of_utc or now_utc,
+            record_timestamp=record_timestamp,
         )
         if local_pdf_records:
             return local_pdf_records[: self.max_items]
 
+        # 2. Resolved route logic (Simulation/Policy support).
+        resolved_route = self._resolve_source_route_logic()
+        if resolved_route is None:
+            logger.warning("RBI source routes unavailable (outage simulation active?)")
+            return []
+
         records: list[RawTextRecord] = []
         seen_source_ids: set[str] = set()
-        rss_feed_urls = self._discover_rbi_rss_urls()
 
-        for feed_url in rss_feed_urls:
-            if len(records) >= self.max_items:
-                break
-
-            cache_key = self._cache_key_for_url(feed_url)
-            feed = self._fetch_text(url=feed_url, cache_key=cache_key)
-            if not feed.strip():
-                continue
-            try:
-                root = ET.fromstring(feed)
-            except ET.ParseError:
-                continue
-
-            for item in root.findall(".//item"):
-                title = self._normalize_text(item.findtext("title") or "")
-                description = self._normalize_text(item.findtext("description") or "")
-                link = (item.findtext("link") or "").strip()
-                guid = (item.findtext("guid") or link or title).strip()
-                if not title or not link:
-                    continue
-
-                timestamp = self._parse_rss_datetime(item.findtext("pubDate")) or now_utc
-                if as_of_utc and timestamp > as_of_utc:
-                    continue
-
-                source_id = self._stable_id("rbi_rss", f"{feed_url}|{guid}|{link}")
-                if source_id in seen_source_ids:
-                    continue
-                seen_source_ids.add(source_id)
-
-                content = description or title
-                records.append(
-                    RawTextRecord(
-                        record_type="news_article",
-                        source_name=self.source_name,
-                        source_id=source_id,
-                        timestamp=timestamp,
-                        content=content,
-                        payload={
-                            "headline": title,
-                            "publisher": "Reserve Bank of India",
-                            "url": link,
-                            "author": "RBI",
-                            "language": "en",
-                            "source_type": self.source_type.value,
-                            "ingestion_timestamp_utc": now_utc,
-                            "ingestion_timestamp_ist": now_utc.astimezone(IST),
-                            "schema_version": "1.0",
-                            "quality_status": "pass",
-                            "is_published": True,
-                            "is_embargoed": False,
-                            "license_ok": True,
-                            "manipulation_risk_score": 0.05,
-                            "confidence": 0.92,
-                            "quality_flags": ["official_feed", "rbi_rss_xml"],
-                        },
-                        source_type=self.source_type,
-                        source_route_detail=self.source_route_detail,
-                    )
-                )
+        # 3. RSS Route
+        if resolved_route.source_type == TextSourceType.RSS_FEED:
+            rss_feed_urls = self._discover_rbi_rss_urls()
+            for feed_url in rss_feed_urls:
                 if len(records) >= self.max_items:
-                    return records
+                    break
+                feed = self._fetch_text(url=feed_url, cache_key=self._stable_id("rbi_feed", feed_url))
+                if not feed.strip():
+                    continue
+                try:
+                    root = ET.fromstring(feed)
+                except ET.ParseError:
+                    continue
 
-        if len(records) < self.max_items:
+                for item in root.findall(".//item"):
+                    title = self._normalize_text(item.findtext("title") or "")
+                    description = self._normalize_text(item.findtext("description") or "")
+                    link = (item.findtext("link") or "").strip()
+                    guid = (item.findtext("guid") or link or title).strip()
+                    if not title or not link:
+                        continue
+
+                    timestamp = self._parse_rss_datetime(item.findtext("pubDate")) or now_utc
+                    if as_of_utc and timestamp > as_of_utc:
+                        continue
+
+                    source_id = self._stable_id("rbi_rss", f"{feed_url}|{guid}|{link}")
+                    if source_id in seen_source_ids:
+                        continue
+                    seen_source_ids.add(source_id)
+
+                    records.append(
+                        RawTextRecord(
+                            record_type="news_article",
+                            source_name=self.source_name,
+                            source_id=source_id,
+                            timestamp=timestamp,
+                            content=description or title,
+                            payload={
+                                "headline": title,
+                                "publisher": "Reserve Bank of India",
+                                "url": link,
+                                "author": "RBI",
+                                "language": "en",
+                                "source_type": resolved_route.source_type.value,
+                                "ingestion_timestamp_utc": now_utc,
+                                "ingestion_timestamp_ist": now_utc.astimezone(IST),
+                                "schema_version": "1.0",
+                                "quality_status": "pass",
+                                "is_published": True,
+                                "is_embargoed": False,
+                                "license_ok": True,
+                                "manipulation_risk_score": 0.05,
+                                "confidence": 0.92,
+                                "quality_flags": ["official_feed", "rbi_rss_xml"],
+                                "source_channel": resolved_route.source_channel,
+                            },
+                            source_type=resolved_route.source_type,
+                            source_route_detail=resolved_route.route_detail,
+                        )
+                    )
+            if records:
+                return records[: self.max_items]
+
+        # 4. DBIE (Official API / Primary API) Route
+        if resolved_route.source_type == TextSourceType.OFFICIAL_API:
             records.extend(
                 self._fetch_dbie_downloads(
                     now_utc=now_utc,
                     as_of_utc=as_of_utc,
                     seen_source_ids=seen_source_ids,
-                    limit=self.max_items - len(records),
+                    limit=self.max_items,
                 )
             )
+            # Apply route details to DBIE records if not already set.
+            for i in range(len(records)):
+                records[i] = RawTextRecord(
+                    **{**records[i].__dict__, "source_type": resolved_route.source_type, "source_route_detail": resolved_route.route_detail}
+                )
+            if records:
+                return records[: self.max_items]
 
-        if records:
-            return records[: self.max_items]
-
-        if self._allow_emergency_fallback:
-            emergency_records = self._fetch_emergency_scraper_records(
-                now_utc=now_utc,
-                as_of_utc=as_of_utc,
-                seen_source_ids=seen_source_ids,
+        # 5. Emergency Scraper Route
+        if resolved_route.source_type == TextSourceType.FALLBACK_SCRAPER:
+            records.extend(
+                self._fetch_emergency_scraper_records(
+                    now_utc=now_utc,
+                    as_of_utc=as_of_utc,
+                    seen_source_ids=seen_source_ids,
+                )
             )
-            if emergency_records:
-                return emergency_records[: self.max_items]
+            if records:
+                return records[: self.max_items]
 
-        # Offline-safe fallback if official channels are unavailable; keeps CI deterministic.
-        fallback_time = as_of_utc or now_utc
+        # 6. Offline Fallback (CI/Safety)
         return [
             RawTextRecord(
                 record_type="news_article",
                 source_name=self.source_name,
                 source_id="rbi_rss_fallback_001",
-                timestamp=fallback_time,
-                content="RBI official RSS and DBIE channels unavailable; using deterministic fallback sample.",
+                timestamp=record_timestamp,
+                content="RBI official channels unavailable; using deterministic fallback sample.",
                 payload={
                     "headline": "RBI Official Feed Fallback Sample",
                     "publisher": "Reserve Bank of India",
-                    "url": self._RSS_INDEX_URL,
+                    "url": resolved_route.source_url,
                     "author": "RBI",
                     "language": "en",
-                    "source_type": self.source_type.value,
+                    "source_type": resolved_route.source_type.value,
                     "ingestion_timestamp_utc": now_utc,
                     "ingestion_timestamp_ist": now_utc.astimezone(IST),
                     "schema_version": "1.0",
@@ -663,11 +746,12 @@ class RBIReportsAdapter(BaseTextAdapter):
                     "manipulation_risk_score": 0.08,
                     "confidence": 0.6,
                     "quality_flags": ["official_feed", "offline_fallback", "rbi_rss_xml"],
+                    "source_channel": resolved_route.source_channel,
                 },
-                source_type=self.source_type,
-                source_route_detail=self.source_route_detail,
+                source_type=resolved_route.source_type,
+                source_route_detail=resolved_route.route_detail,
             )
-        ][: self.max_items]
+        ]
 
     def _build_local_pdf_records(
         self,
