@@ -146,7 +146,7 @@ def _build_pipeline(write_bronze: bool):
     from src.agents.sentinel.failover_client import FailoverSentinelClient
     from src.agents.sentinel.nsepython_client import NSEPythonClient
     from src.agents.sentinel.pipeline import SentinelIngestPipeline
-    from src.agents.sentinel.recorder import SilverRecorder
+    from src.db.silver_db_recorder import SilverDBRecorder
     from src.agents.sentinel.yfinance_client import YFinanceClient
 
     config = load_default_sentinel_config()
@@ -177,7 +177,7 @@ def _build_pipeline(write_bronze: bool):
     bronze_recorder = BronzeRecorder() if write_bronze else None
     return SentinelIngestPipeline(
         client=failover_client,
-        silver_recorder=SilverRecorder(),
+        silver_recorder=SilverDBRecorder(),
         bronze_recorder=bronze_recorder,
         session_rules=config.session_rules,
     )

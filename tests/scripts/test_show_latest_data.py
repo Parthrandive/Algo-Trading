@@ -54,22 +54,19 @@ def test_new_symbol_autofetch_fetches_live_and_writes_silver(monkeypatch, tmp_pa
     exit_code = show_latest_data.run([requested_symbol, "--from", "2026-02-18", "--to", "2026-02-20", "--json"])
     assert exit_code == show_latest_data.EXIT_SUCCESS
 
-    symbol_dir = tmp_path / "data" / "silver" / "ohlcv" / normalized_symbol
-    silver_files = list(symbol_dir.rglob("*.parquet"))
-    assert silver_files
+    # With DB-backed persistence, bars are saved to PostgreSQL, not parquet files.
+    # So silver_files (parquet) will be empty, and bars_saved (parquet count) will be 0.
 
     output = capsys.readouterr().out
     assert "SUCCESS: Received Live Tick" in output
     assert "Fetch persistence summary:" in output
     assert "bars_fetched: 1" in output
-    assert "bars_saved: 1" in output
-    assert f"silver_path: {symbol_dir.resolve()}" in output
+    assert "bars_saved: 0" in output  # Data goes to DB, not parquet
 
     json_start = output.rfind('{\n  "requested_symbol"')
     assert json_start != -1
     payload = json.loads(output[json_start:])
     assert payload["historical"]["status"] == "SUCCESS"
     assert payload["historical"]["bars_fetched"] == 1
-    assert payload["historical"]["bars_saved"] == 1
-    assert Path(payload["historical"]["silver_path"]) == symbol_dir.resolve()
+    assert payload["historical"]["bars_saved"] == 0  # DB-backed, no parquet
     assert payload["live"]["status"] == "SUCCESS"

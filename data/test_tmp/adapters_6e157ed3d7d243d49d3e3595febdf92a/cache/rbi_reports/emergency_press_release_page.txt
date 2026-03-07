@@ -1,6 +1,0 @@
-
-<html>
-  <body>
-    <a href="/Scripts/BS_PressReleaseDisplay.aspx?prid=70001">Emergency RBI release</a>
-  </body>
-</html>

@@ -185,6 +185,12 @@ class SilverDBRecorder:
 
                     # Text schemas may contain enrichment fields not present in DB.
                     filtered = {key: value for key, value in data.items() if key in TEXT_ITEM_COLUMNS}
+                    
+                    # Pad missing columns with None to prevent heterogeneous bulk insert failures
+                    for col in TEXT_ITEM_COLUMNS:
+                        if col not in filtered:
+                            filtered[col] = None
+                            
                     items_data.append(filtered)
                     
                 stmt = insert(TextItemDB).values(items_data)
