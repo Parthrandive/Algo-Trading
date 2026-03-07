@@ -149,6 +149,8 @@ def _build_pipeline(write_bronze: bool):
     from src.agents.sentinel.recorder import SilverRecorder
     from src.agents.sentinel.yfinance_client import YFinanceClient
 
+    config = load_default_sentinel_config()
+
     primary = YFinanceClient()
     fallbacks = []
 
@@ -164,8 +166,13 @@ def _build_pipeline(write_bronze: bool):
 
     fallbacks.append(NSEPythonClient())
 
-    failover_client = FailoverSentinelClient(primary, fallbacks, failure_threshold=2, cooldown_seconds=60, recovery_success_threshold=2)
-    config = load_default_sentinel_config()
+    failover_client = FailoverSentinelClient(
+        primary,
+        fallbacks,
+        failure_threshold=config.failover.failure_threshold,
+        cooldown_seconds=config.failover.cooldown_seconds,
+        recovery_success_threshold=config.failover.recovery_success_threshold,
+    )
 
     bronze_recorder = BronzeRecorder() if write_bronze else None
     return SentinelIngestPipeline(

@@ -17,6 +17,7 @@ pyyaml>=6.0.1
 tenacity>=8.2.3  # Retry logic for network calls
 structlog>=24.1.0  # Structured logging for defining observability
 pytz>=2024.1     # Timezone handling (UTC+IST)
+pdfplumber>=0.11.0  # PDF transcript extraction for textual adapters
 
 # Testing & Quality
 pytest>=8.0.0
@@ -28,4 +29,3 @@ ntplib>=0.4.0    # NTP client for clock sync checks
 # Database
 sqlalchemy>=2.0.0
 psycopg2-binary>=2.9.9
-

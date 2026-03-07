@@ -18,7 +18,9 @@
       "parameters": {
         "target_column": "close_log_return",
         "output_column": "close_log_return_zscore",
-        "window": 30
+        "window": 30,
+        "regime_threshold": 2.0,
+        "anomaly_threshold": 3.0
       }
     },
     {

@@ -102,7 +102,7 @@ def test_burst_detection_logic(agent):
                     source_name="x_posts",
                     source_id=f"burst_{i}",
                     timestamp=datetime.now(UTC),
-                    content="NIFTY is going up! #India #Market",
+                    content=f"NIFTY is going up! #India #Market signal_{i}",
                     payload={
                         "likes": 100, 
                         "url": "http://x.com", 

@@ -11,6 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.utils.time_sync import get_clock_drift, is_clock_synced, validate_utc_ist_consistency
 from src.utils.validation import StreamMonotonicityChecker
 from src.agents.sentinel.recorder import SilverRecorder
+from src.agents.sentinel.config import load_default_sentinel_config
 from src.schemas.market_data import Bar, SourceType
 
 logging.basicConfig(level=logging.INFO)
@@ -18,13 +19,15 @@ logger = logging.getLogger(__name__)
 
 def test_clock_drift():
     logger.info("--- Testing Clock Drift ---")
+    config = load_default_sentinel_config()
+    threshold_seconds = config.clock_drift_threshold_seconds
     drift = get_clock_drift()
     if drift is None:
         logger.warning("Clock drift unavailable (NTP unreachable).")
     else:
         logger.info(f"Clock Drift: {drift:.6f} seconds")
-    is_synced = is_clock_synced(threshold_seconds=0.5)
-    logger.info(f"Is Synced (0.5s threshold): {is_synced}")
+    is_synced = is_clock_synced(threshold_seconds=threshold_seconds)
+    logger.info(f"Is Synced ({threshold_seconds}s threshold): {is_synced}")
     if not is_synced:
         logger.warning("Clock drift verification failed.")
     else:

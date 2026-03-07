@@ -108,35 +108,35 @@ Your preprocessing I/O contract defines:
 - [x] **Deliverable:** Full pipeline wired with replay support, end-to-end test with mock data passes
 
 ### Day 5 (Fri, Feb 27) — Leakage + Reproducibility 🔒 CP2
-- [ ] Build `leakage_test.py`:
+- [x] Build `leakage_test.py`:
   - `LeakageTestHarness` — checks for future information leaking into transforms
   - Tests: timestamp ordering after alignment, no look-ahead bias, lag correctness
   - Strict time alignment and lagging verification (Section 5.3 acceptance)
-- [ ] Build `reproducibility.py`:
+- [x] Build `reproducibility.py`:
   - `ReproducibilityHasher` — SHA-256 of full output given frozen input snapshot + config
   - Deterministic replay: same input snapshot → identical hash
   - Dataset snapshot IDs tracked through pipeline (Section 5.5)
-- [ ] Tests:
+- [x] Tests:
   - `tests/agents/preprocessing/test_leakage.py` — with known-bad data (planted future leak)
   - `tests/agents/preprocessing/test_reproducibility.py` — hash stability across 3 runs
-- [ ] Create `docs/plans/CP2_Pipeline_Readiness.md`
-- [ ] **Deliverable:** CP2 evidence — leakage tests green (100% pass), reproducibility hash stable
+- [x] Create `docs/plans/CP2_Pipeline_Readiness.md`
+- [x] **Deliverable:** CP2 evidence — leakage tests green (100% pass), reproducibility hash stable
 
 ### Day 6 (Sat, Feb 28) — Consume Macro Samples 🔒 CP3 (Sync Gate A)
-- [ ] **Consume** partner's `data/macro_samples/*.json` files
-- [ ] Run through `MacroLoader` → validate list payloads with `TypeAdapter(list[MacroIndicator]).validate_python(payload)`
-- [ ] Run through full `PreprocessingPipeline`:
-  - Lag alignment with macro sample timestamps
-  - Normalization transforms (z-score, min-max, log returns)
-  - Directional change detection
-  - Output hash generation with dataset snapshot ID
-- [ ] Compatibility test results:
-  - Schema validation: PASS/FAIL per indicator
-  - Transform execution: PASS/FAIL
-  - Output hash: recorded for baseline
-  - Provenance tags: verified on every output record
-- [ ] Create `docs/plans/CP3_Sync_Gate_A.md` with results table
-- [ ] **Deliverable:** CP3 evidence — all 8 Week 3 required indicators load + transform successfully
+- [x] **Consume** partner's `data/macro_samples/*.json` files
+- [x] Run through `MacroLoader` → validate list payloads with `TypeAdapter(list[MacroIndicator]).validate_python(payload)`
+- [x] Run through full `PreprocessingPipeline`:
+  - [x] Lag alignment with macro sample timestamps
+  - [x] Normalization transforms (z-score, min-max, log returns)
+  - [x] Directional change detection
+  - [x] Output hash generation with dataset snapshot ID
+- [x] Compatibility test results:
+  - [x] Schema validation: PASS/FAIL per indicator
+  - [x] Transform execution: PASS/FAIL
+  - [x] Output hash: recorded for baseline
+  - [x] Provenance tags: verified on every output record
+- [x] Create `docs/plans/CP3_Sync_Gate_A_Preprocessing.md` with results table
+- [x] **Deliverable:** CP3 evidence — all 8 Week 3 required indicators load + transform successfully
 
 > **🔗 SYNC GATE A:** You depend on partner publishing `data/macro_samples/` by end of Day 6. If samples are delayed:
 > 1. Use locally generated mock samples (matching schema v1.1) to unblock
@@ -144,18 +144,18 @@ Your preprocessing I/O contract defines:
 > 3. Note discrepancy in CP3 document
 
 ### Day 7 (Sun, Mar 1) — Deterministic Replay + Sign-off 🔒 CP4
-- [ ] Freeze a baseline input snapshot (macro samples + OHLCV Silver data) with snapshot ID
-- [ ] Run deterministic replay: full pipeline 3 times → verify identical output hash
-- [ ] Run event-time replay from stored snapshots (Section 5.5 verification)
-- [ ] Publish baseline output hash as reference for future regression testing
-- [ ] Cross-reference partner's CP4 completeness report
-- [ ] Create `docs/plans/CP4_Week_3_Signoff.md`:
-  - Reproducibility: PASS (3 identical hashes)
-  - Leakage: PASS (all tests green — 100% per GO/NO-GO gate)
-  - Compatibility: PASS (partner samples consumed)
-  - Replay: PASS (event-time reconstruction verified)
-  - Integration readiness: READY for Week 4
-- [ ] **Deliverable:** CP4 evidence — integration-readiness note published
+- [x] Freeze a baseline input snapshot (macro samples + OHLCV Silver data) with snapshot ID
+- [x] Run deterministic replay: full pipeline 3 times → verify identical output hash
+- [x] Run event-time replay from stored snapshots (Section 5.5 verification)
+- [x] Publish baseline output hash as reference for future regression testing
+- [x] Cross-reference partner's CP4 completeness report
+- [x] Create `docs/plans/CP4_Week_3_Signoff_Preprocessing.md`:
+  - [x] Reproducibility: PASS (3 identical hashes)
+  - [x] Leakage: PASS (all tests green — 100% per GO/NO-GO gate)
+  - [x] Compatibility: PASS (partner samples consumed)
+  - [x] Replay: PASS (event-time reconstruction verified)
+  - [x] Integration readiness: READY for Week 4
+- [x] **Deliverable:** CP4 evidence — integration-readiness note published
 
 ---
 

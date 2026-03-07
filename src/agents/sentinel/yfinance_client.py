@@ -1,6 +1,7 @@
 import yfinance as yf
 from datetime import datetime, timezone
-from typing import List
+import requests
+from typing import List, Optional
 import logging
 
 from src.agents.sentinel.client import NSEClientInterface

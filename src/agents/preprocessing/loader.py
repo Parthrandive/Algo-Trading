@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 from typing import List
 
@@ -18,8 +19,37 @@ class PreprocessingLoader:
             self.contract = PreprocessingContract.model_validate_json(f.read())
             
         self._accepted_schemas = self.contract.accepted_input_schemas
+        self._accepted_schemas_canonical = {
+            self._canonical_schema_id(schema_id) for schema_id in self._accepted_schemas
+        }
+
+    @staticmethod
+    def _canonical_schema_id(schema_id: str) -> str:
+        """
+        Normalize schema IDs to a canonical form where the terminal version segment
+        does not require a leading 'v' (e.g., macro.indicator.v1.1 == macro.indicator.1.1).
+        """
+        return re.sub(r"\.v(?=\d)", ".", schema_id)
+
+    def _is_schema_allowed(self, prefix: str, schema_version: str) -> bool:
+        schema_id = self._canonical_schema_id(f"{prefix}.{schema_version}")
+        return schema_id in self._accepted_schemas_canonical
 
 class MacroLoader(PreprocessingLoader):
+    @staticmethod
+    def _read_macro_json(file_path: Path) -> pd.DataFrame:
+        with file_path.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+
+        if isinstance(payload, list):
+            return pd.DataFrame(payload)
+        if isinstance(payload, dict):
+            # Support either a single record or an envelope with a records key.
+            if "records" in payload and isinstance(payload["records"], list):
+                return pd.DataFrame(payload["records"])
+            return pd.DataFrame([payload])
+        raise ValueError(f"Unsupported JSON payload type in {file_path}: {type(payload).__name__}")
+
     def load(self, source_path: str, snapshot_id: str) -> pd.DataFrame:
         """
         Loads MacroIndicator data, validates against schema v1.1, and returns a DataFrame.
@@ -29,30 +59,40 @@ class MacroLoader(PreprocessingLoader):
             raise FileNotFoundError(f"Source path not found: {source_path}")
 
         records: List[MacroIndicator] = []
+        source_ids = []
         macro_adapter = TypeAdapter(list[MacroIndicator])
         
-        # Load logic defaults to json arrays matching Phase 1 sync gate specifications
+        # Macro inputs can be provided as parquet (silver outputs) or json fixtures.
         if path.is_dir():
-            files = list(path.glob("**/*.json"))
+            files = sorted([*path.glob("**/*.parquet"), *path.glob("**/*.json")])
         else:
             files = [path]
 
         for file_path in files:
             try:
-                with open(file_path, "r") as f:
-                    payload = json.load(f)
-                    
-                    if not isinstance(payload, list):
-                        payload = [payload]
-                        
-                    validated_batch = macro_adapter.validate_python(payload)
-                    for record in validated_batch:
-                        if "macro.indicator." + record.schema_version not in self._accepted_schemas:
+                if file_path.suffix.lower() == ".parquet":
+                    df_part = pd.read_parquet(file_path)
+                elif file_path.suffix.lower() == ".json":
+                    df_part = self._read_macro_json(file_path)
+                else:
+                    continue
+
+                if not df_part.empty:
+                    # Convert to records for schema validation
+                    payload = df_part.to_dict(orient="records")
+                    validation_payload = [
+                        {key: value for key, value in row.items() if key != "dataset_snapshot_id"}
+                        for row in payload
+                    ]
+                    validated_batch = macro_adapter.validate_python(validation_payload)
+                    for record, row in zip(validated_batch, payload):
+                        if not self._is_schema_allowed("macro.indicator", record.schema_version):
                             raise SchemaVersionError(
                                 f"Schema version {record.schema_version} not accepted by contract. "
                                 f"Allowed: {self._accepted_schemas}"
                             )
                         records.append(record)
+                        source_ids.append(row.get("dataset_snapshot_id", snapshot_id))
                         
             except ValidationError as e:
                 raise ValueError(f"Validation failed for {file_path}: {e}")
@@ -63,8 +103,8 @@ class MacroLoader(PreprocessingLoader):
             return pd.DataFrame()
 
         df = pd.DataFrame([r.model_dump() for r in records])
-        # Force snapshot ID per Section 5.5
-        df["dataset_snapshot_id"] = snapshot_id
+        # Force snapshot ID per Section 5.5 but preserve upstream if exists
+        df["dataset_snapshot_id"] = source_ids
         return df
 
 class MarketLoader(PreprocessingLoader):
@@ -132,6 +172,7 @@ class MarketLoader(PreprocessingLoader):
             return df
             
         records: List[Bar] = []
+        source_ids = []
 
         dict_records = df.to_dict(orient="records")
         invalid_messages: List[str] = []
@@ -140,28 +181,29 @@ class MarketLoader(PreprocessingLoader):
         # 1) Try canonical Bar
         # 2) Fallback to Tick and convert to synthetic Bar
         for idx, row in enumerate(dict_records):
+            validation_row = {key: value for key, value in row.items() if key != "dataset_snapshot_id"}
             try:
-                bar = Bar.model_validate(row)
-                schema_id = "market.bar." + bar.schema_version
-                if schema_id not in self._accepted_schemas:
+                bar = Bar.model_validate(validation_row)
+                if not self._is_schema_allowed("market.bar", bar.schema_version):
                     raise SchemaVersionError(
                         f"Schema version {bar.schema_version} not accepted for Bar. "
                         f"Allowed: {self._accepted_schemas}"
                     )
                 records.append(bar)
+                source_ids.append(row.get("dataset_snapshot_id", snapshot_id))
                 continue
             except ValidationError as bar_error:
                 first_error = bar_error
 
             try:
-                tick = Tick.model_validate(row)
-                schema_id = "market.tick." + tick.schema_version
-                if schema_id not in self._accepted_schemas:
+                tick = Tick.model_validate(validation_row)
+                if not self._is_schema_allowed("market.tick", tick.schema_version):
                     raise SchemaVersionError(
                         f"Schema version {tick.schema_version} not accepted for Tick. "
                         f"Allowed: {self._accepted_schemas}"
                     )
                 records.append(self._tick_to_bar(tick))
+                source_ids.append(row.get("dataset_snapshot_id", snapshot_id))
             except ValidationError as tick_error:
                 invalid_messages.append(
                     f"row={idx} could not be parsed as Bar or Tick: "
@@ -173,6 +215,6 @@ class MarketLoader(PreprocessingLoader):
             raise ValueError(f"Market Validation failed for {len(invalid_messages)} row(s): {sample}")
 
         validated_df = pd.DataFrame([r.model_dump() for r in records])
-        validated_df["dataset_snapshot_id"] = snapshot_id
+        validated_df["dataset_snapshot_id"] = source_ids
         
         return validated_df

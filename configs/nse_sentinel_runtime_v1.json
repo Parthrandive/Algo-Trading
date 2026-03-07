@@ -3,6 +3,11 @@
   "polling_interval_seconds": 60,
   "clock_drift_threshold_seconds": 0.5,
   "monotonicity_scope": "symbol_interval",
+  "failover": {
+    "failure_threshold": 2,
+    "cooldown_seconds": 60,
+    "recovery_success_threshold": 2
+  },
   "sources": [
     {
       "name": "official_yfinance",

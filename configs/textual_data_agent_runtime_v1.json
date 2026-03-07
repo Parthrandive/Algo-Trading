@@ -8,6 +8,10 @@
     "earnings_transcript": "EarningsTranscript_v1.0"
   },
   "sidecar_schema_key": "TextSidecarMetadata_v1.0",
+  "runtime_flags": {
+    "rbi_fallback_emergency_active": false,
+    "enable_live_web_scraping": true
+  },
   "global_compliance_rules": {
     "reject_if_unpublished": true,
     "reject_if_embargoed": true,
@@ -21,11 +25,12 @@
       "source_type": "rss_feed",
       "allowed": true,
       "allowed_routes": [
-        "official_feed"
+        "official_feed",
+        "fallback_scraper"
       ],
       "license_status": "approved_public_terms",
       "legal_basis": "public_release_only",
-      "allow_fallback_scraper": false,
+      "allow_fallback_scraper": true,
       "compliance_checks": [
         "published",
         "licensed",
@@ -51,15 +56,27 @@
     },
     {
       "source_name": "rbi_reports",
-      "source_type": "official_api",
+      "source_type": "rss_feed",
       "allowed": true,
       "allowed_routes": [
-        "primary_api",
-        "official_feed"
+        "official_feed",
+        "fallback_scraper"
       ],
       "license_status": "public_domain",
       "legal_basis": "public_release_only",
-      "allow_fallback_scraper": false,
+      "allow_fallback_scraper": true,
+      "fallback_emergency_only": true,
+      "fallback_emergency_flag_field": "fallback_emergency_active",
+      "preferred_source_sequence": [
+        "rbi_official_rss_xml",
+        "rbi_dbie_official_download",
+        "fallback_scraper_emergency_only"
+      ],
+      "official_source_urls": {
+        "rbi_rss_index": "https://www.rbi.org.in/Scripts/rss.aspx",
+        "rbi_dbie_catalog": "https://data.rbi.org.in/DBIE/#/"
+      },
+      "licensed_feed_note": "If commercial licensing is available, licensed feeds may supersede official public feeds.",
       "compliance_checks": [
         "published",
         "licensed",
@@ -122,11 +139,21 @@
       "tip subscription",
       "dm for jackpot",
       "non india market"
-      ]
+    ]
   },
   "pdf_quality": {
     "warn_below": 0.8,
     "fail_below": 0.6
+  },
+  "quality_controls": {
+    "min_content_chars": 20,
+    "max_content_chars": 30000,
+    "max_future_skew_seconds": 300,
+    "freshness_windows_seconds": {
+      "news_article": 43200,
+      "social_post": 10800,
+      "earnings_transcript": 1209600
+    }
   },
   "language_processing": {
     "enable_hinglish_normalization": true,

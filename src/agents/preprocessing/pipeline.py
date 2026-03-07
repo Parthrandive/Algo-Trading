@@ -11,6 +11,7 @@ from src.agents.preprocessing.normalizers import LogReturnNormalizer, ZScoreNorm
 from src.agents.preprocessing.transform_graph import TransformGraph
 from src.schemas.preprocessing_data import TransformOutput
 from src.agents.preprocessing.reproducibility import ReproducibilityHasher
+from src.utils.latency import timed
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ class PreprocessingPipeline:
         
         self.transform_graph.build()
 
+    @timed("preprocessing", "process_snapshot")
     def process_snapshot(self, 
                          market_source_path: str, 
                          macro_source_path: str, 
@@ -81,9 +83,15 @@ class PreprocessingPipeline:
         # 4. Apply configured Transformations
         feature_df = self.transform_graph.execute(aligned_df)
         
+        import os
+        os.makedirs("data/gold", exist_ok=True)
+        gold_path = f"data/gold/preprocessing_{snapshot_id}.parquet"
+        feature_df.to_parquet(gold_path, index=False)
+        
         # 5. Build reproducible output artifact
         return self._build_deterministic_output(feature_df, snapshot_id)
 
+    @timed("preprocessing", "replay_snapshot")
     def replay_snapshot(self,
                         market_source_path: str,
                         macro_source_path: str,

@@ -86,11 +86,20 @@ class NSEDIIFIIClient:
             name.value,
             date_range,
         )
-        payload = (
-            self._raw_fetcher(date_range)
-            if self._raw_fetcher is not None
-            else self._build_simulated_payload(date_range)
-        )
+        
+        if self._raw_fetcher is not None:
+            payload = self._raw_fetcher(date_range)
+        else:
+            import logging
+            from src.agents.macro.clients.nse_fiidii_scraper import fetch_real_fii_dii
+            
+            try:
+                logger.info("Calling real NSE FII/DII scraper...")
+                payload = fetch_real_fii_dii(date_range)
+            except Exception as e:
+                logger.error("Real scraper failed (%s), falling back to simulated payload.", e)
+                payload = self._build_simulated_payload(date_range)
+
         parsed = self._parser.parse(payload)
         records = [record for record in parsed if record.indicator_name == name]
         if not records:

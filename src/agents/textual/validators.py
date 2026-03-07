@@ -81,13 +81,15 @@ class TextualValidator:
         if self._pdf_fail_below > self._pdf_warn_below:
             self._pdf_fail_below, self._pdf_warn_below = self._pdf_warn_below, self._pdf_fail_below
 
-        quality_config = dict(self.runtime_config.get("quality_controls", {}))
-        self._min_content_chars = max(int(quality_config.get("min_content_chars", 20)), 0)
-        self._max_content_chars = max(
-            int(quality_config.get("max_content_chars", 12000)),
-            self._min_content_chars + 1,
-        )
-        self._max_future_skew_seconds = max(int(quality_config.get("max_future_skew_seconds", 300)), 0)
+        quality_controls = dict(self.runtime_config.get("quality_controls", {}))
+        self._min_content_chars = max(int(quality_controls.get("min_content_chars", 20)), 0)
+        self._max_content_chars = max(int(quality_controls.get("max_content_chars", 30000)), self._min_content_chars + 1)
+        self._max_future_skew_seconds = max(int(quality_controls.get("max_future_skew_seconds", 300)), 0)
+        freshness_windows = quality_controls.get("freshness_windows_seconds", {})
+        if isinstance(freshness_windows, dict):
+            self._freshness_windows_seconds = {str(k): max(int(v), 0) for k, v in freshness_windows.items()}
+        else:
+            self._freshness_windows_seconds = {}
 
     @property
     def pdf_warn_below(self) -> float:
@@ -206,23 +208,51 @@ class TextualValidator:
         )
         pdf_quality_flags = self._pdf_quality_flags_for_payload(payload_dict)
         extraction_score = self._extract_pdf_quality_score(payload_dict)
+        quality_gate_flags, quality_gate_reject_reason = self._evaluate_quality_gate(record, payload_dict)
+        if quality_gate_reject_reason is not None:
+            reject_quality_flags = ["quality_gate_reject"]
+            reject_quality_flags.extend(self._extract_payload_quality_flags(payload_dict))
+            reject_quality_flags.extend(quality_gate_flags)
+            reject_quality_flags.extend(pdf_quality_flags)
+            reject_quality_flags.extend(scam_flags)
+
+            reject_risk = self._clamp01(float(payload_dict.get("manipulation_risk_score", 0.0)) + scam_risk_increment)
+            if "potential_spam" in reject_quality_flags:
+                reject_risk = max(reject_risk, 0.7)
+
+            sidecar = TextSidecarMetadata(
+                source_type=record.source_type,
+                source_id=record.source_id,
+                ingestion_timestamp_utc=datetime.now(UTC),
+                source_route_detail=record.source_route_detail,
+                quality_flags=reject_quality_flags,
+                manipulation_risk_score=reject_risk,
+                confidence=0.0,
+                ttl_seconds=0,
+                compliance_status=ComplianceStatus.REJECT,
+                compliance_reason=quality_gate_reject_reason,
+            )
+            return None, sidecar
+
         decision = self.evaluate_compliance(record, payload_dict)
 
         if not decision.allowed:
-            reject_flags = ["compliance_reject"]
-            reject_flags.extend(payload_flags)
-            reject_flags.extend(pdf_quality_flags)
-            reject_flags.extend(scam_flags)
+            reject_quality_flags = ["compliance_reject"]
+            reject_quality_flags.extend(self._extract_payload_quality_flags(payload_dict))
+            reject_quality_flags.extend(quality_gate_flags)
+            reject_quality_flags.extend(pdf_quality_flags)
+            reject_quality_flags.extend(scam_flags)
             return None, self._build_reject_sidecar(
                 record=record,
                 payload=payload_dict,
                 reason=str(decision.reason),
-                quality_flags=reject_flags,
+                quality_flags=reject_quality_flags,
                 risk_increment=scam_risk_increment,
             )
 
         if self._has_duplicate_flag(payload_flags):
             duplicate_flags = list(payload_flags)
+            duplicate_flags.extend(quality_gate_flags)
             duplicate_flags.extend(pdf_quality_flags)
             duplicate_flags.extend(scam_flags)
             return None, self._build_reject_sidecar(
@@ -240,6 +270,7 @@ class TextualValidator:
             )
         except (ValidationError, ValueError, TypeError):
             invalid_flags = list(payload_flags)
+            invalid_flags.extend(quality_gate_flags)
             invalid_flags.extend(pdf_quality_flags)
             invalid_flags.extend(scam_flags)
             invalid_flags.append("canonical_validation_error")
@@ -252,6 +283,7 @@ class TextualValidator:
             )
 
         sidecar_quality_flags = self._extract_quality_flags(payload_dict, canonical_record)
+        sidecar_quality_flags.extend(quality_gate_flags)
         sidecar_quality_flags.extend(pdf_quality_flags)
         sidecar_quality_flags.extend(scam_flags)
 
@@ -319,7 +351,14 @@ class TextualValidator:
         if record.source_route_detail.value not in allowed_routes:
             return self._reject("route_not_allowed")
 
-        # Day 3: Source-specific compliance checks.
+        if record.source_route_detail.value == "fallback_scraper":
+            if not bool(source_entry.get("allow_fallback_scraper", False)):
+                return self._reject("fallback_scraper_disabled")
+            fallback_flag_field = str(source_entry.get("fallback_emergency_flag_field", "fallback_emergency_active"))
+            if bool(source_entry.get("fallback_emergency_only", False)) and not bool(payload.get(fallback_flag_field, False)):
+                return self._reject("fallback_requires_emergency")
+
+        # Day 3: Source-specific compliance checks
         compliance_checks = source_entry.get("compliance_checks", [])
         content_lower = record.content.lower()
 
@@ -377,6 +416,51 @@ class TextualValidator:
 
         return confidence
 
+    def _evaluate_quality_gate(
+        self,
+        record: RawTextRecord,
+        payload: Mapping[str, Any],
+    ) -> tuple[list[str], str | None]:
+        quality_flags: list[str] = []
+        missing_fields: list[str] = []
+
+        if not record.source_id.strip():
+            missing_fields.append("source_id")
+        if not record.content.strip():
+            missing_fields.append("content")
+        if record.timestamp is None:
+            missing_fields.append("timestamp")
+        if missing_fields:
+            quality_flags.extend(f"missing_field:{field}" for field in missing_fields)
+            return quality_flags, "missing_required_fields"
+
+        if not isinstance(record.timestamp, datetime) or record.timestamp.tzinfo is None:
+            quality_flags.append("malformed_timestamp")
+            return quality_flags, "malformed_timestamp"
+
+        timestamp_utc = record.timestamp.astimezone(UTC)
+        now_utc = datetime.now(UTC)
+        if timestamp_utc > now_utc + timedelta(seconds=self._max_future_skew_seconds):
+            quality_flags.append("timestamp_in_future")
+            return quality_flags, "malformed_timestamp"
+
+        content_len = len(record.content.strip())
+        if content_len < self._min_content_chars:
+            quality_flags.append("content_too_short")
+        if content_len > self._max_content_chars:
+            quality_flags.append("content_length_outlier")
+
+        freshness_window_seconds = self._freshness_windows_seconds.get(record.record_type)
+        if freshness_window_seconds:
+            if now_utc - timestamp_utc > timedelta(seconds=freshness_window_seconds):
+                quality_flags.append("stale_timestamp")
+
+        raw_quality_status = payload.get("quality_status")
+        if isinstance(raw_quality_status, str) and raw_quality_status.strip().lower() == "fail":
+            quality_flags.append("source_quality_fail")
+
+        return quality_flags, None
+
     @staticmethod
     def _extract_quality_flags(payload: Mapping[str, Any], canonical_record: BaseModel) -> list[str]:
         quality_flags = TextualValidator._extract_payload_quality_flags(payload)
@@ -391,7 +475,25 @@ class TextualValidator:
     def _canonical_payload_only(cls, record_type: str, payload: Mapping[str, Any]) -> dict[str, Any]:
         allowed_fields = set(cls._BASE_CANONICAL_FIELDS)
         allowed_fields.update(cls._RECORD_TYPE_CANONICAL_FIELDS.get(record_type, set()))
-        return {key: value for key, value in payload.items() if key in allowed_fields}
+        operational_keys = {
+            "is_published",
+            "is_embargoed",
+            "license_ok",
+            "manipulation_risk_score",
+            "confidence",
+            "quality_flags",
+            "extraction_quality_score",
+            "pdf_quality_status",
+            "pdf_extracted_char_count",
+            "normalized_content",
+            "transliterated_content",
+            "fallback_emergency_active",
+        }
+        return {
+            key: value
+            for key, value in payload.items()
+            if key in allowed_fields and key not in operational_keys
+        }
 
     @staticmethod
     def _reject(reason: str) -> ComplianceDecision:
