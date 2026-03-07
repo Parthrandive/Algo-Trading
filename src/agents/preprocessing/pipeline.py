@@ -83,6 +83,11 @@ class PreprocessingPipeline:
         # 4. Apply configured Transformations
         feature_df = self.transform_graph.execute(aligned_df)
         
+        import os
+        os.makedirs("data/gold", exist_ok=True)
+        gold_path = f"data/gold/preprocessing_{snapshot_id}.parquet"
+        feature_df.to_parquet(gold_path, index=False)
+        
         # 5. Build reproducible output artifact
         return self._build_deterministic_output(feature_df, snapshot_id)
 

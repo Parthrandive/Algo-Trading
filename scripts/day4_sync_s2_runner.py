@@ -380,7 +380,6 @@ def run_day4_sync(
     output_dir: Path,
 ) -> dict[str, Any]:
     cutoff_utc = datetime.combine(trading_day, time(23, 59, 59), tzinfo=UTC)
-    snapshot_id = make_snapshot_id()
 
     output_dir.mkdir(parents=True, exist_ok=True)
     artifacts_dir = output_dir / "artifacts"
@@ -401,6 +400,11 @@ def run_day4_sync(
 
     market_slice_df = concat_parquet_files(market_files)
     macro_slice_df = concat_parquet_files(macro_files)
+
+    if not market_slice_df.empty and "dataset_snapshot_id" in market_slice_df.columns:
+        snapshot_id = str(market_slice_df["dataset_snapshot_id"].iloc[0])
+    else:
+        snapshot_id = make_snapshot_id()
     corp_slice_df, corp_validation_errors = build_corp_action_slice(
         corp_paths=corp_files,
         snapshot_id=snapshot_id,

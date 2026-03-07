@@ -79,6 +79,9 @@ class LagAligner:
             # Cleanup intermediate timing column 
             market_df = market_df.drop(columns=["effective_time"], errors="ignore")
 
+        if "symbol" in market_df.columns:
+            market_df = market_df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+
         return market_df
 
 class CorporateActionValidator:

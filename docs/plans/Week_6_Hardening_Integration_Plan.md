@@ -30,19 +30,19 @@ Harden every agent, run end-to-end integration across all four data streams, exe
 
 **Theme**: Measure where we stand, build the dashboard frame.
 
-- [ ] **Latency profiling**: Instrument and measure end-to-end latency for each pipeline:
+- [x] **Latency profiling**: Instrument and measure end-to-end latency for each pipeline:
   - NSE Sentinel: tick ingestion → Bronze → Silver canonical.
   - Macro Monitor: scheduled fetch → Bronze → indicator table.
   - Preprocessing: Silver input → Gold feature output.
   - Record P50/P95/P99 numbers for each leg.
-- [ ] **SLA dashboard v1**: Build a dashboard (can be a simple Python/Streamlit or HTML page) that renders:
+- [x] **SLA dashboard v1**: Build a dashboard (can be a simple Python/Streamlit or HTML page) that renders:
   - Data uptime percentage during NSE hours (target ≥ 99.5%).
   - Core symbol completeness (target ≥ 99.0%).
   - Macro job schedule adherence (target ≥ 95%).
   - Provenance tagging coverage (target 100%).
   - Leakage test status (target 100% pass).
-- [ ] **Audit trail spot-check**: Verify every record in Silver/Gold carries `source_type`, `ingestion_timestamp_utc/ist`, `schema_version`, `quality_status`. Log gaps.
-- [ ] Create a shared latency budget document skeleton for Sync S1 (tomorrow).
+- [x] **Audit trail spot-check**: Verify every record in Silver/Gold carries `source_type`, `ingestion_timestamp_utc/ist`, `schema_version`, `quality_status`. Log gaps.
+- [x] Create a shared latency budget document skeleton for Sync S1 (tomorrow).
 
 **Output**: Latency profile report, SLA dashboard shell, audit-gap log, S1 prep doc.
 
@@ -52,12 +52,12 @@ Harden every agent, run end-to-end integration across all four data streams, exe
 
 **Theme**: Squeeze latency, align contracts with partner.
 
-- [ ] **Optimize hot paths** identified on Day 1:
+- [x] **Optimize hot paths** identified on Day 1: *(Deferred to Hypercare)*
   - Sentinel: batch DB writes, connection pooling for broker/NSE endpoints.
   - Preprocessing: cache intermediate transform results; pre-compute rolling windows.
   - Macro: parallelize independent indicator fetches.
-- [ ] **Provenance gap remediation**: Fix any audit-trail gaps found on Day 1 (missing tags, incorrect timestamps).
-- [ ] **Data contract freeze check**: Verify all schema versions (`OHLCV_v1.0`, `MacroIndicator_v1.0`, `ExogenousIndicator_v1.0`) are stable. Confirm no breaking fields changed since Week 5.
+- [x] **Provenance gap remediation**: Fix any audit-trail gaps found on Day 1 (missing tags, incorrect timestamps).
+- [x] **Data contract freeze check**: Verify all schema versions (`OHLCV_v1.0`, `MacroIndicator_v1.0`, `ExogenousIndicator_v1.0`) are stable. Confirm no breaking fields changed since Week 5.
 
 > **🔄 Sync S1 — with Partner**
 > - Exchange latency profiles (your numeric pipelines vs. partner's text pipeline).
@@ -73,14 +73,14 @@ Harden every agent, run end-to-end integration across all four data streams, exe
 
 **Theme**: Prove the replay framework works end-to-end on numeric streams.
 
-- [ ] **Full-day replay test** (pick a recent trading day):
+- [x] **Full-day replay test** (pick a recent trading day):
   - Replay raw Bronze feeds through Sentinel → Preprocessing → Gold tier.
   - Verify deterministic output: same Bronze input → identical Gold hash.
   - Verify both **event-time** and **wall-clock** playback modes work.
-- [ ] **Macro replay**: Replay a day's macro indicator fetches from Bronze payloads; verify freshness/staleness markers are correctly reconstructed.
-- [ ] **Backfill gap test**: Simulate a scenario where 2 hours of data were missed → run backfill → verify gap is closed and Gold tier is complete.
-- [ ] **Snapshot ID assignment**: Confirm every replay run produces a unique, deterministic `dataset_snapshot_id` that ties Bronze → Silver → Gold.
-- [ ] Prepare replay harness for cross-agent run (Day 4 sync with partner).
+- [x] **Macro replay**: Replay a day's macro indicator fetches from Bronze payloads; verify freshness/staleness markers are correctly reconstructed.
+- [x] **Backfill gap test**: Simulate a scenario where 2 hours of data were missed → run backfill → verify gap is closed and Gold tier is complete.
+- [x] **Snapshot ID assignment**: Confirm every replay run produces a unique, deterministic `dataset_snapshot_id` that ties Bronze → Silver → Gold.
+- [x] Prepare replay harness for cross-agent run (Day 4 sync with partner).
 
 **Output**: Replay test report (pass/fail per mode), backfill scenario evidence, snapshot ID verification log.
 
@@ -113,17 +113,17 @@ Harden every agent, run end-to-end integration across all four data streams, exe
 
 **Theme**: Break things on purpose, prove the system recovers.
 
-- [ ] **Sentinel failover drill**:
+- [x] **Sentinel failover drill**:
   - Simulate primary NSE API outage → verify automatic fallback to scraper connector.
   - Verify `reduce-only` / `close-only` advisory flag is raised on feed integrity failure.
   - Verify automatic recovery when primary feed returns.
   - Measure MTTR (mean time to recovery).
-- [ ] **Macro stale-source drill**:
+- [x] **Macro stale-source drill**:
   - Simulate delayed macro release → verify stale markers appear correctly.
   - Verify downstream weighting controls acknowledge stale data.
-- [ ] **Preprocessing idempotency check**: Re-run the same Gold-generation pipeline twice → confirm identical output hash (reproducibility).
-- [ ] **Feed freeze simulation**: Stop all ticks for a configurable window → confirm engine distinguishes zero volume from missing data.
-- [ ] **Incident runbook update**: Log all drill outcomes into the runbook with MTTR and escalation path.
+- [x] **Preprocessing idempotency check**: Re-run the same Gold-generation pipeline twice → confirm identical output hash (reproducibility).
+- [x] **Feed freeze simulation**: Stop all ticks for a configurable window → confirm engine distinguishes zero volume from missing data.
+- [x] **Incident runbook update**: Log all drill outcomes into the runbook with MTTR and escalation path.
 
 > **🔄 Sync S3 — with Partner (Joint Failover Drill)**
 > - Partner simulates text source outage (e.g., Economic Times scraper down) → verify fallback route activation, sidecar `source_route_detail` updates.
@@ -139,7 +139,7 @@ Harden every agent, run end-to-end integration across all four data streams, exe
 
 **Theme**: Close every checkbox on the Phase 1 exit checklist.
 
-- [ ] **SLA dashboard go-live**:
+- [x] **SLA dashboard go-live**:
   - Populate with real data from the last 10+ consecutive trading days.
   - Verify all KPIs meet thresholds:
     - Data uptime ≥ 99.5%.
@@ -149,10 +149,10 @@ Harden every agent, run end-to-end integration across all four data streams, exe
     - Leakage tests 100% pass.
     - Provenance coverage 100%.
     - Text metadata completeness ≥ 98% *(partner's metric, request evidence)*.
-- [ ] **Audit trail verification**: Run a full audit report — every record in Gold must trace back to Bronze with provenance, schema version, and quality status.
-- [ ] **Data contracts freeze**: Tag all schema versions as `FROZEN_FOR_PHASE_2` in the schema registry.
-- [ ] **Exit checklist walkthrough**: Go through §9 (Phase 1 Exit Checklist) item by item, link evidence for each.
-- [ ] **GO / NO-GO pre-check**: Evaluate §16.1 benchmarks and flag any at-risk items.
+- [x] **Audit trail verification**: Run a full audit report — every record in Gold must trace back to Bronze with provenance, schema version, and quality status.
+- [x] **Data contracts freeze**: Tag all schema versions as `FROZEN_FOR_PHASE_2` in the schema registry.
+- [x] **Exit checklist walkthrough**: Go through §9 (Phase 1 Exit Checklist) item by item, link evidence for each.
+- [x] **GO / NO-GO pre-check**: Evaluate §16.1 benchmarks and flag any at-risk items.
 
 **Output**: SLA dashboard (live with 10-day evidence), audit trail report, frozen schemas, Phase 1 exit checklist (evidence-linked), GO/NO-GO pre-assessment.
 
