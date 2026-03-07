@@ -80,18 +80,19 @@ class MacroLoader(PreprocessingLoader):
                 if not df_part.empty:
                     # Convert to records for schema validation
                     payload = df_part.to_dict(orient="records")
-                    validated_batch = macro_adapter.validate_python(payload)
-                    for record in validated_batch:
+                    validation_payload = [
+                        {key: value for key, value in row.items() if key != "dataset_snapshot_id"}
+                        for row in payload
+                    ]
+                    validated_batch = macro_adapter.validate_python(validation_payload)
+                    for record, row in zip(validated_batch, payload):
                         if not self._is_schema_allowed("macro.indicator", record.schema_version):
                             raise SchemaVersionError(
                                 f"Schema version {record.schema_version} not accepted by contract. "
                                 f"Allowed: {self._accepted_schemas}"
                             )
                         records.append(record)
-                        if "dataset_snapshot_id" in df_part.columns:
-                            source_ids.append(df_part["dataset_snapshot_id"].iloc[idx])
-                        else:
-                            source_ids.append(snapshot_id)
+                        source_ids.append(row.get("dataset_snapshot_id", snapshot_id))
                         
             except ValidationError as e:
                 raise ValueError(f"Validation failed for {file_path}: {e}")
@@ -180,8 +181,9 @@ class MarketLoader(PreprocessingLoader):
         # 1) Try canonical Bar
         # 2) Fallback to Tick and convert to synthetic Bar
         for idx, row in enumerate(dict_records):
+            validation_row = {key: value for key, value in row.items() if key != "dataset_snapshot_id"}
             try:
-                bar = Bar.model_validate(row)
+                bar = Bar.model_validate(validation_row)
                 if not self._is_schema_allowed("market.bar", bar.schema_version):
                     raise SchemaVersionError(
                         f"Schema version {bar.schema_version} not accepted for Bar. "
@@ -194,7 +196,7 @@ class MarketLoader(PreprocessingLoader):
                 first_error = bar_error
 
             try:
-                tick = Tick.model_validate(row)
+                tick = Tick.model_validate(validation_row)
                 if not self._is_schema_allowed("market.tick", tick.schema_version):
                     raise SchemaVersionError(
                         f"Schema version {tick.schema_version} not accepted for Tick. "
