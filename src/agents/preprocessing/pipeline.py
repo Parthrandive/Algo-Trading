@@ -88,14 +88,16 @@ class PreprocessingPipeline:
         # 4. Apply configured Transformations
         feature_df = self.transform_graph.execute(aligned_df)
         
-        from src.db.gold_recorder import GoldRecorder
-        recorder = GoldRecorder()
-        
-        # If running on-demand for a specific symbol, we upsert to avoid duplicates.
-        if symbol_filter:
-            recorder.save_features_on_demand(feature_df, snapshot_id, symbol_filter)
-        else:
-            recorder.save_features(feature_df, snapshot_id)
+        # Only persist to Gold DB when running in DB mode (not during tests with file paths)
+        if market_source_path == "db_virtual":
+            from src.db.gold_recorder import GoldRecorder
+            recorder = GoldRecorder()
+            
+            # If running on-demand for a specific symbol, we upsert to avoid duplicates.
+            if symbol_filter:
+                recorder.save_features_on_demand(feature_df, snapshot_id, symbol_filter)
+            else:
+                recorder.save_features(feature_df, snapshot_id)
         
         # 5. Build reproducible output artifact
         return self._build_deterministic_output(feature_df, snapshot_id)

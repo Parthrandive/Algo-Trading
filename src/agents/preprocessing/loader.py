@@ -52,12 +52,24 @@ class MacroLoader(PreprocessingLoader):
 
     def load(self, source_path: str, snapshot_id: str) -> pd.DataFrame:
         """
-        Loads MacroIndicator data directly from the PostgreSQL database,
-        validates against schema v1.1, and returns a DataFrame.
+        Loads MacroIndicator data. When source_path is 'db_virtual', reads from PostgreSQL.
+        Otherwise, reads from the given JSON file path (for tests and legacy usage).
         """
-        from src.db.connection import get_engine
-        engine = get_engine()
-        df = pd.read_sql("SELECT * FROM macro_indicators", engine)
+        if source_path != "db_virtual":
+            # File-based loading (used by tests and legacy scripts)
+            source = Path(source_path)
+            if source.is_file():
+                df = self._read_macro_json(source)
+            elif source.is_dir():
+                frames = [self._read_macro_json(f) for f in sorted(source.glob("**/*.json"))]
+                df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+            else:
+                df = pd.DataFrame()
+        else:
+            # DB-based loading (production)
+            from src.db.connection import get_engine
+            engine = get_engine()
+            df = pd.read_sql("SELECT * FROM macro_indicators", engine)
         
         if df.empty:
             return df
@@ -73,15 +85,19 @@ class MacroLoader(PreprocessingLoader):
                         f"Allowed: {self._accepted_schemas}"
                     )
                     
-        df["dataset_snapshot_id"] = snapshot_id
+        if 'dataset_snapshot_id' not in df.columns:
+            df["dataset_snapshot_id"] = snapshot_id
         return df
 
 class TextLoader(PreprocessingLoader):
     def load(self, source_path: str, snapshot_id: str, symbol: str = None) -> pd.DataFrame:
         """
-        Loads Textual data (news, social sentiment) directly from the PostgreSQL database.
-        Returns a DataFrame aggregated by day and symbol containing sentiment features.
+        Loads Textual data. When source_path is 'db_virtual', reads from PostgreSQL.
+        Otherwise returns empty DataFrame (tests don't use textual data by default).
         """
+        if source_path != "db_virtual":
+            return pd.DataFrame()
+            
         from src.db.connection import get_engine
         engine = get_engine()
         
@@ -154,9 +170,41 @@ class MarketLoader(PreprocessingLoader):
 
     def load(self, source_path: str, snapshot_id: str, symbol: str = None) -> pd.DataFrame:
         """
-        Loads market data (Bar and Tick) directly from PostgreSQL, validates against schema,
-        and returns a unified DataFrame.
+        Loads market data. When source_path is 'db_virtual', reads from PostgreSQL.
+        Otherwise, reads from the given Parquet file/directory path (for tests and legacy usage).
         """
+        if source_path != "db_virtual":
+            # File-based loading (used by tests and legacy scripts)
+            source = Path(source_path)
+            if source.is_file():
+                df = pd.read_parquet(source)
+            elif source.is_dir():
+                files = self._select_market_files(source)
+                frames = [pd.read_parquet(f) for f in files]
+                df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+            else:
+                df = pd.DataFrame()
+            
+            # Handle tick files: if 'price' column exists but no 'close', it's a tick file
+            if not df.empty and 'price' in df.columns and 'close' not in df.columns:
+                df['interval'] = 'tick'
+                df['open'] = df['price']
+                df['high'] = df['price']
+                df['low'] = df['price']
+                df['close'] = df['price']
+            
+            if not df.empty:
+                if 'timestamp' in df.columns:
+                    df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
+                if 'schema_version' in df.columns:
+                    for version in df['schema_version'].unique():
+                        if not (self._is_schema_allowed("market.bar", version) or self._is_schema_allowed("market.tick", version)):
+                            raise SchemaVersionError(f"Schema version {version} not accepted by contract.")
+                if 'dataset_snapshot_id' not in df.columns:
+                    df["dataset_snapshot_id"] = snapshot_id
+            return df
+        
+        # DB-based loading (production)
         from src.db.connection import get_engine
         engine = get_engine()
         
