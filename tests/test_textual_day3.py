@@ -1,6 +1,5 @@
 import pytest
 from datetime import UTC, datetime
-from typing import Mapping, Any
 
 from src.agents.textual.textual_data_agent import TextualDataAgent
 from src.agents.textual.adapters import XPostAdapter, RawTextRecord, TextSourceType, SourceRouteDetail

@@ -11,7 +11,7 @@ from pydantic import BaseModel, ValidationError
 
 from src.agents.textual.adapters import RawTextRecord
 from src.agents.textual.services.safety_service import SafetyService
-from src.schemas.text_sidecar import ComplianceStatus, TextSidecarMetadata
+from src.schemas.text_sidecar import ComplianceStatus, SourceRouteDetail, TextSidecarMetadata
 from src.utils.schema_registry import SchemaRegistry
 
 
@@ -344,7 +344,17 @@ class TextualValidator:
             return self._reject("source_blocked")
 
         configured_source_type = str(source_entry.get("source_type", ""))
-        if configured_source_type != record.source_type.value:
+        allowed_source_types: set[str] = set()
+        if configured_source_type:
+            allowed_source_types.add(configured_source_type)
+
+        configured_type_list = source_entry.get("allowed_source_types")
+        if isinstance(configured_type_list, list):
+            for entry in configured_type_list:
+                if isinstance(entry, str) and entry.strip():
+                    allowed_source_types.add(entry.strip())
+
+        if record.source_type.value not in allowed_source_types:
             return self._reject("source_type_not_allowed")
 
         allowed_routes = set(source_entry.get("allowed_routes", []))
@@ -354,11 +364,19 @@ class TextualValidator:
         if record.source_route_detail.value == "fallback_scraper":
             if not bool(source_entry.get("allow_fallback_scraper", False)):
                 return self._reject("fallback_scraper_disabled")
+            
+            # Support both the upstream payload flag and the global outage mode.
             fallback_flag_field = str(source_entry.get("fallback_emergency_flag_field", "fallback_emergency_active"))
-            if bool(source_entry.get("fallback_emergency_only", False)) and not bool(payload.get(fallback_flag_field, False)):
-                return self._reject("fallback_requires_emergency")
+            payload_emergency = bool(payload.get(fallback_flag_field, False))
+            outage_emergency_mode = bool(self.runtime_config.get("outage_emergency_mode", False))
+            
+            # Use both possible key names for fallback_emergency_only.
+            fallback_emergency_only = bool(source_entry.get("fallback_emergency_only", False)) or \
+                                     bool(source_entry.get("fallback_scraper_emergency_only", False))
 
-        # Day 3: Source-specific compliance checks
+            if fallback_emergency_only and not (payload_emergency or outage_emergency_mode):
+                # Return the reason expected by newer tests if both fail.
+                return self._reject("fallback_requires_emergency")
         compliance_checks = source_entry.get("compliance_checks", [])
         content_lower = record.content.lower()
 

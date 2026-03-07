@@ -68,6 +68,7 @@ class TextualDataAgent:
         earnings_pdf_paths = cls._coerce_path_list(pdf_input_paths.get("earnings_transcripts"))
         runtime_flags = dict(runtime_config.get("runtime_flags", {}))
         rbi_emergency_fallback_active = bool(runtime_flags.get("rbi_fallback_emergency_active", False))
+        rbi_source_policy = dict(runtime_config.get("rbi_source_policy", {}))
         return cls(
             adapters=[
                 NSENewsAdapter(),
@@ -75,6 +76,7 @@ class TextualDataAgent:
                 RBIReportsAdapter(
                     allow_emergency_fallback=rbi_emergency_fallback_active,
                     pdf_paths=rbi_pdf_paths,
+                    source_policy=rbi_source_policy,
                 ),
                 EarningsTranscriptAdapter(pdf_paths=earnings_pdf_paths),
                 XPostAdapter(),

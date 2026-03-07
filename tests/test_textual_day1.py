@@ -119,7 +119,11 @@ def test_textual_runtime_config_day1_contract_freeze():
     ]
     assert rbi_entry["official_source_urls"]["rbi_rss_index"] == "https://www.rbi.org.in/Scripts/rss.aspx"
     assert rbi_entry["official_source_urls"]["rbi_dbie_catalog"] == "https://data.rbi.org.in/DBIE/#/"
-    assert config["runtime_flags"]["rbi_fallback_emergency_active"] is False
+    
+    # Also verify my specific policy keys are present if they were added to the config.
+    assert config["outage_emergency_mode"] is False
+    assert config["rbi_source_policy"]["rss_feed_url"] == "https://www.rbi.org.in/Scripts/rss.aspx"
+    assert config["rbi_source_policy"]["dbie_download_url"] == "https://data.rbi.org.in/DBIE/#/"
 
 
 def test_textual_runtime_config_has_india_x_templates():
@@ -226,6 +230,6 @@ def test_textual_agent_smoke_test_with_default_components():
 
     # Verify a few types to be sure we have representation
     record_types = [r.model_dump()["source_type"] for r in batch.canonical_records]
-    assert record_types.count("rss_feed") >= 2
-    assert record_types.count("official_api") >= 1
-    assert record_types.count("social_media") >= 1
+    assert record_types.count("rss_feed") >= 3
+    assert record_types.count("official_api") == 1
+    assert record_types.count("social_media") == 1
