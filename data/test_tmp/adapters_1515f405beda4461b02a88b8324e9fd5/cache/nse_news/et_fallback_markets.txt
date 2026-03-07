@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <item>
+      <title><![CDATA[Nifty jumps as banking stocks rally]]></title>
+      <description><![CDATA[Sentiment improved across NSE names.]]></description>
+      <link>https://example.com/nse-fallback</link>
+      <guid>nse-guid-1</guid>
+      <pubDate>Thu, 05 Mar 2026 10:00:00 +0530</pubDate>
+    </item>
+  </channel>
+</rss>

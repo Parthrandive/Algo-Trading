@@ -8,6 +8,12 @@
 
 **Overall Goal for the Week**: Deliver a working Textual Data Agent that collects text from approved sources (NSE news, Economic Times, RBI reports, earnings transcripts, X posts), supports PDF extraction and code-mixed English/Hinglish handling, and produces auditable outputs for Sentiment ingestion with provenance, reliability scoring, and quality controls.
 
+**RBI Source Safety Policy Update (as of March 6, 2026)**
+- Route 1 (default): RBI official RSS XML feeds discovered from `https://www.rbi.org.in/Scripts/rss.aspx`.
+- Route 2 (secondary official): RBI DBIE official download catalog at `https://data.rbi.org.in/DBIE/#/`.
+- Route 3 (restricted): fallback scraper route only during outage emergencies and only with explicit emergency flagging in sidecar diagnostics.
+- If contractual budget permits, licensed feeds remain legally safest and may supersede public-feed routing.
+
 **Mandatory Outputs by End of Week**
 - Source adapters for the required textual feeds with normalized schema.
 - Provenance tags per record, including whether source came from primary API/feed or fallback scraper.
@@ -136,6 +142,17 @@ Day 4 implementation snapshot (2026-03-05):
 - Produce gate evidence summary (coverage, failure counts, unresolved defects).
 - Output: test report + defect log + remediation list.
 
+Day 6 implementation snapshot (2026-03-07):
+- Day 6 validation suite: `tests/test_textual_day6.py`
+- Gate evidence generator: `scripts/textual_day6_gate_evidence.py`
+- Day 6 evidence document target: `docs/plans/week-4-textual-data-agent-day6-gate-evidence.md`
+- Gate evidence artifacts:
+  - `logs/textual_day6_gate_evidence_summary.json`
+  - `logs/textual_day6_defect_log.json`
+  - `logs/textual_day6_remediation_list.md`
+  - `logs/textual_day6_pytest_junit.xml`
+  - `logs/textual_day6_pytest_output.txt`
+
 ### Day 7: March 8, 2026 (Sunday) - Review, Hardening, and Hand-off
 - Run full-day dry run on recent data slices.
 - Review canonical validation errors, compliance rejects, stale TTL breaches, and fallback-source rates.
@@ -161,3 +178,12 @@ Day 4 implementation snapshot (2026-03-05):
 - Full sentiment model training/fine-tuning.
 - Fast cache runtime tuning and sub-100 ms scoring optimization.
 - Live trading integration, crisis override activation, and A/B production gates.
+
+## Last-Minute Changes (March 7, 2026)
+- Web scraping is explicitly enabled for textual ingestion paths where primary feeds are unavailable, with strict provenance tagging and compliance filtering.
+- RBI source routing is fixed to this order:
+  - `RBI official RSS XML` from `https://www.rbi.org.in/Scripts/rss.aspx`
+  - `DBIE official downloads` from `https://data.rbi.org.in/DBIE/#/`
+  - `Fallback scraper` only during outage emergencies and only with explicit emergency activation flags.
+- Default policy is to avoid scraping when official RBI channels are healthy.
+- If commercial licensing is feasible, licensed feeds remain the legally safest priority for production deployment.
