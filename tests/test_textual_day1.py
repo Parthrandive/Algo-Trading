@@ -53,6 +53,34 @@ def _sample_news_record(
     )
 
 
+def _sample_rbi_fallback_record(*, emergency_active: bool) -> RawTextRecord:
+    payload = {
+        "headline": "RBI emergency scrape sample",
+        "publisher": "Reserve Bank of India",
+        "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=12345",
+        "language": "en",
+        "is_published": True,
+        "is_embargoed": False,
+        "license_ok": True,
+        "confidence": 0.4,
+        "manipulation_risk_score": 0.3,
+        "quality_flags": ["fallback_scraper", "outage_emergency"],
+    }
+    if emergency_active:
+        payload["fallback_emergency_active"] = True
+
+    return RawTextRecord(
+        record_type="news_article",
+        source_name="rbi_reports",
+        source_id=f"rbi_fallback_{'emergency' if emergency_active else 'blocked'}",
+        timestamp=datetime(2026, 3, 6, 9, 30, tzinfo=UTC),
+        content="Emergency fallback scrape captured RBI update.",
+        payload=payload,
+        source_type=TextSourceType.RSS_FEED,
+        source_route_detail=SourceRouteDetail.FALLBACK_SCRAPER,
+    )
+
+
 def test_textual_runtime_config_day1_contract_freeze():
     config = _load_runtime_config()
     assert config["version"] == "textual-data-agent-runtime-v1"
@@ -79,6 +107,19 @@ def test_textual_runtime_config_day1_contract_freeze():
     for entry in config["source_allowlist"]:
         assert entry["allowed_routes"]
         assert entry["compliance_checks"]
+
+    rbi_entry = next(item for item in config["source_allowlist"] if item["source_name"] == "rbi_reports")
+    assert rbi_entry["fallback_emergency_only"] is True
+    assert rbi_entry["allow_fallback_scraper"] is True
+    assert rbi_entry["fallback_emergency_flag_field"] == "fallback_emergency_active"
+    assert rbi_entry["preferred_source_sequence"] == [
+        "rbi_official_rss_xml",
+        "rbi_dbie_official_download",
+        "fallback_scraper_emergency_only",
+    ]
+    assert rbi_entry["official_source_urls"]["rbi_rss_index"] == "https://www.rbi.org.in/Scripts/rss.aspx"
+    assert rbi_entry["official_source_urls"]["rbi_dbie_catalog"] == "https://data.rbi.org.in/DBIE/#/"
+    assert config["runtime_flags"]["rbi_fallback_emergency_active"] is False
 
 
 def test_textual_runtime_config_has_india_x_templates():
@@ -116,6 +157,28 @@ def test_textual_validator_rejects_embargoed_content():
     assert sidecar_record.compliance_status == ComplianceStatus.REJECT
     assert sidecar_record.compliance_reason == "embargoed_content"
     assert sidecar_record.ttl_seconds == 0
+
+
+def test_rbi_fallback_requires_emergency_flag():
+    validator = TextualValidator.from_config_path(_runtime_config_path())
+    record = _sample_rbi_fallback_record(emergency_active=False)
+    payload = TextualDataAgent._build_canonical_payload(record)
+    canonical_record, sidecar_record = validator.validate_record(record, payload)
+
+    assert canonical_record is None
+    assert sidecar_record.compliance_status == ComplianceStatus.REJECT
+    assert sidecar_record.compliance_reason == "fallback_requires_emergency"
+
+
+def test_rbi_fallback_allowed_in_emergency_mode():
+    validator = TextualValidator.from_config_path(_runtime_config_path())
+    record = _sample_rbi_fallback_record(emergency_active=True)
+    payload = TextualDataAgent._build_canonical_payload(record)
+    canonical_record, sidecar_record = validator.validate_record(record, payload)
+
+    assert canonical_record is not None
+    assert sidecar_record.compliance_status == ComplianceStatus.ALLOW
+    assert sidecar_record.compliance_reason is None
 
 
 def test_textual_validator_allows_and_validates_canonical_payload():
