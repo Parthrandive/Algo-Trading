@@ -59,6 +59,7 @@ class MacroLoader(PreprocessingLoader):
             raise FileNotFoundError(f"Source path not found: {source_path}")
 
         records: List[MacroIndicator] = []
+        source_ids = []
         macro_adapter = TypeAdapter(list[MacroIndicator])
         
         # Macro inputs can be provided as parquet (silver outputs) or json fixtures.
@@ -87,6 +88,10 @@ class MacroLoader(PreprocessingLoader):
                                 f"Allowed: {self._accepted_schemas}"
                             )
                         records.append(record)
+                        if "dataset_snapshot_id" in df_part.columns:
+                            source_ids.append(df_part["dataset_snapshot_id"].iloc[idx])
+                        else:
+                            source_ids.append(snapshot_id)
                         
             except ValidationError as e:
                 raise ValueError(f"Validation failed for {file_path}: {e}")
@@ -97,8 +102,8 @@ class MacroLoader(PreprocessingLoader):
             return pd.DataFrame()
 
         df = pd.DataFrame([r.model_dump() for r in records])
-        # Force snapshot ID per Section 5.5
-        df["dataset_snapshot_id"] = snapshot_id
+        # Force snapshot ID per Section 5.5 but preserve upstream if exists
+        df["dataset_snapshot_id"] = source_ids
         return df
 
 class MarketLoader(PreprocessingLoader):
@@ -166,6 +171,7 @@ class MarketLoader(PreprocessingLoader):
             return df
             
         records: List[Bar] = []
+        source_ids = []
 
         dict_records = df.to_dict(orient="records")
         invalid_messages: List[str] = []
@@ -182,6 +188,7 @@ class MarketLoader(PreprocessingLoader):
                         f"Allowed: {self._accepted_schemas}"
                     )
                 records.append(bar)
+                source_ids.append(row.get("dataset_snapshot_id", snapshot_id))
                 continue
             except ValidationError as bar_error:
                 first_error = bar_error
@@ -194,6 +201,7 @@ class MarketLoader(PreprocessingLoader):
                         f"Allowed: {self._accepted_schemas}"
                     )
                 records.append(self._tick_to_bar(tick))
+                source_ids.append(row.get("dataset_snapshot_id", snapshot_id))
             except ValidationError as tick_error:
                 invalid_messages.append(
                     f"row={idx} could not be parsed as Bar or Tick: "
@@ -205,6 +213,6 @@ class MarketLoader(PreprocessingLoader):
             raise ValueError(f"Market Validation failed for {len(invalid_messages)} row(s): {sample}")
 
         validated_df = pd.DataFrame([r.model_dump() for r in records])
-        validated_df["dataset_snapshot_id"] = snapshot_id
+        validated_df["dataset_snapshot_id"] = source_ids
         
         return validated_df

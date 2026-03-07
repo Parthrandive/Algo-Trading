@@ -17,9 +17,14 @@ class ZScoreNormalizer(TransformNode):
         regime_threshold = self.parameters.get("regime_threshold", 2.0)
         anomaly_threshold = self.parameters.get("anomaly_threshold", 3.0)
         
-        rolling = df[target_col].rolling(window=window, min_periods=1)
-        mean = rolling.mean()
-        std = rolling.std()
+        if "symbol" in df.columns:
+            rolling = df.groupby("symbol")[target_col].rolling(window=window, min_periods=1)
+            mean = rolling.mean().reset_index(level=0, drop=True)
+            std = rolling.std().reset_index(level=0, drop=True)
+        else:
+            rolling = df[target_col].rolling(window=window, min_periods=1)
+            mean = rolling.mean()
+            std = rolling.std()
         
         # Handle zero division for stationary constants over period
         df[output_col] = (df[target_col] - mean) / std.replace(0, np.nan)
@@ -41,9 +46,14 @@ class MinMaxNormalizer(TransformNode):
         target_col = self.parameters.get("target_column", "value")
         output_col = self.parameters.get("output_column", f"{target_col}_minmax")
         
-        rolling = df[target_col].rolling(window=window, min_periods=1)
-        rolling_min = rolling.min()
-        rolling_max = rolling.max()
+        if "symbol" in df.columns:
+            rolling = df.groupby("symbol")[target_col].rolling(window=window, min_periods=1)
+            rolling_min = rolling.min().reset_index(level=0, drop=True)
+            rolling_max = rolling.max().reset_index(level=0, drop=True)
+        else:
+            rolling = df[target_col].rolling(window=window, min_periods=1)
+            rolling_min = rolling.min()
+            rolling_max = rolling.max()
         
         denominator = rolling_max - rolling_min
         df[output_col] = (df[target_col] - rolling_min) / denominator.replace(0, np.nan)
@@ -61,7 +71,11 @@ class LogReturnNormalizer(TransformNode):
         
         # Avoid log(0) or negative price errors structurally
         safe_series = df[target_col].mask(df[target_col] <= 0)
-        df[output_col] = np.log(safe_series / safe_series.shift(1))
+        if "symbol" in df.columns:
+            shifted = safe_series.groupby(df["symbol"]).shift(1)
+        else:
+            shifted = safe_series.shift(1)
+        df[output_col] = np.log(safe_series / shifted)
         df[output_col] = df[output_col].fillna(0.0)
         return df
 
@@ -80,7 +94,10 @@ class DirectionalChangeDetector(TransformNode):
             df[output_col] = 0
             return df
         
-        pct_change = df[target_col].pct_change(fill_method=None).fillna(0.0)
+        if "symbol" in df.columns:
+            pct_change = df.groupby("symbol")[target_col].pct_change(fill_method=None).fillna(0.0)
+        else:
+            pct_change = df[target_col].pct_change(fill_method=None).fillna(0.0)
         
         conditions = [
             pct_change >= threshold,

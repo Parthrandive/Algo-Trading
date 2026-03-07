@@ -12,7 +12,7 @@
 - Textual source mode: `persisted_silver_artifacts`
 
 ## Condition Notes
-- Gold persistence path is pending; replay evidence currently uses output hash + record payload.
+- Gold persistence path implemented; features are now written to data/gold.
 
 ## Artifact Links
 - Replay report: `/Users/juhi/Desktop/algo-trading/docs/reports/day4_sync_s2/cross_agent_replay_report_2026-03-05.md`
