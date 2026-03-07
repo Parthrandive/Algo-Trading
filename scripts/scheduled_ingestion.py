@@ -53,12 +53,48 @@ def ingestion_job():
         sys.argv = old_argv
         
         if exit_code == 0:
-            logger.info("Daily ingestion completed successfully.")
+            logger.info("Daily market ingestion completed successfully.")
         else:
-            logger.warning(f"Daily ingestion finished with non-zero exit code: {exit_code}")
+            logger.warning(f"Daily market ingestion finished with non-zero exit code: {exit_code}")
             
     except Exception as e:
-        logger.error(f"Daily ingestion failed with error: {e}")
+        logger.error(f"Daily market ingestion failed with error: {e}")
+        
+    try:
+        from src.agents.macro.run_real_pipeline import run_macro
+        logger.info("Running Daily Macro Agent Ingestion...")
+        run_macro()
+        logger.info("Macro Agent ingestion completed successfully.")
+    except Exception as e:
+        logger.error(f"Daily macro ingestion failed with error: {e}")
+        
+    try:
+        from src.agents.textual.textual_data_agent import TextualDataAgent
+        from src.db.silver_db_recorder import SilverDBRecorder
+        logger.info("Running Daily Textual Agent Ingestion...")
+        # Point to dynamic PGSQL DB
+        text_agent = TextualDataAgent.from_default_components(recorder=SilverDBRecorder())
+        text_agent.run_once()
+        logger.info("Textual Agent ingestion completed successfully.")
+    except Exception as e:
+        logger.error(f"Daily textual ingestion failed with error: {e}")
+        
+    try:
+        from src.agents.preprocessing.pipeline import PreprocessingPipeline
+        logger.info("Running Daily Preprocessing Agent (Silver -> Gold)...")
+        pipeline = PreprocessingPipeline(config_path="configs/transform_config_v1.json")
+        snapshot_id = f"daily_batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        output = pipeline.process_snapshot(
+            market_source_path="db_virtual",
+            macro_source_path="db_virtual",
+            text_source_path="db_virtual",
+            snapshot_id=snapshot_id
+        )
+        logger.info(f"Preprocessing Agent completed successfully. Cleaned {len(output.feature_df)} rows into Gold.")
+    except Exception as e:
+        logger.error(f"Daily preprocessing failed with error: {e}")
+        
     finally:
         logger.info(f"Finished job at {datetime.now(timezone.utc)}")
         logger.info("="*50)

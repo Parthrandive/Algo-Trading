@@ -44,11 +44,11 @@
     "error_code": null,
     "error_message": null,
     "attempt_count": 1,
-    "last_attempt_utc": "2026-03-07T19:35:03.822479+00:00",
-    "last_success_end_utc": "2026-03-07T19:34:59.127005+00:00",
-    "bars_fetched": 1,
-    "requested_start_utc": "2026-03-04T19:34:59.127005+00:00",
-    "requested_end_utc": "2026-03-07T19:34:59.127005+00:00",
+    "last_attempt_utc": "2026-03-07T20:31:18.460732+00:00",
+    "last_success_end_utc": "2026-03-07T20:31:15.120423+00:00",
+    "bars_fetched": 14,
+    "requested_start_utc": "2026-03-04T20:31:15.120423+00:00",
+    "requested_end_utc": "2026-03-07T20:31:15.120423+00:00",
     "interval": "1h"
   },
   "TCS.NS": {
@@ -83,11 +83,11 @@
     "error_code": null,
     "error_message": null,
     "attempt_count": 1,
-    "last_attempt_utc": "2026-03-07T19:35:04.986714+00:00",
-    "last_success_end_utc": "2026-03-07T19:34:59.127005+00:00",
+    "last_attempt_utc": "2026-03-07T20:31:18.280721+00:00",
+    "last_success_end_utc": "2026-03-07T20:31:15.120423+00:00",
     "bars_fetched": 14,
-    "requested_start_utc": "2026-03-04T19:34:59.127005+00:00",
-    "requested_end_utc": "2026-03-07T19:34:59.127005+00:00",
+    "requested_start_utc": "2026-03-04T20:31:15.120423+00:00",
+    "requested_end_utc": "2026-03-07T20:31:15.120423+00:00",
     "interval": "1h"
   },
   "ICICIBANK.NS": {

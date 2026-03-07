@@ -11,10 +11,11 @@ logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
     try:
-        # 1. Check existing rows in Gold for INFY.NS
+        # 1. Check existing rows in Gold for BEL.NS
+        symbol = "BEL.NS"
         engine = get_engine()
-        initial_count = pd.read_sql("SELECT count(*) FROM gold_features WHERE symbol='INFY.NS'", engine).iloc[0, 0]
-        logger.info(f"Initial Gold features count for INFY.NS: {initial_count}")
+        initial_count = pd.read_sql(f"SELECT count(*) FROM gold_features WHERE symbol='{symbol}'", engine).iloc[0, 0]
+        logger.info(f"Initial Gold features count for {symbol}: {initial_count}")
 
         # 2. Run the Preprocessing Pipeline
         pipeline = PreprocessingPipeline(config_path="configs/transform_config_v1.json")
@@ -27,13 +28,13 @@ if __name__ == "__main__":
             snapshot_id=snapshot_id
         )
         
-        # 3. Check new rows in Gold for INFY.NS
-        new_count = pd.read_sql("SELECT count(*) FROM gold_features WHERE symbol='INFY.NS'", engine).iloc[0, 0]
-        logger.info(f"New Gold features count for INFY.NS: {new_count}")
+        # 3. Check new rows in Gold for BEL.NS
+        new_count = pd.read_sql(f"SELECT count(*) FROM gold_features WHERE symbol='{symbol}'", engine).iloc[0, 0]
+        logger.info(f"New Gold features count for {symbol}: {new_count}")
         logger.info(f"Successfully processed {new_count - initial_count} real-time frames into Gold!")
         
         # 4. Show a sample of the cleaned data
-        sample = pd.read_sql("SELECT * FROM gold_features WHERE symbol='INFY.NS' ORDER BY timestamp DESC LIMIT 2", engine)
+        sample = pd.read_sql(f"SELECT * FROM gold_features WHERE symbol='{symbol}' ORDER BY timestamp DESC LIMIT 2", engine)
         logger.info(f"Cleaned Gold Data Sample:\n{sample[['timestamp', 'symbol', 'interval', 'close', 'close_log_return', 'close_log_return_zscore']]}")
 
     except Exception as e:
