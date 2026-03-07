@@ -76,7 +76,11 @@ class TextualDataAgent:
 =======
         runtime_flags = dict(runtime_config.get("runtime_flags", {}))
         rbi_emergency_fallback_active = bool(runtime_flags.get("rbi_fallback_emergency_active", False))
+<<<<<<< HEAD
 >>>>>>> 701ccfb8293a2001f6b46632488e94f99447ad31
+=======
+        rbi_source_policy = dict(runtime_config.get("rbi_source_policy", {}))
+>>>>>>> 2ba82ae (Implement RBI source routing and emergency fallback for Textual Data Agent)
         return cls(
             adapters=[
                 NSENewsAdapter(),
@@ -87,6 +91,7 @@ class TextualDataAgent:
                 RBIReportsAdapter(
                     allow_emergency_fallback=rbi_emergency_fallback_active,
                     pdf_paths=rbi_pdf_paths,
+                    source_policy=rbi_source_policy,
                 ),
 >>>>>>> 701ccfb8293a2001f6b46632488e94f99447ad31
                 EarningsTranscriptAdapter(pdf_paths=earnings_pdf_paths),

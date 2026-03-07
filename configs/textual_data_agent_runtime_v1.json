@@ -19,6 +19,15 @@
     "require_public_release_timestamp": true,
     "require_source_url": true
   },
+  "outage_emergency_mode": false,
+  "rbi_source_policy": {
+    "rss_feed_url": "https://www.rbi.org.in/Scripts/rss.aspx",
+    "dbie_download_url": "https://data.rbi.org.in/DBIE/#/",
+    "fallback_scraper_url": "https://www.rbi.org.in/Scripts/BS_ViewBulletin.aspx",
+    "simulate_rss_outage": false,
+    "simulate_dbie_outage": false,
+    "enable_emergency_fallback_scraper": false
+  },
   "source_allowlist": [
     {
       "source_name": "nse_news",
@@ -57,15 +66,22 @@
     {
       "source_name": "rbi_reports",
       "source_type": "rss_feed",
+      "allowed_source_types": [
+        "rss_feed",
+        "official_api",
+        "fallback_scraper"
+      ],
       "allowed": true,
       "allowed_routes": [
         "official_feed",
+        "primary_api",
         "fallback_scraper"
       ],
       "license_status": "public_domain",
       "legal_basis": "public_release_only",
       "allow_fallback_scraper": true,
       "fallback_emergency_only": true,
+      "fallback_scraper_emergency_only": true,
       "fallback_emergency_flag_field": "fallback_emergency_active",
       "preferred_source_sequence": [
         "rbi_official_rss_xml",
