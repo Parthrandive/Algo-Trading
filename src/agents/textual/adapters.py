@@ -1,17 +1,17 @@
-import logging
-from dataclasses import dataclass
-from datetime import UTC, datetime
-from email.utils import parsedate_to_datetime
 import hashlib
 import html
 import json
-from pathlib import Path
+import logging
 import re
+import tempfile
+import urllib.request
+import xml.etree.ElementTree as ET
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
+from pathlib import Path
 from typing import Any, Callable, Protocol, Sequence
 from urllib.parse import urljoin, urlparse
-import urllib.request
-import tempfile
-import xml.etree.ElementTree as ET
 from zoneinfo import ZoneInfo
 
 try:
@@ -19,6 +19,7 @@ try:
 except ImportError:  # pragma: no cover - exercised in environments without PDF extras.
     pdfplumber = None
 
+from src.agents.textual.services.pdf_service import PDFExtractor
 from src.schemas.text_data import SourceType as TextSourceType
 from src.schemas.text_sidecar import SourceRouteDetail
 
@@ -29,6 +30,78 @@ _WS_RE = re.compile(r"\s+")
 _NSE_KEYWORDS = ("nse", "nifty", "sensex", "bank nifty")
 
 HTTPGetter = Callable[[str, dict[str, str] | None], str]
+
+
+def _safe_token(value: str) -> str:
+    token = re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
+    return token or "document"
+
+
+def _expand_pdf_paths(pdf_paths: Sequence[str]) -> list[Path]:
+    resolved: list[Path] = []
+    for candidate in pdf_paths:
+        raw_path = Path(candidate).expanduser()
+        path = raw_path if raw_path.is_absolute() else (Path.cwd() / raw_path).resolve()
+
+        if path.is_dir():
+            resolved.extend(sorted(path.glob("*.pdf")))
+            continue
+
+        if path.suffix.lower() == ".pdf":
+            resolved.append(path)
+            continue
+
+        logger.warning("Ignoring non-PDF path in textual runtime config: %s", path)
+    return resolved
+
+
+def _read_pdf_documents(pdf_paths: Sequence[str]) -> list[tuple[Path, bytes]]:
+    docs: list[tuple[Path, bytes]] = []
+    for path in _expand_pdf_paths(pdf_paths):
+        if not path.exists():
+            logger.warning("Configured PDF path does not exist: %s", path)
+            continue
+        try:
+            docs.append((path, path.read_bytes()))
+        except OSError as exc:
+            logger.warning("Failed to read PDF path %s: %s", path, exc)
+    return docs
+
+
+def _infer_transcript_symbol(path: Path) -> str:
+    for token in re.split(r"[^A-Za-z0-9]+", path.stem):
+        if not token:
+            continue
+        lower = token.lower()
+        if re.fullmatch(r"q[1-4]", lower):
+            continue
+        if re.fullmatch(r"20\d{2}", token):
+            continue
+        if token.isalpha():
+            return token.upper()
+    return "UNKNOWN"
+
+
+def _infer_transcript_quarter(path: Path) -> str:
+    stem_lower = path.stem.lower()
+    for quarter in ("q1", "q2", "q3", "q4"):
+        if quarter in stem_lower:
+            return quarter.upper()
+    return "Q4"
+
+
+def _infer_year(path: Path, fallback_year: int) -> int:
+    match = re.search(r"(20\d{2})", path.stem)
+    if not match:
+        return fallback_year
+    return int(match.group(1))
+
+
+def _path_url(path: Path) -> str:
+    try:
+        return path.resolve().as_uri()
+    except ValueError:
+        return str(path.resolve())
 
 
 @dataclass(frozen=True)
@@ -457,14 +530,24 @@ class RBIReportsAdapter(BaseTextAdapter):
         *,
         allow_emergency_fallback: bool = False,
         dbie_catalog_urls: Sequence[str] | None = None,
+        pdf_paths: Sequence[str] | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         self._allow_emergency_fallback = allow_emergency_fallback
         self._dbie_catalog_urls = tuple(dbie_catalog_urls or (self._DBIE_CATALOG_URL,))
+        self._pdf_paths = list(pdf_paths or [])
+        self._pdf_extractor = PDFExtractor()
 
     def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
         now_utc = datetime.now(UTC)
+        local_pdf_records = self._build_local_pdf_records(
+            now_utc=now_utc,
+            record_timestamp=as_of_utc or now_utc,
+        )
+        if local_pdf_records:
+            return local_pdf_records[: self.max_items]
+
         records: list[RawTextRecord] = []
         seen_source_ids: set[str] = set()
         rss_feed_urls = self._discover_rbi_rss_urls()
@@ -585,6 +668,50 @@ class RBIReportsAdapter(BaseTextAdapter):
                 source_route_detail=self.source_route_detail,
             )
         ][: self.max_items]
+
+    def _build_local_pdf_records(
+        self,
+        *,
+        now_utc: datetime,
+        record_timestamp: datetime,
+    ) -> list[RawTextRecord]:
+        records: list[RawTextRecord] = []
+        for pdf_path, pdf_bytes in _read_pdf_documents(self._pdf_paths):
+            extraction = self._pdf_extractor.extract(pdf_bytes)
+            source_token = _safe_token(pdf_path.stem)
+            records.append(
+                RawTextRecord(
+                    record_type="news_article",
+                    source_name=self.source_name,
+                    source_id=f"rbi_report_{source_token}",
+                    timestamp=record_timestamp,
+                    content=extraction.text,
+                    payload={
+                        "headline": f"RBI Report Extract ({pdf_path.name})",
+                        "publisher": "Reserve Bank of India",
+                        "url": _path_url(pdf_path),
+                        "author": "RBI PDF Import",
+                        "language": "en",
+                        "source_type": self.source_type.value,
+                        "ingestion_timestamp_utc": now_utc,
+                        "ingestion_timestamp_ist": now_utc.astimezone(IST),
+                        "schema_version": "1.0",
+                        "quality_status": extraction.quality_status,
+                        "is_published": True,
+                        "is_embargoed": False,
+                        "license_ok": True,
+                        "manipulation_risk_score": 0.05,
+                        "confidence": 0.9,
+                        "quality_flags": ["official_feed", "configured_pdf_input"],
+                        "extraction_quality_score": extraction.quality_score,
+                        "pdf_quality_status": extraction.quality_status,
+                        "pdf_extracted_char_count": extraction.metrics["extracted_char_count"],
+                    },
+                    source_type=self.source_type,
+                    source_route_detail=self.source_route_detail,
+                )
+            )
+        return records
 
     def _discover_rbi_rss_urls(self) -> list[str]:
         discovered_urls: list[str] = []
@@ -786,8 +913,17 @@ class EarningsTranscriptAdapter(BaseTextAdapter):
         "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" # Placeholder dummy pdf
     ]
 
+    def __init__(self, *, pdf_paths: Sequence[str] | None = None, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._pdf_paths = list(pdf_paths or [])
+        self._pdf_extractor = PDFExtractor()
+
     def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
         now_utc = as_of_utc or datetime.now(UTC)
+        local_pdf_records = self._build_local_pdf_records(now_utc=now_utc)
+        if local_pdf_records:
+            return local_pdf_records[: self.max_items]
+
         records: list[RawTextRecord] = []
 
         if pdfplumber is None:
@@ -861,6 +997,46 @@ class EarningsTranscriptAdapter(BaseTextAdapter):
             return records[: self.max_items]
 
         return self._build_offline_fallback_records(now_utc)
+
+    def _build_local_pdf_records(self, *, now_utc: datetime) -> list[RawTextRecord]:
+        records: list[RawTextRecord] = []
+        for pdf_path, pdf_bytes in _read_pdf_documents(self._pdf_paths):
+            extraction = self._pdf_extractor.extract(pdf_bytes)
+            source_token = _safe_token(pdf_path.stem)
+            records.append(
+                RawTextRecord(
+                    record_type="earnings_transcript",
+                    source_name=self.source_name,
+                    source_id=f"earnings_transcript_{source_token}",
+                    timestamp=now_utc,
+                    content=extraction.text,
+                    payload={
+                        "symbol": _infer_transcript_symbol(pdf_path),
+                        "quarter": _infer_transcript_quarter(pdf_path),
+                        "year": _infer_year(pdf_path, now_utc.year),
+                        "url": _path_url(pdf_path),
+                        "author": "Company Management",
+                        "language": "en",
+                        "source_type": self.source_type.value,
+                        "ingestion_timestamp_utc": now_utc,
+                        "ingestion_timestamp_ist": now_utc.astimezone(IST),
+                        "schema_version": "1.0",
+                        "quality_status": extraction.quality_status,
+                        "is_published": True,
+                        "is_embargoed": False,
+                        "license_ok": True,
+                        "manipulation_risk_score": 0.0,
+                        "confidence": 0.95,
+                        "quality_flags": ["pdf_extraction", "configured_pdf_input"],
+                        "extraction_quality_score": extraction.quality_score,
+                        "pdf_quality_status": extraction.quality_status,
+                        "pdf_extracted_char_count": extraction.metrics["extracted_char_count"],
+                    },
+                    source_type=self.source_type,
+                    source_route_detail=self.source_route_detail,
+                )
+            )
+        return records
 
     def _build_offline_fallback_records(self, now_utc: datetime) -> list[RawTextRecord]:
         # Offline-safe deterministic fallback so default agent runs are reproducible in CI.

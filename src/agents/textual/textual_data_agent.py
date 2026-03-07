@@ -6,6 +6,7 @@ import hashlib
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Sequence
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel
 
@@ -28,6 +29,7 @@ DEFAULT_RUNTIME_CONFIG_PATH = Path(__file__).resolve().parents[3] / "configs" / 
 COMPLIANCE_LOG_PATH = Path(__file__).resolve().parents[3] / "logs" / "compliance_rejects.log"
 PDF_SPOT_CHECK_REPORT_PATH = Path(__file__).resolve().parents[3] / "logs" / "textual_pdf_spot_check_report.json"
 SIDECAR_ARTIFACT_PATH = Path(__file__).resolve().parents[3] / "logs" / "textual_sidecar_records.json"
+IST = ZoneInfo("Asia/Kolkata")
 
 logger = logging.getLogger(__name__)
 
@@ -60,17 +62,21 @@ class TextualDataAgent:
         recorder: SilverDBRecorder | None = None,
     ) -> "TextualDataAgent":
         config_path = runtime_config_path or DEFAULT_RUNTIME_CONFIG_PATH
-        with config_path.open("r", encoding="utf-8") as handle:
-            runtime_config = json.load(handle)
+        runtime_config = cls._load_runtime_config(config_path)
+        pdf_input_paths = dict(runtime_config.get("pdf_input_paths", {}))
+        rbi_pdf_paths = cls._coerce_path_list(pdf_input_paths.get("rbi_reports"))
+        earnings_pdf_paths = cls._coerce_path_list(pdf_input_paths.get("earnings_transcripts"))
         runtime_flags = dict(runtime_config.get("runtime_flags", {}))
         rbi_emergency_fallback_active = bool(runtime_flags.get("rbi_fallback_emergency_active", False))
-
         return cls(
             adapters=[
                 NSENewsAdapter(),
                 EconomicTimesAdapter(),
-                RBIReportsAdapter(allow_emergency_fallback=rbi_emergency_fallback_active),
-                EarningsTranscriptAdapter(),
+                RBIReportsAdapter(
+                    allow_emergency_fallback=rbi_emergency_fallback_active,
+                    pdf_paths=rbi_pdf_paths,
+                ),
+                EarningsTranscriptAdapter(pdf_paths=earnings_pdf_paths),
                 XPostAdapter(),
             ],
             cleaner=TextCleaner(),
@@ -79,12 +85,27 @@ class TextualDataAgent:
             recorder=recorder,
         )
 
+    @staticmethod
+    def _load_runtime_config(config_path: Path) -> dict[str, Any]:
+        with config_path.open("r", encoding="utf-8") as handle:
+            return json.load(handle)
+
+    @staticmethod
+    def _coerce_path_list(value: Any) -> list[str]:
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, list):
+            return [str(item) for item in value if isinstance(item, str)]
+        return []
+
     def run_once(self, *, as_of_utc: datetime | None = None) -> TextualExportBatch:
         run_timestamp = as_of_utc or datetime.now(UTC)
         canonical_records: list[BaseModel] = []
         sidecar_records = []
         pdf_spot_checks: list[dict[str, Any]] = []
         seen_record_fingerprints: set[str] = set()
+        seen_source_keys: set[tuple[str, str]] = set()
+        seen_content_fingerprints: set[str] = set()
 
         for adapter in self.adapters:
             for raw_record in adapter.fetch(as_of_utc=run_timestamp):
@@ -100,7 +121,17 @@ class TextualDataAgent:
                 pdf_spot_check = self._build_pdf_spot_check(cleaned_record)
                 if pdf_spot_check is not None:
                     pdf_spot_checks.append(pdf_spot_check)
-                canonical_payload = self._build_canonical_payload(cleaned_record)
+                canonical_payload = self._build_canonical_payload(
+                    cleaned_record,
+                    ingestion_timestamp_utc=run_timestamp,
+                )
+                canonical_payload = self.validator.apply_quality_controls(
+                    cleaned_record,
+                    canonical_payload,
+                    run_timestamp=run_timestamp,
+                    seen_source_keys=seen_source_keys,
+                    seen_content_fingerprints=seen_content_fingerprints,
+                )
                 canonical_record, sidecar_record = self.validator.validate_record(
                     cleaned_record,
                     canonical_payload,
@@ -150,9 +181,9 @@ class TextualDataAgent:
         log_entry = {
             "timestamp": datetime.now(UTC).isoformat(),
             "source_id": sidecar.source_id,
-            "source_type": sidecar.source_type,
+            "source_type": sidecar.source_type.value,
             "reason": sidecar.compliance_reason,
-            "route": sidecar.source_route_detail,
+            "route": sidecar.source_route_detail.value,
         }
         with open(COMPLIANCE_LOG_PATH, "a", encoding="utf-8") as f:
             f.write(f"{log_entry}\n")
@@ -242,23 +273,36 @@ class TextualDataAgent:
         }
 
     @staticmethod
-    def _build_canonical_payload(record: RawTextRecord) -> dict[str, Any]:
+    def _build_canonical_payload(
+        record: RawTextRecord,
+        *,
+        ingestion_timestamp_utc: datetime | None = None,
+    ) -> dict[str, Any]:
         payload = dict(record.payload)
+        resolved_ingestion_timestamp_utc = ingestion_timestamp_utc or datetime.now(UTC)
+        if resolved_ingestion_timestamp_utc.tzinfo is None:
+            resolved_ingestion_timestamp_utc = resolved_ingestion_timestamp_utc.replace(tzinfo=UTC)
+        else:
+            resolved_ingestion_timestamp_utc = resolved_ingestion_timestamp_utc.astimezone(UTC)
+
         canonical_payload: dict[str, Any] = {
             "source_id": record.source_id,
             "timestamp": record.timestamp,
             "content": record.content,
             "source_type": record.source_type.value,
+            "ingestion_timestamp_utc": payload.get("ingestion_timestamp_utc", resolved_ingestion_timestamp_utc),
+            "ingestion_timestamp_ist": payload.get(
+                "ingestion_timestamp_ist",
+                resolved_ingestion_timestamp_utc.astimezone(IST),
+            ),
+            "schema_version": payload.get("schema_version", "1.0"),
+            "quality_status": payload.get("quality_status", "pass"),
         }
 
         for optional_field in (
             "url",
             "author",
             "language",
-            "ingestion_timestamp_utc",
-            "ingestion_timestamp_ist",
-            "schema_version",
-            "quality_status",
         ):
             if optional_field in payload:
                 canonical_payload[optional_field] = payload[optional_field]
