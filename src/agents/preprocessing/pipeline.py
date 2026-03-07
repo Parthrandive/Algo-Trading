@@ -49,7 +49,8 @@ class PreprocessingPipeline:
                          snapshot_id: str,
                          text_source_path: str = "db_virtual",
                          corporate_action_path: Optional[str] = None,
-                         cutoff_date: Optional[str] = None) -> TransformOutput:
+                         cutoff_date: Optional[str] = None,
+                         symbol_filter: Optional[str] = None) -> TransformOutput:
         """
         Processes a unified snapshot.
         snapshot_id tracks data provenance (Section 5.5).
@@ -58,9 +59,9 @@ class PreprocessingPipeline:
         logger.info(f"Loading snapshot: {snapshot_id}")
         
         # 1. Load Data
-        market_df = self.market_loader.load(market_source_path, snapshot_id)
+        market_df = self.market_loader.load(market_source_path, snapshot_id, symbol=symbol_filter)
         macro_df = self.macro_loader.load(macro_source_path, snapshot_id)
-        text_df = self.text_loader.load(text_source_path, snapshot_id)
+        text_df = self.text_loader.load(text_source_path, snapshot_id, symbol=symbol_filter)
         
         # Apply cutoff for replay (Section 5.5 Event-time playback mode)
         if cutoff_date and not market_df.empty:
@@ -89,7 +90,12 @@ class PreprocessingPipeline:
         
         from src.db.gold_recorder import GoldRecorder
         recorder = GoldRecorder()
-        recorder.save_features(feature_df, snapshot_id)
+        
+        # If running on-demand for a specific symbol, we upsert to avoid duplicates.
+        if symbol_filter:
+            recorder.save_features_on_demand(feature_df, snapshot_id, symbol_filter)
+        else:
+            recorder.save_features(feature_df, snapshot_id)
         
         # 5. Build reproducible output artifact
         return self._build_deterministic_output(feature_df, snapshot_id)

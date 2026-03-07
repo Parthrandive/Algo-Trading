@@ -91,7 +91,7 @@ def ingestion_job():
             text_source_path="db_virtual",
             snapshot_id=snapshot_id
         )
-        logger.info(f"Preprocessing Agent completed successfully. Cleaned {len(output.feature_df)} rows into Gold.")
+        logger.info(f"Preprocessing Agent completed successfully. Cleaned {len(output.records)} rows into Gold.")
     except Exception as e:
         logger.error(f"Daily preprocessing failed with error: {e}")
         

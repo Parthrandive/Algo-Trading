@@ -77,7 +77,7 @@ class MacroLoader(PreprocessingLoader):
         return df
 
 class TextLoader(PreprocessingLoader):
-    def load(self, source_path: str, snapshot_id: str) -> pd.DataFrame:
+    def load(self, source_path: str, snapshot_id: str, symbol: str = None) -> pd.DataFrame:
         """
         Loads Textual data (news, social sentiment) directly from the PostgreSQL database.
         Returns a DataFrame aggregated by day and symbol containing sentiment features.
@@ -86,7 +86,11 @@ class TextLoader(PreprocessingLoader):
         engine = get_engine()
         
         # Load all textual items that successfully passed NLP/NER (sentiment attached)
-        df = pd.read_sql("SELECT * FROM text_items WHERE sentiment_score IS NOT NULL", engine)
+        query = "SELECT * FROM text_items WHERE sentiment_score IS NOT NULL"
+        if symbol:
+            query += f" AND symbol = '{symbol}'"
+        
+        df = pd.read_sql(query, engine)
         
         if df.empty:
             return pd.DataFrame()
@@ -148,7 +152,7 @@ class MarketLoader(PreprocessingLoader):
         market_only = [p for p in parquet_files if ("ohlcv" in p.parts or "ticks" in p.parts)]
         return market_only or parquet_files
 
-    def load(self, source_path: str, snapshot_id: str) -> pd.DataFrame:
+    def load(self, source_path: str, snapshot_id: str, symbol: str = None) -> pd.DataFrame:
         """
         Loads market data (Bar and Tick) directly from PostgreSQL, validates against schema,
         and returns a unified DataFrame.
@@ -156,8 +160,9 @@ class MarketLoader(PreprocessingLoader):
         from src.db.connection import get_engine
         engine = get_engine()
         
-        bars_df = pd.read_sql("SELECT * FROM ohlcv_bars", engine)
-        ticks_df = pd.read_sql("SELECT * FROM ticks", engine)
+        where_clause = f" WHERE symbol = '{symbol}'" if symbol else ""
+        bars_df = pd.read_sql(f"SELECT * FROM ohlcv_bars{where_clause}", engine)
+        ticks_df = pd.read_sql(f"SELECT * FROM ticks{where_clause}", engine)
         
         if not ticks_df.empty:
             ticks_df['interval'] = 'tick'
