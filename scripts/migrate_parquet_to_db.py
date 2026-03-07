@@ -1,207 +1,129 @@
-import argparse
-import logging
-from pathlib import Path
-import pandas as pd
 import sys
+import os
+import pandas as pd
+from pathlib import Path
+from datetime import timezone
 
-# Add project root to path
-project_root = str(Path(__file__).resolve().parents[1])
-if project_root not in sys.path:
-    sys.path.append(project_root)
+# Add project root to sys.path
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
 
-from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import text
+from src.db.silver_db_recorder import SilverDBRecorder
+from src.schemas.market_data import Bar
+from src.schemas.macro_data import MacroIndicator
+from src.schemas.text_data import NewsArticle, SocialPost, EarningsTranscript
 
-from src.db.connection import get_engine
-from src.db.models import OHLCVBar, CorporateActionDB, QuarantineBar
-from src.db.init_db import init_database
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
-
-def migrate_ohlcv(data_dir: Path, engine, dry_run: bool = False):
-    logger.info(f"Looking for OHLCV parquet files in {data_dir}")
-    if not data_dir.exists():
-        logger.warning(f"Directory {data_dir} does not exist. Skipping.")
-        return 0
-        
-    files = list(data_dir.rglob("*.parquet"))
-    logger.info(f"Found {len(files)} parquet files mapping to OHLCV data")
+def migrate_ohlcv(recorder, base_dir: Path):
+    ohlcv_path = base_dir / "ohlcv"
+    if not ohlcv_path.exists():
+        return
     
-    total_inserted = 0
-    for f in files:
+    total_bars = 0
+    for parquet_file in ohlcv_path.rglob("*.parquet"):
         try:
-            df = pd.read_parquet(f)
-            if df.empty:
-                continue
-                
-            # Rename columns if necessary or ensure they match the DB schema
-            # 'date_str' should have been removed, but drop if present
-            if 'date_str' in df.columns:
-                df = df.drop(columns=['date_str'])
-                
-            # Rename timestamp to UTC timezone awareness
-            if 'timestamp' in df.columns and df['timestamp'].dt.tz is None:
-                df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
-                
-            records = df.to_dict(orient='records')
+            df = pd.read_parquet(parquet_file)
+            bars = []
+            for _, row in df.iterrows():
+                row_dict = row.dropna().to_dict()
+                bar = Bar(
+                    timestamp=row_dict['timestamp'],
+                    symbol=row_dict['symbol'],
+                    interval=row_dict['interval'],
+                    open=row_dict['open'],
+                    high=row_dict['high'],
+                    low=row_dict['low'],
+                    close=row_dict['close'],
+                    volume=row_dict['volume'],
+                    source_type=row_dict.get('source_type', 'official_api'),
+                    exchange=row_dict.get('exchange', 'NSE')
+                )
+                bars.append(bar)
             
-            if dry_run:
-                total_inserted += len(records)
-                logger.info(f"[DRY RUN] Would insert {len(records)} bars from {f}")
-                continue
+            recorder.save_bars(bars)
+            total_bars += len(bars)
+            print(f"Migrated {len(bars)} OHLCV bars from {parquet_file.name}")
+        except Exception as e:
+            print(f"Error migrating {parquet_file}: {e}")
+            
+    print(f"Total OHLCV bars migrated: {total_bars}")
+
+def migrate_macro(recorder, base_dir: Path):
+    macro_path = base_dir / "macro"
+    if not macro_path.exists():
+        return
+        
+    total_indicators = 0
+    for parquet_file in macro_path.rglob("*.parquet"):
+        try:
+            df = pd.read_parquet(parquet_file)
+            indicators = []
+            for _, row in df.iterrows():
+                row_dict = row.dropna().to_dict()
+                indicator = MacroIndicator(
+                    timestamp=row_dict['timestamp'],
+                    indicator_name=row_dict['indicator_name'],
+                    value=row_dict['value'],
+                    unit=row_dict['unit'],
+                    period=row_dict['period'],
+                    region=row_dict.get('region', 'India'),
+                    source_type=row_dict.get('source_type', 'official_api')
+                )
+                indicators.append(indicator)
                 
-            # Insert using PostgreSQL UPSERT
-            with engine.connect() as conn:
-                with conn.begin():
-                    stmt = insert(OHLCVBar).values(records)
-                    update_dict = {c.name: c for c in stmt.excluded if not c.primary_key}
-                    stmt = stmt.on_conflict_do_update(
-                        index_elements=['timestamp', 'symbol', 'interval'],
-                        set_=update_dict
+            recorder.save_macro_indicators(indicators)
+            total_indicators += len(indicators)
+            print(f"Migrated {len(indicators)} macro indicators from {parquet_file.name}")
+        except Exception as e:
+            print(f"Error migrating {parquet_file}: {e}")
+            
+    print(f"Total Macro indicators migrated: {total_indicators}")
+
+def migrate_text(recorder, base_dir: Path):
+    text_path = base_dir / "text" / "canonical"
+    if not text_path.exists():
+        return
+        
+    total_texts = 0
+    for parquet_file in text_path.rglob("*.parquet"):
+        try:
+            df = pd.read_parquet(parquet_file)
+            items = []
+            for _, row in df.iterrows():
+                try:
+                    # Filter out NaN/None values from pandas
+                    row_dict = row.dropna().to_dict()
+                    
+                    item = NewsArticle(
+                        source_id=row_dict['source_id'],
+                        timestamp=row_dict['timestamp'],
+                        content=row_dict['content'],
+                        source_type=row_dict.get('source_type', 'official_api'),
+                        headline=row_dict.get('headline', 'No Headline'),
+                        publisher=row_dict.get('publisher', 'Unknown'),
+                        url=row_dict.get('url'),
+                        author=row_dict.get('author')
                     )
-                    conn.execute(stmt)
-            
-            total_inserted += len(records)
-            logger.info(f"Migrated {len(records)} bars from {f}")
-            
+                    items.append(item)
+                except Exception as e:
+                    print(f"Skipping row due to schema error: {e}")
+                    continue
+                    
+            if items:
+                recorder.save_text_items(items)
+                total_texts += len(items)
+                print(f"Migrated {len(items)} text items from {parquet_file.name}")
         except Exception as e:
-            logger.error(f"Failed to migrate {f}: {e}")
-            
-    return total_inserted
+            print(f"Error migrating {parquet_file}: {e}")
 
-def migrate_corporate_actions(data_dir: Path, engine, dry_run: bool = False):
-    logger.info(f"Looking for Corporate Action parquet files in {data_dir}")
-    if not data_dir.exists():
-        logger.warning(f"Directory {data_dir} does not exist. Skipping.")
-        return 0
-        
-    files = list(data_dir.rglob("*.parquet"))
-    logger.info(f"Found {len(files)} parquet files mapping to corporate actions")
-    
-    total_inserted = 0
-    for f in files:
-        try:
-            df = pd.read_parquet(f)
-            if df.empty:
-                continue
-                
-            if 'date_str' in df.columns:
-                df = df.drop(columns=['date_str'])
-                
-            if 'ex_date' in df.columns and df['ex_date'].dt.tz is None:
-                df['ex_date'] = df['ex_date'].dt.tz_localize('UTC')
-            if 'record_date' in df.columns and df['record_date'].dt.tz is None:
-                df['record_date'] = df['record_date'].dt.tz_localize('UTC')
-            if 'timestamp' in df.columns and df['timestamp'].dt.tz is None:
-                df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
-                
-            records = df.to_dict(orient='records')
-            
-            if dry_run:
-                total_inserted += len(records)
-                logger.info(f"[DRY RUN] Would insert {len(records)} corporate actions from {f}")
-                continue
-                
-            with engine.connect() as conn:
-                with conn.begin():
-                    stmt = insert(CorporateActionDB).values(records)
-                    update_dict = {c.name: c for c in stmt.excluded if not c.primary_key}
-                    stmt = stmt.on_conflict_do_update(
-                        index_elements=['ex_date', 'symbol', 'action_type'],
-                        set_=update_dict
-                    )
-                    conn.execute(stmt)
-            
-            total_inserted += len(records)
-            logger.info(f"Migrated {len(records)} corporate actions from {f}")
-            
-        except Exception as e:
-            logger.error(f"Failed to migrate corp action {f}: {e}")
-            
-    return total_inserted
-
-def migrate_quarantine(data_dir: Path, engine, dry_run: bool = False):
-    logger.info(f"Looking for Quarantine parquet files in {data_dir}")
-    if not data_dir.exists():
-        logger.warning(f"Directory {data_dir} does not exist. Skipping.")
-        return 0
-        
-    files = list(data_dir.rglob("*.parquet"))
-    logger.info(f"Found {len(files)} parquet files mapping to Quarantine")
-    
-    total_inserted = 0
-    for f in files:
-        try:
-            df = pd.read_parquet(f)
-            if df.empty:
-                continue
-                
-            if 'date_str' in df.columns:
-                df = df.drop(columns=['date_str'])
-            if 'timestamp' in df.columns and df['timestamp'].dt.tz is None:
-                df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
-                
-            # Add required db fields that might not be in parquet
-            if 'reason' not in df.columns:
-                df['reason'] = 'monotonicity_violation'
-            if 'quarantined_at' not in df.columns:
-                df['quarantined_at'] = pd.Timestamp.now(tz='UTC')
-                
-            records = df.to_dict(orient='records')
-            
-            if dry_run:
-                total_inserted += len(records)
-                logger.info(f"[DRY RUN] Would insert {len(records)} quarantined bars from {f}")
-                continue
-                
-            with engine.connect() as conn:
-                with conn.begin():
-                    # Just skip duplicates since we don't upsert quarantine
-                    stmt = insert(QuarantineBar).values(records).on_conflict_do_nothing()
-                    conn.execute(stmt)
-            
-            total_inserted += len(records)
-            logger.info(f"Migrated {len(records)} quarantined bars from {f}")
-            
-        except Exception as e:
-            logger.error(f"Failed to migrate quarantine {f}: {e}")
-            
-    return total_inserted
-
-def main():
-    parser = argparse.ArgumentParser(description="Migrate Sentinel Parquet data to PostgreSQL")
-    parser.add_argument("--dry-run", action="store_true", help="Do not insert rows into DB, just print count")
-    parser.add_argument("--base-dir", default="data", help="Data base directory")
-    args = parser.parse_args()
-    
-    logger.info(f"Starting migration from base dir: {args.base_dir}")
-    if args.dry_run:
-        logger.info("Executing DRY RUN. No data will be written to DB.")
-
-    base_path = Path(args.base_dir)
-    silver_ohlcv_dir = base_path / "silver" / "ohlcv"
-    silver_corp_dir = base_path / "silver" / "corporate_actions"
-    quarantine_dir = base_path / "quarantine"
-    
-    engine = get_engine()
-    
-    logger.info("Ensuring database schema is initialized...")
-    if not args.dry_run:
-        init_database()
-    
-    total_ohlcv = migrate_ohlcv(silver_ohlcv_dir, engine, args.dry_run)
-    total_corp = migrate_corporate_actions(silver_corp_dir, engine, args.dry_run)
-    total_quarantine = migrate_quarantine(quarantine_dir, engine, args.dry_run)
-    
-    logger.info("="*50)
-    logger.info("MIGRATION SUMMARY")
-    logger.info("="*50)
-    logger.info(f"Dry Run Mode:    {args.dry_run}")
-    logger.info(f"OHLCV Bars:      {total_ohlcv}")
-    logger.info(f"Corp Actions:    {total_corp}")
-    logger.info(f"Quarantined:     {total_quarantine}")
-    logger.info("="*50)
+    print(f"Total text items migrated: {total_texts}")
 
 if __name__ == "__main__":
-    main()
+    db_recorder = SilverDBRecorder()
+    silver_dir = PROJECT_ROOT / "data" / "silver"
+    
+    print("--- Starting Parquet to PostgreSQL Migration ---")
+    migrate_ohlcv(db_recorder, silver_dir)
+    migrate_macro(db_recorder, silver_dir)
+    migrate_text(db_recorder, silver_dir)
+    print("--- Migration Complete ---")
