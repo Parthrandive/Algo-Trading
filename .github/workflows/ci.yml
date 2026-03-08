@@ -19,6 +19,24 @@ jobs:
           - python-version: "3.14"
             experimental: true
 
+    services:
+      postgres:
+        image: postgres:15
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: sentinel
+          POSTGRES_PASSWORD: sentinel
+          POSTGRES_DB: sentinel_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://sentinel:sentinel@localhost:5432/sentinel_db
+
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
@@ -30,6 +48,9 @@ jobs:
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         pip install pytest ruff
+    - name: Initialize database schema
+      run: |
+        PYTHONPATH=. python -c "from src.db.init_db import init_database; init_database()"
     - name: Lint with Ruff
       run: |
         # stop the build if there are Python syntax errors or undefined names
@@ -38,4 +59,4 @@ jobs:
         ruff check . --exit-zero --target-version=py314
     - name: Run tests with pytest
       run: |
-        pytest
+        PYTHONPATH=. pytest

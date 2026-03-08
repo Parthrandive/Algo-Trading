@@ -516,8 +516,8 @@ class EconomicTimesAdapter(BaseTextAdapter):
 
 class RBIReportsAdapter(BaseTextAdapter):
     source_name = "rbi_reports"
-    source_type = TextSourceType.RSS_FEED
-    source_route_detail = SourceRouteDetail.OFFICIAL_FEED
+    source_type = TextSourceType.OFFICIAL_API
+    source_route_detail = SourceRouteDetail.PRIMARY_API
     cache_namespace = "rbi_reports"
 
     _RSS_INDEX_URL = "https://www.rbi.org.in/Scripts/rss.aspx"
@@ -692,7 +692,7 @@ class RBIReportsAdapter(BaseTextAdapter):
                 return records[: self.max_items]
 
         # 4. DBIE (Official API / Primary API) Route
-        if resolved_route.source_type == TextSourceType.OFFICIAL_API:
+        if not records and resolved_route.source_type in (TextSourceType.RSS_FEED, TextSourceType.OFFICIAL_API):
             records.extend(
                 self._fetch_dbie_downloads(
                     now_utc=now_utc,
@@ -710,7 +710,10 @@ class RBIReportsAdapter(BaseTextAdapter):
                 return records[: self.max_items]
 
         # 5. Emergency Scraper Route
-        if resolved_route.source_type == TextSourceType.FALLBACK_SCRAPER:
+        if not records and (
+            resolved_route.source_type in (TextSourceType.RSS_FEED, TextSourceType.OFFICIAL_API, TextSourceType.FALLBACK_SCRAPER)
+            and (self._allow_emergency_fallback or bool(self.source_policy.get("enable_emergency_fallback_scraper")))
+        ):
             records.extend(
                 self._fetch_emergency_scraper_records(
                     now_utc=now_utc,
@@ -934,7 +937,7 @@ class RBIReportsAdapter(BaseTextAdapter):
                         "url": absolute,
                         "author": "RBI",
                         "language": "en",
-                        "source_type": self.source_type.value,
+                        "source_type": TextSourceType.FALLBACK_SCRAPER.value,
                         "ingestion_timestamp_utc": now_utc,
                         "ingestion_timestamp_ist": now_utc.astimezone(IST),
                         "schema_version": "1.0",
@@ -942,12 +945,12 @@ class RBIReportsAdapter(BaseTextAdapter):
                         "is_published": True,
                         "is_embargoed": False,
                         "license_ok": True,
-                        "fallback_emergency_active": True,
+                        "fallback_emergency_active": self._allow_emergency_fallback,
                         "manipulation_risk_score": 0.28,
                         "confidence": 0.56,
                         "quality_flags": ["fallback_scraper", "outage_emergency", "rbi_html_scrape"],
                     },
-                    source_type=self.source_type,
+                    source_type=TextSourceType.FALLBACK_SCRAPER,
                     source_route_detail=SourceRouteDetail.FALLBACK_SCRAPER,
                 )
             )

@@ -1,6 +1,0 @@
-
-<html>
-  <body>
-    <a href="/dbie/downloads/fx_reserves_2026_03_05.csv">FX Reserves Weekly</a>
-  </body>
-</html>

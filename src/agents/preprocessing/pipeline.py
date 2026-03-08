@@ -26,8 +26,10 @@ class PreprocessingPipeline:
     """
     def __init__(self, 
                  config_path: str = "configs/transform_config_v1.json"):
+        from src.agents.preprocessing.loader import TextLoader
         self.macro_loader = MacroLoader()
         self.market_loader = MarketLoader()
+        self.text_loader = TextLoader()
         self.lag_aligner = LagAligner()
         self.corp_validator = CorporateActionValidator()
         self.transform_graph = TransformGraph(config_path)
@@ -45,8 +47,10 @@ class PreprocessingPipeline:
                          market_source_path: str, 
                          macro_source_path: str, 
                          snapshot_id: str,
+                         text_source_path: str = "db_virtual",
                          corporate_action_path: Optional[str] = None,
-                         cutoff_date: Optional[str] = None) -> TransformOutput:
+                         cutoff_date: Optional[str] = None,
+                         symbol_filter: Optional[str] = None) -> TransformOutput:
         """
         Processes a unified snapshot.
         snapshot_id tracks data provenance (Section 5.5).
@@ -55,8 +59,9 @@ class PreprocessingPipeline:
         logger.info(f"Loading snapshot: {snapshot_id}")
         
         # 1. Load Data
-        market_df = self.market_loader.load(market_source_path, snapshot_id)
+        market_df = self.market_loader.load(market_source_path, snapshot_id, symbol=symbol_filter)
         macro_df = self.macro_loader.load(macro_source_path, snapshot_id)
+        text_df = self.text_loader.load(text_source_path, snapshot_id, symbol=symbol_filter)
         
         # Apply cutoff for replay (Section 5.5 Event-time playback mode)
         if cutoff_date and not market_df.empty:
@@ -78,15 +83,21 @@ class PreprocessingPipeline:
             market_df = self.corp_validator.apply_adjustments(market_df, ca_df)
             
         # 3. Align the slow variables backward in time to prevent lookahead
-        aligned_df = self.lag_aligner.align(market_df, macro_df)
+        aligned_df = self.lag_aligner.align(market_df, macro_df, text_df=text_df)
         
         # 4. Apply configured Transformations
         feature_df = self.transform_graph.execute(aligned_df)
         
-        import os
-        os.makedirs("data/gold", exist_ok=True)
-        gold_path = f"data/gold/preprocessing_{snapshot_id}.parquet"
-        feature_df.to_parquet(gold_path, index=False)
+        # Only persist to Gold DB when running in DB mode (not during tests with file paths)
+        if market_source_path == "db_virtual":
+            from src.db.gold_recorder import GoldRecorder
+            recorder = GoldRecorder()
+            
+            # If running on-demand for a specific symbol, we upsert to avoid duplicates.
+            if symbol_filter:
+                recorder.save_features_on_demand(feature_df, snapshot_id, symbol_filter)
+            else:
+                recorder.save_features(feature_df, snapshot_id)
         
         # 5. Build reproducible output artifact
         return self._build_deterministic_output(feature_df, snapshot_id)
@@ -97,6 +108,7 @@ class PreprocessingPipeline:
                         macro_source_path: str,
                         snapshot_id: str,
                         cutoff_date: str,
+                        text_source_path: str = "db_virtual",
                         corporate_action_path: Optional[str] = None) -> TransformOutput:
         """
         Section 5.5 Replay Support. Reconstructs a snapshot identically as it would have appeared
@@ -106,6 +118,7 @@ class PreprocessingPipeline:
         return self.process_snapshot(
             market_source_path=market_source_path,
             macro_source_path=macro_source_path,
+            text_source_path=text_source_path,
             snapshot_id=snapshot_id,
             corporate_action_path=corporate_action_path,
             cutoff_date=cutoff_date

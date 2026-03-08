@@ -29,3 +29,4 @@ ntplib>=0.4.0    # NTP client for clock sync checks
 # Database
 sqlalchemy>=2.0.0
 psycopg2-binary>=2.9.9
+schedule==1.2.2
