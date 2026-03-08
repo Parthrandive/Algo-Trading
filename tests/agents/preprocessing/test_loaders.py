@@ -32,6 +32,33 @@ def test_macro_loader_success(tmp_path):
     assert df["dataset_snapshot_id"].iloc[0] == snapshot_id
     assert df["indicator_name"].iloc[0] == "CPI"
 
+
+def test_macro_loader_preserves_existing_dataset_snapshot_id(tmp_path):
+    loader = MacroLoader()
+
+    upstream_snapshot_id = "upstream_macro_snapshot_01"
+    mock_macro = {
+        "indicator_name": "CPI",
+        "value": 5.5,
+        "unit": "%",
+        "period": "Monthly",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "source_type": "official_api",
+        "schema_version": "v1.1",
+        "dataset_snapshot_id": upstream_snapshot_id,
+    }
+
+    test_file = tmp_path / "mock_macro_with_snapshot.json"
+    with open(test_file, "w") as f:
+        json.dump([mock_macro], f)
+
+    df = loader.load(str(test_file), "fallback_snapshot_id")
+
+    assert not df.empty
+    assert "dataset_snapshot_id" in df.columns
+    assert df["dataset_snapshot_id"].iloc[0] == upstream_snapshot_id
+
+
 def test_market_loader_success(tmp_path):
     loader = MarketLoader()
     
@@ -62,6 +89,37 @@ def test_market_loader_success(tmp_path):
     assert not df.empty
     assert "dataset_snapshot_id" in df.columns
     assert df["dataset_snapshot_id"].iloc[0] == snapshot_id
+
+
+def test_market_loader_preserves_existing_dataset_snapshot_id(tmp_path):
+    loader = MarketLoader()
+
+    now_utc = datetime.now(timezone.utc)
+    upstream_snapshot_id = "upstream_market_snapshot_01"
+    mock_bar = {
+        "symbol": "RELIANCE",
+        "timestamp": now_utc,
+        "source_type": "broker_api",
+        "ingestion_timestamp_utc": now_utc,
+        "ingestion_timestamp_ist": now_utc.astimezone(IST),
+        "schema_version": "1.0",
+        "interval": "1d",
+        "open": 100.0,
+        "high": 110.0,
+        "low": 90.0,
+        "close": 105.0,
+        "volume": 1000,
+        "dataset_snapshot_id": upstream_snapshot_id,
+    }
+
+    test_file = tmp_path / "mock_market_with_snapshot.parquet"
+    pd.DataFrame([mock_bar]).to_parquet(test_file)
+
+    df = loader.load(str(test_file), "fallback_snapshot_id")
+
+    assert not df.empty
+    assert "dataset_snapshot_id" in df.columns
+    assert df["dataset_snapshot_id"].iloc[0] == upstream_snapshot_id
 
 
 def test_market_loader_tick_success(tmp_path):

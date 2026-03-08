@@ -26,7 +26,11 @@ from src.db.silver_db_recorder import SilverDBRecorder
 DEFAULT_RUNTIME_CONFIG_PATH = Path(__file__).resolve().parents[3] / "configs" / "textual_data_agent_runtime_v1.json"
 COMPLIANCE_LOG_PATH = Path(__file__).resolve().parents[3] / "logs" / "compliance_rejects.log"
 PDF_SPOT_CHECK_REPORT_PATH = Path(__file__).resolve().parents[3] / "logs" / "textual_pdf_spot_check_report.json"
+<<<<<<< HEAD
 SIDECAR_HANDOFF_ARTIFACT_PATH = Path(__file__).resolve().parents[3] / "logs" / "textual_sidecar_handoff.json"
+=======
+SIDECAR_ARTIFACT_PATH = Path(__file__).resolve().parents[3] / "logs" / "textual_sidecar_records.json"
+>>>>>>> 701ccfb8293a2001f6b46632488e94f99447ad31
 IST = ZoneInfo("Asia/Kolkata")
 
 logger = logging.getLogger(__name__)
@@ -51,7 +55,11 @@ class TextualDataAgent:
         # Ensure log directory exists
         COMPLIANCE_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         PDF_SPOT_CHECK_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+<<<<<<< HEAD
         SIDECAR_HANDOFF_ARTIFACT_PATH.parent.mkdir(parents=True, exist_ok=True)
+=======
+        SIDECAR_ARTIFACT_PATH.parent.mkdir(parents=True, exist_ok=True)
+>>>>>>> 701ccfb8293a2001f6b46632488e94f99447ad31
 
     @classmethod
     def from_default_components(
@@ -64,17 +72,33 @@ class TextualDataAgent:
         pdf_input_paths = dict(runtime_config.get("pdf_input_paths", {}))
         rbi_pdf_paths = cls._coerce_path_list(pdf_input_paths.get("rbi_reports"))
         earnings_pdf_paths = cls._coerce_path_list(pdf_input_paths.get("earnings_transcripts"))
+<<<<<<< HEAD
+=======
+        runtime_flags = dict(runtime_config.get("runtime_flags", {}))
+        rbi_emergency_fallback_active = bool(runtime_flags.get("rbi_fallback_emergency_active", False))
+>>>>>>> 701ccfb8293a2001f6b46632488e94f99447ad31
         return cls(
             adapters=[
                 NSENewsAdapter(),
                 EconomicTimesAdapter(),
+<<<<<<< HEAD
                 RBIReportsAdapter(pdf_paths=rbi_pdf_paths),
+=======
+                RBIReportsAdapter(
+                    allow_emergency_fallback=rbi_emergency_fallback_active,
+                    pdf_paths=rbi_pdf_paths,
+                ),
+>>>>>>> 701ccfb8293a2001f6b46632488e94f99447ad31
                 EarningsTranscriptAdapter(pdf_paths=earnings_pdf_paths),
                 XPostAdapter(),
             ],
             cleaner=TextCleaner(),
             validator=TextualValidator(runtime_config),
+<<<<<<< HEAD
             exporter=TextualExporter(sidecar_output_path=SIDECAR_HANDOFF_ARTIFACT_PATH),
+=======
+            exporter=TextualExporter(),
+>>>>>>> 701ccfb8293a2001f6b46632488e94f99447ad31
             recorder=recorder,
         )
 
@@ -96,6 +120,10 @@ class TextualDataAgent:
         canonical_records: list[BaseModel] = []
         sidecar_records = []
         pdf_spot_checks: list[dict[str, Any]] = []
+<<<<<<< HEAD
+=======
+        seen_record_fingerprints: set[str] = set()
+>>>>>>> 701ccfb8293a2001f6b46632488e94f99447ad31
         seen_source_keys: set[tuple[str, str]] = set()
         seen_content_fingerprints: set[str] = set()
 

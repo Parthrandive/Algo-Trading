@@ -52,54 +52,85 @@ class MacroLoader(PreprocessingLoader):
 
     def load(self, source_path: str, snapshot_id: str) -> pd.DataFrame:
         """
-        Loads MacroIndicator data, validates against schema v1.1, and returns a DataFrame.
+        Loads MacroIndicator data. When source_path is 'db_virtual', reads from PostgreSQL.
+        Otherwise, reads from the given JSON file path (for tests and legacy usage).
         """
-        path = Path(source_path)
-        if not path.exists():
-            raise FileNotFoundError(f"Source path not found: {source_path}")
-
-        records: List[MacroIndicator] = []
-        macro_adapter = TypeAdapter(list[MacroIndicator])
-        
-        # Macro inputs can be provided as parquet (silver outputs) or json fixtures.
-        if path.is_dir():
-            files = sorted([*path.glob("**/*.parquet"), *path.glob("**/*.json")])
+        if source_path != "db_virtual":
+            # File-based loading (used by tests and legacy scripts)
+            source = Path(source_path)
+            if source.is_file():
+                df = self._read_macro_json(source)
+            elif source.is_dir():
+                frames = [self._read_macro_json(f) for f in sorted(source.glob("**/*.json"))]
+                df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+            else:
+                df = pd.DataFrame()
         else:
-            files = [path]
-
-        for file_path in files:
-            try:
-                if file_path.suffix.lower() == ".parquet":
-                    df_part = pd.read_parquet(file_path)
-                elif file_path.suffix.lower() == ".json":
-                    df_part = self._read_macro_json(file_path)
-                else:
-                    continue
-
-                if not df_part.empty:
-                    # Convert to records for schema validation
-                    payload = df_part.to_dict(orient="records")
-                    validated_batch = macro_adapter.validate_python(payload)
-                    for record in validated_batch:
-                        if not self._is_schema_allowed("macro.indicator", record.schema_version):
-                            raise SchemaVersionError(
-                                f"Schema version {record.schema_version} not accepted by contract. "
-                                f"Allowed: {self._accepted_schemas}"
-                            )
-                        records.append(record)
-                        
-            except ValidationError as e:
-                raise ValueError(f"Validation failed for {file_path}: {e}")
-            except Exception as e:
-                raise IOError(f"Failed to read {file_path}: {e}")
-
-        if not records:
-            return pd.DataFrame()
-
-        df = pd.DataFrame([r.model_dump() for r in records])
-        # Force snapshot ID per Section 5.5
-        df["dataset_snapshot_id"] = snapshot_id
+            # DB-based loading (production)
+            from src.db.connection import get_engine
+            engine = get_engine()
+            df = pd.read_sql("SELECT * FROM macro_indicators", engine)
+        
+        if df.empty:
+            return df
+            
+        if 'timestamp' in df.columns:
+            df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
+            
+        if 'schema_version' in df.columns:
+            for version in df['schema_version'].unique():
+                if not self._is_schema_allowed("macro.indicator", version):
+                    raise SchemaVersionError(
+                        f"Schema version {version} not accepted by contract. "
+                        f"Allowed: {self._accepted_schemas}"
+                    )
+                    
+        if 'dataset_snapshot_id' not in df.columns:
+            df["dataset_snapshot_id"] = snapshot_id
         return df
+
+class TextLoader(PreprocessingLoader):
+    def load(self, source_path: str, snapshot_id: str, symbol: str = None) -> pd.DataFrame:
+        """
+        Loads Textual data. When source_path is 'db_virtual', reads from PostgreSQL.
+        Otherwise returns empty DataFrame (tests don't use textual data by default).
+        """
+        if source_path != "db_virtual":
+            return pd.DataFrame()
+            
+        from src.db.connection import get_engine
+        engine = get_engine()
+        
+        # Load all textual items that successfully passed NLP/NER (sentiment attached)
+        query = "SELECT * FROM text_items WHERE sentiment_score IS NOT NULL"
+        if symbol:
+            query += f" AND symbol = '{symbol}'"
+        
+        df = pd.read_sql(query, engine)
+        
+        if df.empty:
+            return pd.DataFrame()
+            
+        if 'timestamp' in df.columns:
+            df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
+            
+        # Group by symbol and day to provide daily sentiment features
+        if 'symbol' in df.columns:
+            # Drop items not bound to a specific symbol for Phase 1 stock modeling
+            df = df.dropna(subset=['symbol'])
+            df['date'] = df['timestamp'].dt.floor('D')
+            
+            agg_df = df.groupby(['symbol', 'date']).agg(
+                sentiment_score=('sentiment_score', 'mean'),
+                text_items_count=('source_id', 'count')
+            ).reset_index()
+            
+            # Rename date back to timestamp for alignment merging
+            agg_df = agg_df.rename(columns={'date': 'timestamp'})
+            agg_df["dataset_snapshot_id"] = snapshot_id
+            return agg_df
+            
+        return pd.DataFrame()
 
 class MarketLoader(PreprocessingLoader):
     @staticmethod
@@ -137,74 +168,78 @@ class MarketLoader(PreprocessingLoader):
         market_only = [p for p in parquet_files if ("ohlcv" in p.parts or "ticks" in p.parts)]
         return market_only or parquet_files
 
-    def load(self, source_path: str, snapshot_id: str) -> pd.DataFrame:
+    def load(self, source_path: str, snapshot_id: str, symbol: str = None) -> pd.DataFrame:
         """
-        Loads market data (historical Bar and real-time Tick), validates against schema,
-        and returns a unified DataFrame.
-
-        Tick rows are converted to synthetic bars (interval="tick") so downstream
-        transforms can use the same interface (`close`, `volume`, timestamps).
+        Loads market data. When source_path is 'db_virtual', reads from PostgreSQL.
+        Otherwise, reads from the given Parquet file/directory path (for tests and legacy usage).
         """
-        path = Path(source_path)
-        if not path.exists():
-            raise FileNotFoundError(f"Source path not found: {source_path}")
-            
-        try:
-            # Silver recorder outputs parquet
-            if path.is_dir():
-                # Read market parquet files in the directory tree.
-                parquet_files = self._select_market_files(path)
-                if not parquet_files:
-                    return pd.DataFrame()
-                df = pd.concat([pd.read_parquet(f) for f in parquet_files], ignore_index=True)
+        if source_path != "db_virtual":
+            # File-based loading (used by tests and legacy scripts)
+            source = Path(source_path)
+            if source.is_file():
+                df = pd.read_parquet(source)
+            elif source.is_dir():
+                files = self._select_market_files(source)
+                frames = [pd.read_parquet(f) for f in files]
+                df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
             else:
-                df = pd.read_parquet(path)
-        except Exception as e:
-            raise IOError(f"Failed to load Market data from {source_path}: {e}")
+                df = pd.DataFrame()
             
-        if df.empty:
+            # Handle tick files: if 'price' column exists but no 'close', it's a tick file
+            if not df.empty and 'price' in df.columns and 'close' not in df.columns:
+                df['interval'] = 'tick'
+                df['open'] = df['price']
+                df['high'] = df['price']
+                df['low'] = df['price']
+                df['close'] = df['price']
+            
+            if not df.empty:
+                if 'timestamp' in df.columns:
+                    df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
+                if 'schema_version' in df.columns:
+                    for version in df['schema_version'].unique():
+                        if not (self._is_schema_allowed("market.bar", version) or self._is_schema_allowed("market.tick", version)):
+                            raise SchemaVersionError(f"Schema version {version} not accepted by contract.")
+                if 'dataset_snapshot_id' not in df.columns:
+                    df["dataset_snapshot_id"] = snapshot_id
             return df
-            
-        records: List[Bar] = []
-
-        dict_records = df.to_dict(orient="records")
-        invalid_messages: List[str] = []
-
-        # Per-row dual-parse strategy:
-        # 1) Try canonical Bar
-        # 2) Fallback to Tick and convert to synthetic Bar
-        for idx, row in enumerate(dict_records):
-            try:
-                bar = Bar.model_validate(row)
-                if not self._is_schema_allowed("market.bar", bar.schema_version):
-                    raise SchemaVersionError(
-                        f"Schema version {bar.schema_version} not accepted for Bar. "
-                        f"Allowed: {self._accepted_schemas}"
-                    )
-                records.append(bar)
-                continue
-            except ValidationError as bar_error:
-                first_error = bar_error
-
-            try:
-                tick = Tick.model_validate(row)
-                if not self._is_schema_allowed("market.tick", tick.schema_version):
-                    raise SchemaVersionError(
-                        f"Schema version {tick.schema_version} not accepted for Tick. "
-                        f"Allowed: {self._accepted_schemas}"
-                    )
-                records.append(self._tick_to_bar(tick))
-            except ValidationError as tick_error:
-                invalid_messages.append(
-                    f"row={idx} could not be parsed as Bar or Tick: "
-                    f"bar_error={first_error.errors()} tick_error={tick_error.errors()}"
-                )
-
-        if invalid_messages:
-            sample = " | ".join(invalid_messages[:3])
-            raise ValueError(f"Market Validation failed for {len(invalid_messages)} row(s): {sample}")
-
-        validated_df = pd.DataFrame([r.model_dump() for r in records])
-        validated_df["dataset_snapshot_id"] = snapshot_id
         
-        return validated_df
+        # DB-based loading (production)
+        from src.db.connection import get_engine
+        engine = get_engine()
+        
+        where_clause = f" WHERE symbol = '{symbol}'" if symbol else ""
+        bars_df = pd.read_sql(f"SELECT * FROM ohlcv_bars{where_clause}", engine)
+        ticks_df = pd.read_sql(f"SELECT * FROM ticks{where_clause}", engine)
+        
+        if not ticks_df.empty:
+            ticks_df['interval'] = 'tick'
+            ticks_df['open'] = ticks_df['price']
+            ticks_df['high'] = ticks_df['price']
+            ticks_df['low'] = ticks_df['price']
+            ticks_df['close'] = ticks_df['price']
+            # Align columns
+            valid_cols = [c for c in ticks_df.columns if c in bars_df.columns or c == 'interval']
+            ticks_df = ticks_df[valid_cols]
+            
+        if bars_df.empty and ticks_df.empty:
+            return pd.DataFrame()
+            
+        df = pd.concat([bars_df, ticks_df], ignore_index=True) if not ticks_df.empty else bars_df
+            
+        # Deduplicate to prevent realtime tick noise from duplicating historical bars
+        if 'symbol' in df.columns and 'timestamp' in df.columns:
+            df = df.sort_values(['symbol', 'timestamp', 'interval']).drop_duplicates(
+                subset=['symbol', 'timestamp'], keep='last'
+            )
+            
+        if 'timestamp' in df.columns:
+            df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
+            
+        if 'schema_version' in df.columns:
+            for version in df['schema_version'].unique():
+                if not (self._is_schema_allowed("market.bar", version) or self._is_schema_allowed("market.tick", version)):
+                    raise SchemaVersionError(f"Schema version {version} not accepted by contract.")
+                    
+        df["dataset_snapshot_id"] = snapshot_id
+        return df

@@ -78,7 +78,7 @@ def nse_pipeline_setup(tmp_path):
     
     return config_path, str(real_market_path), str(macro_path)
 
-@pytest.mark.skipif(not Path("data/silver/ohlcv/RELIANCE.NS").exists(), reason="Real NSE data missing")
+@pytest.mark.skipif(not list(Path("data/silver/ohlcv").rglob("*.parquet")), reason="Real NSE parquet data missing (migrated to DB)")
 def test_real_nse_data_pipeline(nse_pipeline_setup):
     """
     Integration test utilizing the fully populated data/silver/ohlcv directory.

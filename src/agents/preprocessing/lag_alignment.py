@@ -25,59 +25,76 @@ class LagAligner:
             "RBI_BULLETIN": timedelta(hours=24)
         }
 
-    def align(self, market_df: pd.DataFrame, macro_df: pd.DataFrame) -> pd.DataFrame:
+    def align(self, market_df: pd.DataFrame, macro_df: pd.DataFrame, text_df: Optional[pd.DataFrame] = None) -> pd.DataFrame:
         """
-        Merges macro data to market data using Pandas asof merge.
-        Crucial: It ensures that market rows only see macro data that was PUBLISHED BEFORE the market timestamp.
+        Merges macro data and textual sentiment to market data using Pandas asof merge.
+        Crucial: It ensures that market rows only see data that was PUBLISHED BEFORE the market timestamp.
         """
         if market_df.empty:
-            return market_df
-            
-        if macro_df.empty:
             return market_df
 
         # Work on copies and force nanosecond precision so merge_asof keys match
         market_df = market_df.copy()
-        macro_df = macro_df.copy()
         market_df["timestamp"] = pd.to_datetime(market_df["timestamp"], utc=True).astype("datetime64[ns, UTC]")
-        macro_df["timestamp"] = pd.to_datetime(macro_df["timestamp"], utc=True).astype("datetime64[ns, UTC]")
+        
+        if not macro_df.empty:
+            macro_df = macro_df.copy()
+            macro_df["timestamp"] = pd.to_datetime(macro_df["timestamp"], utc=True).astype("datetime64[ns, UTC]")
 
-        # 1. Pivot Macro dataframe so each indicator is a column
-        pivot_macro = macro_df.pivot_table(
-            index="timestamp", 
-            columns="indicator_name", 
-            values="value", 
-            aggfunc="last"
-        ).reset_index()
-        pivot_macro["timestamp"] = pd.to_datetime(pivot_macro["timestamp"], utc=True).astype("datetime64[ns, UTC]")
+            # 1. Pivot Macro dataframe so each indicator is a column
+            pivot_macro = macro_df.pivot_table(
+                index="timestamp", 
+                columns="indicator_name", 
+                values="value", 
+                aggfunc="last"
+            ).reset_index()
+            pivot_macro["timestamp"] = pd.to_datetime(pivot_macro["timestamp"], utc=True).astype("datetime64[ns, UTC]")
 
-        # 2. Shift the timestamps forward by their respective publication delays.
-        # This creates 'effective_time' meaning "when did this data become known to the market?"
-        aligned_dfs = []
-        for col in pivot_macro.columns:
-            if col == "timestamp":
-                continue
+            # 2. Shift the timestamps forward by their respective publication delays.
+            for col in pivot_macro.columns:
+                if col == "timestamp":
+                    continue
+                    
+                delay = self.publication_delays.get(col, timedelta(0))
                 
-            delay = self.publication_delays.get(col, timedelta(0))
+                # Create a localized dataframe for the indicator shifted forward
+                ind_df = pivot_macro[["timestamp", col]].dropna().copy()
+                ind_df["effective_time"] = (ind_df["timestamp"] + delay).astype("datetime64[ns, UTC]")
+                ind_df = ind_df.sort_values("effective_time")
+                
+                # Merge this indicator into the market frame using standard backward asof
+                market_df = market_df.sort_values("timestamp")
+                market_df = pd.merge_asof(
+                    market_df, 
+                    ind_df[["effective_time", col]], 
+                    left_on="timestamp", 
+                    right_on="effective_time", 
+                    direction="backward"
+                )
+                # Cleanup intermediate timing column 
+                market_df = market_df.drop(columns=["effective_time"], errors="ignore")
+
+        # 3. Align Textual Sentiment
+        if text_df is not None and not text_df.empty:
+            text_df = text_df.copy()
+            text_df["timestamp"] = pd.to_datetime(text_df["timestamp"], utc=True).astype("datetime64[ns, UTC]")
             
-            # Create a localized dataframe for the indicator shifted forward
-            ind_df = pivot_macro[["timestamp", col]].dropna().copy()
-            ind_df["effective_time"] = (ind_df["timestamp"] + delay).astype("datetime64[ns, UTC]")
-            ind_df = ind_df.sort_values("effective_time")
-            
-            # Merge this indicator into the market frame using standard backward asof
-            # Match effective_time <= market timestamp
+            # Sort both for merge_asof
             market_df = market_df.sort_values("timestamp")
-            market_df["timestamp"] = market_df["timestamp"].astype("datetime64[ns, UTC]")
-            market_df = pd.merge_asof(
-                market_df, 
-                ind_df[["effective_time", col]], 
-                left_on="timestamp", 
-                right_on="effective_time", 
-                direction="backward"
-            )
-            # Cleanup intermediate timing column 
-            market_df = market_df.drop(columns=["effective_time"], errors="ignore")
+            text_df = text_df.sort_values("timestamp")
+            
+            # We must group by symbol for text, as sentiment is entity-specific, unlike global macro
+            if "symbol" in market_df.columns and "symbol" in text_df.columns:
+                market_df = pd.merge_asof(
+                    market_df,
+                    text_df[["timestamp", "symbol", "sentiment_score", "text_items_count"]].dropna(subset=["sentiment_score"]),
+                    on="timestamp",
+                    by="symbol",
+                    direction="backward"
+                )
+
+        if "symbol" in market_df.columns:
+            market_df = market_df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
 
         return market_df
 

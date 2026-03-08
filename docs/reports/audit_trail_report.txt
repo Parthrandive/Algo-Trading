@@ -1,0 +1,23 @@
+
+════════════════════════════════════════════════════════════════
+  Audit Trail Spot-Check Report
+════════════════════════════════════════════════════════════════
+  Total files scanned:   587
+  Total records:         8410
+  Clean files:           585
+  Files with gaps:       2
+  Overall:               FAIL
+────────────────────────────────────────────────────────────────
+  Gap Details:
+
+  📁 data/silver/text/canonical/2026/03/2026-03-05.parquet (45 records)
+     ⚠  source_type: invalid_enum_values (45 records)
+
+  📁 data/silver/text/sidecar/2026/03/2026-03-05.parquet (45 records)
+     ⚠  source_type: invalid_enum_values (45 records)
+     ⚠  ingestion_timestamp_ist: column_missing (45 records)
+     ⚠  schema_version: column_missing (45 records)
+     ⚠  quality_status: column_missing (45 records)
+════════════════════════════════════════════════════════════════
+
+Report saved to docs/reports/audit_trail_report.json

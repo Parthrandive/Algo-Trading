@@ -231,12 +231,12 @@ def show_historical_data(
                 from src.agents.sentinel.bronze_recorder import BronzeRecorder
                 from src.agents.sentinel.config import load_default_sentinel_config
                 from src.agents.sentinel.pipeline import SentinelIngestPipeline
-                from src.agents.sentinel.recorder import SilverRecorder
+                from src.db.silver_db_recorder import SilverDBRecorder
 
                 config = load_default_sentinel_config()
                 pipeline = SentinelIngestPipeline(
                     client=_build_failover_client(config),
-                    silver_recorder=SilverRecorder(),
+                    silver_recorder=SilverDBRecorder(),
                     bronze_recorder=BronzeRecorder(),
                     session_rules=config.session_rules,
                 )
@@ -266,22 +266,28 @@ def show_historical_data(
     else:
         print("Local-only mode enabled. Reading local data only.")
 
-    df, file_names, read_error = _load_recent_history(base_dir)
-    result["files"] = file_names
+    from src.db.queries import get_bars
+    
+    # Let's request the last 30 days from DB if start_date is not specified
+    query_end = end_date or datetime.now(timezone.utc)
+    query_start = start_date or (query_end - timedelta(days=days))
+    
+    df = get_bars(target_symbol, query_start, query_end, interval=interval)
+    
+    # We still keep resolve_historical_dir for the "silver_path" output for compatibility
     result["silver_path"] = str(base_dir.resolve())
+    result["files"] = ["postgresql_db"]
 
-    if read_error:
-        print(read_error)
-        if not auto_fetch and read_error in {
-            f"No historical data found in {base_dir}",
-            "No parquet files found.",
-        }:
+    if df.empty:
+        msg = f"No historical data found in DB for {target_symbol} between {query_start} and {query_end}"
+        print(msg)
+        if not auto_fetch:
             print(
                 "Rerun with auto-fetch to pull and persist history:\n"
                 f"  {_build_autofetch_rerun_command(target_symbol, interval=interval, days=days, start_date=start_date, end_date=end_date)}"
             )
         if result["status"] != "ERROR":
-            result["error"] = read_error
+            result["error"] = msg
         return result
 
     assert df is not None
@@ -298,8 +304,8 @@ def show_historical_data(
     if "timestamp" in df.columns:
         df = df.sort_values(by="timestamp", ascending=True)
 
-    print(f"Reading files: {file_names}")
-    print(f"\nLast 10 records (spanning {len(file_names)} days):")
+    print(f"Reading from: PostgreSQL -> sentinel_db.ohlcv_bars")
+    print(f"\nLast 10 records:")
     print(df.tail(10)[display_columns])
 
     result["status"] = "SUCCESS"
@@ -351,6 +357,15 @@ def show_live_quote(symbol_candidates: list[str]) -> dict:
                 print(f"Volume: {tick.volume}")
                 print(f"Source: {tick.source_type}")
                 print(f"Time:   {tick.timestamp}")
+
+                # Save tick to database
+                from src.db.silver_db_recorder import SilverDBRecorder
+                try:
+                    db_recorder = SilverDBRecorder()
+                    db_recorder.save_ticks([tick])
+                    print(f"Saved live tick for {tick.symbol} to PostgreSQL db")
+                except Exception as db_exc:
+                    print(f"Warning: Failed to persist live tick to DB: {db_exc}")
 
                 result.update(
                     {

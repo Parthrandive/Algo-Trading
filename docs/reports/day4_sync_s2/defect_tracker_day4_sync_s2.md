@@ -6,4 +6,4 @@
 | ID | Severity | Status | Owner | Title | Detail |
 | --- | --- | --- | --- | --- | --- |
 | DEF-001 | Medium | Open | Data Platform | Corporate action records failed strict validation | 16 row(s) failed schema validation during replay prep. |
-| DEF-002 | Medium | Open | Preprocessing | Gold replay output is in-memory only | Preprocessing replay returns TransformOutput hash and records but does not persist to data/gold. |
+| DEF-002 | Medium | Closed | Preprocessing | Gold replay output is in-memory only | Preprocessing replay returns TransformOutput hash and records but does not persist to data/gold. |
