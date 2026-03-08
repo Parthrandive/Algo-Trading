@@ -82,11 +82,16 @@ class FXReservesClient:
             name.value,
             date_range,
         )
-        payload = (
-            self._raw_fetcher(date_range)
-            if self._raw_fetcher is not None
-            else self._build_simulated_payload(date_range)
-        )
+        if self._raw_fetcher is not None:
+            payload = self._raw_fetcher(date_range)
+        else:
+            from src.agents.macro.clients.fx_reserves_scraper import fetch_real_fx_reserves
+            try:
+                logger.info("Calling real FX Reserves scraper...")
+                payload = fetch_real_fx_reserves(date_range)
+            except Exception as e:
+                logger.error("Real scraper failed (%s), falling back to simulated payload.", e)
+                payload = self._build_simulated_payload(date_range)
         return self._parser.parse(payload)
 
     @staticmethod

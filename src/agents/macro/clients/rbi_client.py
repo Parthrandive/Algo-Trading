@@ -120,14 +120,20 @@ class RBIClient:
         date_range: DateRange,
     ) -> dict[str, Any]:
         if name == MacroIndicatorType.RBI_BULLETIN:
-            return {
-                "publications": [
-                    {
-                        "date": date_range.end.isoformat(),
-                        "title": "RBI Bulletin (simulated)",
-                    }
-                ]
-            }
+            from src.agents.macro.clients.rbi_bulletin_scraper import fetch_real_rbi_bulletin
+            try:
+                logger.info(f"Calling real RBI Bulletin scraper...")
+                return fetch_real_rbi_bulletin(date_range)
+            except Exception as e:
+                logger.error(f"Real RBI Bulletin scraper failed ({e}), falling back to simulated.")
+                return {
+                    "publications": [
+                        {
+                            "date": date_range.end.isoformat(),
+                            "title": "RBI Bulletin (simulated)",
+                        }
+                    ]
+                }
         if name == MacroIndicatorType.FX_RESERVES:
             day_seed = date_range.end.toordinal() % 20
             return {
