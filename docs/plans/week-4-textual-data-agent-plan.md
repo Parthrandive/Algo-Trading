@@ -17,6 +17,7 @@
 **Mandatory Outputs by End of Week**
 - Source adapters for the required textual feeds with normalized schema.
 - Provenance tags per record, including whether source came from primary API/feed or fallback scraper.
+- RBI sourcing policy enforced in code/config: `official RSS -> DBIE official download -> fallback scraper (emergency-only)`.
 - Compliance filter that blocks unpublished/embargoed/unlicensed data and logs reject reasons.
 - Quality and safety controls: missingness, deduplication, spam/manipulation flags, slang-scam patterns.
 - Contract-safe canonical records that validate against existing text schemas (`NewsArticle_v1.0`, `SocialPost_v1.0`, `EarningsTranscript_v1.0`).
