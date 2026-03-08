@@ -445,6 +445,10 @@ def run(argv: list[str]) -> int:
     else:
         live = show_live_quote(symbol_candidates)
 
+    # --- 3. Auto-trigger Preprocessing (Silver -> Gold) ---
+    target_symbol = normalize_symbol(symbol_candidates[0])
+    _run_preprocessing(target_symbol)
+
     if args.json:
         payload = {
             "requested_symbol": args.symbol,
@@ -457,6 +461,27 @@ def run(argv: list[str]) -> int:
     if historical["status"] == "ERROR" and live.get("status") == "ERROR":
         return EXIT_FAILURE
     return EXIT_SUCCESS
+
+
+def _run_preprocessing(symbol: str) -> None:
+    """Auto-trigger preprocessing pipeline for the given symbol after ingestion."""
+    print(f"\n--- 3. Auto-Preprocessing (Silver → Gold) for {symbol} ---")
+    try:
+        from src.agents.preprocessing.pipeline import PreprocessingPipeline
+
+        pipeline = PreprocessingPipeline(config_path="configs/transform_config_v1.json")
+        snapshot_id = f"auto_{symbol}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+
+        output = pipeline.process_snapshot(
+            market_source_path="db_virtual",
+            macro_source_path="db_virtual",
+            text_source_path="db_virtual",
+            snapshot_id=snapshot_id,
+            symbol_filter=symbol,
+        )
+        print(f"Preprocessing complete: {len(output.records)} cleaned rows → gold_features")
+    except Exception as exc:
+        print(f"Warning: Auto-preprocessing failed for {symbol}: {exc}")
 
 
 def main() -> None:
