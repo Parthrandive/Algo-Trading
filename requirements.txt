@@ -30,3 +30,8 @@ ntplib>=0.4.0    # NTP client for clock sync checks
 sqlalchemy>=2.0.0
 psycopg2-binary>=2.9.9
 schedule==1.2.2
+# Phase 2 ML Dependencies
+statsmodels>=0.14.0
+torch>=2.2.0
+arch>=7.0.0
+scikit-learn>=1.4.0
