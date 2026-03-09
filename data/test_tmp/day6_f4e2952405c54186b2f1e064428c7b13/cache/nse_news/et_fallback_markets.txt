@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <item>
+      <title><![CDATA[Nifty moves up after policy cues]]></title>
+      <description><![CDATA[Fallback route news from ET RSS.]]></description>
+      <link>https://example.com/nse-day6-fallback</link>
+      <guid>nse-day6-guid</guid>
+      <pubDate>Sat, 07 Mar 2026 10:00:00 +0530</pubDate>
+    </item>
+  </channel>
+</rss>

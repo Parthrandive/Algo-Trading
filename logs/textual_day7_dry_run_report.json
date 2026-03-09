@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-03-08T14:15:31.916957+00:00",
+  "total_canonical_records_produced": 54,
+  "total_sidecar_records_produced": 61,
+  "source_distribution": {
+    "rss_feed": 57,
+    "official_api": 1,
+    "social_media": 3
+  },
+  "quality_status_distribution": {
+    "warn": 11,
+    "pass": 43
+  },
+  "metrics": {
+    "compliance_rejects": 7,
+    "canonical_validation_drops": 7,
+    "stale_ttl_breaches": 0,
+    "fallback_source_rates": 7
+  }
+}
