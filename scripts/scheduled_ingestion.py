@@ -22,16 +22,61 @@ logger = logging.getLogger("DB_Scheduler")
 
 from scripts.backfill_historical import run as run_backfill
 
+import json
+
 # Configuration 
-DEFAULT_SYMBOLS = ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "SBIN", "BHARTIARTL", "ITC"]
-RUN_TIME_IST = os.environ.get("SCHEDULE_TIME_IST", "18:00")  # 6:00 PM IST is 12:30 PM UTC
+WATCHLIST_PATH = PROJECT_ROOT / "configs" / "watchlist.json"
+RUN_TIME_IST_MORNING = os.environ.get("SCHEDULE_TIME_MORNING_IST", "10:00")
+RUN_TIME_IST_EVENING = os.environ.get("SCHEDULE_TIME_EVENING_IST", "16:00")
 DAYS_TO_FETCH = int(os.environ.get("SCHEDULE_DAYS", "3"))
+
+def get_todays_symbols() -> list[str]:
+    """
+    Reads watchlist.json and returns a merged list of:
+    1. Core Symbols
+    2. Index/FX Symbols
+    3. Today's batch from the Rotating Pool
+    """
+    if not WATCHLIST_PATH.exists():
+        logger.warning(f"Watchlist not found at {WATCHLIST_PATH}, using fallback.")
+        return ["RELIANCE.NS", "TATASTEEL.NS", "^NSEI", "USDINR=X"]
+        
+    with open(WATCHLIST_PATH, "r") as f:
+        config = json.load(f)
+        
+    core = config.get("core_symbols", [])
+    index_fx = config.get("index_fx_symbols", [])
+    pool = config.get("rotating_pool", [])
+    batch_size = config.get("rotate_batch_size", 8)
+    
+    if not pool:
+        return core + index_fx
+        
+    # Simple deterministic rotation based on day of year
+    day_of_year = datetime.now(timezone.utc).timetuple().tm_yday
+    
+    # Calculate starting index for today's batch
+    batch_index = (day_of_year % ((len(pool) + batch_size - 1) // batch_size))
+    start_idx = batch_index * batch_size
+    end_idx = min(start_idx + batch_size, len(pool))
+    
+    todays_rotating_batch = pool[start_idx:end_idx]
+    
+    logger.info(f"Rotation: Day {day_of_year}, picking batch {batch_index+1} (indices {start_idx}-{end_idx})")
+    
+    # Combine and deduplicate
+    all_symbols = core + index_fx + todays_rotating_batch
+    # Keep order but remove duplicates
+    seen = set()
+    return [x for x in all_symbols if not (x in seen or seen.add(x))]
 
 def ingestion_job():
     logger.info("="*50)
     logger.info(f"Starting daily DB ingestion job at {datetime.now(timezone.utc)}")
     
-    symbols_arg = ",".join(DEFAULT_SYMBOLS)
+    todays_symbols = get_todays_symbols()
+    symbols_arg = ",".join(todays_symbols)
+    logger.info(f"Target symbols for this run: {symbols_arg}")
     
     # We call the backfill script's run() method directly
     # It will automatically write to SilverDBRecorder (PostgreSQL) now
@@ -101,16 +146,23 @@ def ingestion_job():
 
 def main():
     logger.info(f"Automated DB Ingestion Scheduler starting...")
-    logger.info(f"Target symbols: {DEFAULT_SYMBOLS}")
-    logger.info(f"Scheduled time (IST): {RUN_TIME_IST} every day")
+    logger.info(f"Scheduled times (IST): Morning at {RUN_TIME_IST_MORNING}, Evening at {RUN_TIME_IST_EVENING} every day")
     logger.info(f"Lookback window: {DAYS_TO_FETCH} days")
     
-    # schedule library works on local system time by default
-    # If container timezone is UTC, "18:00" might need to be "12:30"
-    # The .env file currently has TIMEZONE="Asia/Kolkata" but we'll 
-    # just rely on the OS time configured in the container.
+    # Check if this is a one-off run
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--run-once", action="store_true", help="Run the ingestion immediately and exit")
+    args_p, unknown = parser.parse_known_args()
     
-    schedule.every().day.at(RUN_TIME_IST).do(ingestion_job)
+    if args_p.run_once:
+        logger.info("Running single ingestion pass due to --run-once flag.")
+        ingestion_job()
+        sys.exit(0)
+    
+    # schedule library works on local system time by default
+    schedule.every().day.at(RUN_TIME_IST_MORNING).do(ingestion_job)
+    schedule.every().day.at(RUN_TIME_IST_EVENING).do(ingestion_job)
     
     # Optional: Run once immediately on startup for testing/bootstrap
     if os.environ.get("RUN_IMMEDIATELY", "false").lower() == "true":
