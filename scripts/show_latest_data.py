@@ -303,6 +303,18 @@ def show_historical_data(
 
     if "timestamp" in df.columns:
         df = df.sort_values(by="timestamp", ascending=True)
+        # Convert to IST for easier reading
+        import pytz
+        ist = pytz.timezone("Asia/Kolkata")
+        if pd.api.types.is_datetime64_any_dtype(df["timestamp"]):
+            try:
+                # If naive, localize to UTC first, then convert. If aware, just convert.
+                if df["timestamp"].dt.tz is None:
+                    df["timestamp"] = df["timestamp"].dt.tz_localize("UTC").dt.tz_convert(ist)
+                else:
+                    df["timestamp"] = df["timestamp"].dt.tz_convert(ist)
+            except Exception as e:
+                pass
 
     print(f"Reading from: PostgreSQL -> sentinel_db.ohlcv_bars")
     print(f"\nLast 10 records:")
@@ -356,7 +368,15 @@ def show_live_quote(symbol_candidates: list[str]) -> dict:
                 print(f"Price:  {tick.price}")
                 print(f"Volume: {tick.volume}")
                 print(f"Source: {tick.source_type}")
-                print(f"Time:   {tick.timestamp}")
+                import pytz
+                ist = pytz.timezone("Asia/Kolkata")
+                tick_time_ist = tick.timestamp
+                if hasattr(tick_time_ist, "astimezone"):
+                    if tick_time_ist.tzinfo is None:
+                        tick_time_ist = tick_time_ist.replace(tzinfo=timezone.utc)
+                    tick_time_ist = tick_time_ist.astimezone(ist)
+
+                print(f"Time:   {tick_time_ist}")
 
                 # Save tick to database
                 from src.db.silver_db_recorder import SilverDBRecorder
