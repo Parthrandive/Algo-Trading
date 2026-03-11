@@ -26,8 +26,8 @@ import json
 
 # Configuration 
 WATCHLIST_PATH = PROJECT_ROOT / "configs" / "watchlist.json"
-RUN_TIME_IST_MORNING = os.environ.get("SCHEDULE_TIME_MORNING_IST", "10:00")
-RUN_TIME_IST_EVENING = os.environ.get("SCHEDULE_TIME_EVENING_IST", "16:00")
+RUN_TIME_IST_MORNING = os.environ.get("SCHEDULE_TIME_MORNING_IST", "10:20")
+RUN_TIME_IST_EVENING = os.environ.get("SCHEDULE_TIME_EVENING_IST", "16:30")
 DAYS_TO_FETCH = int(os.environ.get("SCHEDULE_DAYS", "3"))
 
 def get_todays_symbols() -> list[str]:
