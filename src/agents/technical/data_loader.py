@@ -1,6 +1,6 @@
 import pandas as pd
 from typing import Optional
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 class DataLoader:
@@ -29,14 +29,26 @@ class DataLoader:
         Returns:
             pd.DataFrame: DataFrame containing OHLCV features.
         """
-        query = f"SELECT * FROM sentinel_db.ohlcv_bars WHERE symbol = '{symbol}' ORDER BY timestamp ASC"
-        
-        if limit:
-             query += f" LIMIT {limit}"
-             
+        if not symbol:
+            raise ValueError("`symbol` must be a non-empty string.")
+
+        query = """
+            SELECT *
+            FROM sentinel_db.ohlcv_bars
+            WHERE symbol = :symbol
+            ORDER BY timestamp ASC
+        """
+        params = {"symbol": symbol}
+
+        if limit is not None:
+            if limit <= 0:
+                raise ValueError("`limit` must be a positive integer when provided.")
+            query += " LIMIT :limit"
+            params["limit"] = int(limit)
+
         try:
-             # Using pandas read_sql to execute query and return DataFrame directly
-             df = pd.read_sql(query, self.engine)
-             return df
+            # Using pandas read_sql to execute query and return DataFrame directly
+            df = pd.read_sql(text(query), self.engine, params=params)
+            return df
         except Exception as e:
-             raise RuntimeError(f"Failed to load historical bars: {str(e)}")
+            raise RuntimeError(f"Failed to load historical bars: {str(e)}")

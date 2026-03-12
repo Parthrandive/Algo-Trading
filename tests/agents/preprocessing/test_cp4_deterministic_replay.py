@@ -72,7 +72,8 @@ def test_deterministic_replay_hash_stability(mock_market_data, tmp_path):
         output: TransformOutput = pipeline.process_snapshot(
             market_source_path=mock_market_data,
             macro_source_path=str(MACRO_SAMPLES_DIR),
-            snapshot_id=snapshot_id
+            snapshot_id=snapshot_id,
+            text_source_path="none",
         )
         hashes.append(output.output_hash)
         
