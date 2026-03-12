@@ -14,9 +14,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - python-version: "3.13"
+          - python-version: "3.12"
             experimental: false
-          - python-version: "3.14"
+          - python-version: "3.13"
             experimental: true
 
     services:
@@ -48,15 +48,23 @@ jobs:
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         pip install pytest ruff
+    - name: Wait for Postgres
+      run: |
+        for i in {1..30}; do
+          pg_isready -h localhost -p 5432 -U sentinel && exit 0
+          sleep 2
+        done
+        echo "Postgres did not become ready in time"
+        exit 1
     - name: Initialize database schema
       run: |
         PYTHONPATH=. python -c "from src.db.init_db import init_database; init_database()"
     - name: Lint with Ruff
       run: |
         # stop the build if there are Python syntax errors or undefined names
-        ruff check . --select=E9,F63,F7,F82 --target-version=py314
+        ruff check . --select=E9,F63,F7,F82 --target-version=py312
         # exit-zero treats all errors as warnings.
-        ruff check . --exit-zero --target-version=py314
+        ruff check . --exit-zero --target-version=py312
     - name: Run tests with pytest
       run: |
         PYTHONPATH=. pytest
