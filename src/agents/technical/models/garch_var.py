@@ -1,3 +1,4 @@
+import logging
 import os
 import tempfile
 from typing import Dict, Iterable, Optional, Sequence, Union
@@ -11,6 +12,8 @@ os.makedirs(_MPL_CONFIG_DIR, exist_ok=True)
 os.environ.setdefault("MPLCONFIGDIR", _MPL_CONFIG_DIR)
 
 from arch import arch_model
+
+logger = logging.getLogger(__name__)
 
 
 class GarchVaRModel:
@@ -29,6 +32,7 @@ class GarchVaRModel:
         mean: str = "Constant",
         dist: str = "normal",
         scale_factor: float = 100.0,
+        max_fit_retries: int = 2,
     ):
         self.window_size = window_size
         self.p = p
@@ -36,11 +40,23 @@ class GarchVaRModel:
         self.mean = mean
         self.dist = dist
         self.scale_factor = scale_factor
+        self.max_fit_retries = max_fit_retries
 
         self.fit_result = None
         self.training_returns: Optional[pd.Series] = None
         self.is_trained = False
         self.last_convergence_flag: Optional[int] = None
+
+    @staticmethod
+    def _validate_confidence_levels(
+        confidence_levels: Sequence[float],
+    ) -> Sequence[float]:
+        if not confidence_levels:
+            raise ValueError("At least one confidence level is required.")
+        for level in confidence_levels:
+            if not 0.0 < level < 1.0:
+                raise ValueError("Confidence levels must be between 0 and 1.")
+        return confidence_levels
 
     def _coerce_returns(
         self,
@@ -78,21 +94,84 @@ class GarchVaRModel:
             raise ValueError("Not enough return observations to fit GARCH.")
 
         scaled_returns = returns * self.scale_factor
-        model = arch_model(
-            scaled_returns,
-            mean=self.mean,
-            vol="GARCH",
-            p=self.p,
-            q=self.q,
-            dist=self.dist,
-            rescale=False,
+        last_flag = None
+
+        for attempt in range(self.max_fit_retries + 1):
+            model = arch_model(
+                scaled_returns,
+                mean=self.mean,
+                vol="GARCH",
+                p=self.p,
+                q=self.q,
+                dist=self.dist,
+                rescale=False,
+            )
+            fit_result = model.fit(
+                disp="off",
+                show_warning=False,
+                options={"maxiter": 400 * (attempt + 1)},
+            )
+            convergence_flag = int(getattr(fit_result, "convergence_flag", 0))
+            if convergence_flag == 0:
+                return fit_result
+
+            last_flag = convergence_flag
+            logger.warning(
+                "GARCH fit did not converge (attempt=%s, convergence_flag=%s).",
+                attempt + 1,
+                convergence_flag,
+            )
+
+        raise RuntimeError(
+            "GARCH fit failed to converge after "
+            f"{self.max_fit_retries + 1} attempt(s). Last convergence_flag={last_flag}."
         )
-        return model.fit(disp="off", show_warning=False)
 
     @staticmethod
-    def _normal_expected_shortfall(mean: float, sigma: float, tail_probability: float) -> float:
+    def _normal_expected_shortfall_z(tail_probability: float) -> float:
         z_score = norm.ppf(tail_probability)
-        return mean - sigma * norm.pdf(z_score) / tail_probability
+        return -norm.pdf(z_score) / tail_probability
+
+    def _distribution_params(self, fit_result) -> np.ndarray:
+        distribution = fit_result.model.distribution
+        param_names = distribution.parameter_names()
+        if not param_names:
+            return np.array([], dtype=float)
+        return np.array([float(fit_result.params[name]) for name in param_names], dtype=float)
+
+    def _distribution_quantile_and_es(
+        self,
+        fit_result,
+        tail_probability: float,
+    ) -> tuple[float, float]:
+        distribution = fit_result.model.distribution
+        dist_params = self._distribution_params(fit_result)
+
+        try:
+            quantile = float(
+                np.asarray(distribution.ppf(np.array([tail_probability]), dist_params))
+                .reshape(-1)[0]
+            )
+            partial_moment = float(
+                np.asarray(
+                    distribution.partial_moment(
+                        1,
+                        np.array([quantile]),
+                        dist_params,
+                    )
+                ).reshape(-1)[0]
+            )
+            es_standardized = partial_moment / tail_probability
+            return quantile, es_standardized
+        except Exception:
+            logger.warning(
+                "Falling back to normal-theory VaR/ES tail calculation for dist=%s.",
+                self.dist,
+                exc_info=True,
+            )
+            normal_quantile = norm.ppf(tail_probability)
+            normal_es = self._normal_expected_shortfall_z(tail_probability)
+            return normal_quantile, normal_es
 
     def _forecast_from_result(
         self,
@@ -107,19 +186,18 @@ class GarchVaRModel:
         )
 
         metrics: Dict[str, float] = {"volatility_forecast": sigma_forecast}
+        levels = self._validate_confidence_levels(confidence_levels)
 
-        for level in confidence_levels:
-            if not 0.0 < level < 1.0:
-                raise ValueError("Confidence levels must be between 0 and 1.")
-
+        for level in levels:
             percentile = int(round(level * 100))
             tail_probability = 1.0 - level
-            z_score = norm.ppf(tail_probability)
 
-            parametric_var = mean_forecast + sigma_forecast * z_score
-            parametric_es = self._normal_expected_shortfall(
-                mean_forecast, sigma_forecast, tail_probability
+            quantile, es_standardized = self._distribution_quantile_and_es(
+                fit_result,
+                tail_probability,
             )
+            parametric_var = mean_forecast + sigma_forecast * quantile
+            parametric_es = mean_forecast + sigma_forecast * es_standardized
 
             historical_var = float(historical_returns.quantile(tail_probability))
             historical_tail = historical_returns[historical_returns <= historical_var]
@@ -178,7 +256,9 @@ class GarchVaRModel:
     ) -> pd.DataFrame:
         """
         Run rolling 1-step-ahead forecasts across the return series.
+        Failed fit windows are retained but marked with NaNs and convergence_flag = -1.
         """
+        levels = self._validate_confidence_levels(confidence_levels)
         returns = self._coerce_returns(data, price_col=price_col)
         effective_window = window_size or self.window_size
 
@@ -188,30 +268,55 @@ class GarchVaRModel:
             )
 
         records = []
+        percentiles = [int(round(level * 100)) for level in levels]
+
         for end_idx in range(effective_window, len(returns)):
             window_returns = returns.iloc[end_idx - effective_window : end_idx]
-            fit_result = self._fit_series(window_returns)
-            forecast_metrics = self._forecast_from_result(
-                fit_result, window_returns, confidence_levels
-            )
-
             realized_return = float(returns.iloc[end_idx])
             timestamp = returns.index[end_idx]
-            record = {
-                "timestamp": timestamp,
-                "realized_return": realized_return,
-                "convergence_flag": int(getattr(fit_result, "convergence_flag", 0)),
-                **forecast_metrics,
-            }
 
-            for level in confidence_levels:
-                percentile = int(round(level * 100))
-                record[f"breach_{percentile}_parametric"] = (
-                    realized_return < forecast_metrics[f"parametric_var_{percentile}"]
+            try:
+                fit_result = self._fit_series(window_returns)
+                forecast_metrics = self._forecast_from_result(
+                    fit_result,
+                    window_returns,
+                    levels,
                 )
-                record[f"breach_{percentile}_historical"] = (
-                    realized_return < forecast_metrics[f"historical_var_{percentile}"]
+                record = {
+                    "timestamp": timestamp,
+                    "realized_return": realized_return,
+                    "convergence_flag": int(getattr(fit_result, "convergence_flag", 0)),
+                    "fit_error": "",
+                    **forecast_metrics,
+                }
+
+                for percentile in percentiles:
+                    record[f"breach_{percentile}_parametric"] = (
+                        realized_return < forecast_metrics[f"parametric_var_{percentile}"]
+                    )
+                    record[f"breach_{percentile}_historical"] = (
+                        realized_return < forecast_metrics[f"historical_var_{percentile}"]
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "Skipping rolling window at index=%s due to fit failure: %s",
+                    end_idx,
+                    exc,
                 )
+                record = {
+                    "timestamp": timestamp,
+                    "realized_return": realized_return,
+                    "convergence_flag": -1,
+                    "fit_error": str(exc),
+                    "volatility_forecast": np.nan,
+                }
+                for percentile in percentiles:
+                    record[f"parametric_var_{percentile}"] = np.nan
+                    record[f"parametric_es_{percentile}"] = np.nan
+                    record[f"historical_var_{percentile}"] = np.nan
+                    record[f"historical_es_{percentile}"] = np.nan
+                    record[f"breach_{percentile}_parametric"] = np.nan
+                    record[f"breach_{percentile}_historical"] = np.nan
 
             records.append(record)
 
@@ -277,21 +382,31 @@ class GarchVaRModel:
         if method not in {"parametric", "historical"}:
             raise ValueError("method must be either `parametric` or `historical`.")
 
+        levels = self._validate_confidence_levels(confidence_levels)
         forecasts = self.rolling_forecast(
             data=data,
             price_col=price_col,
-            confidence_levels=confidence_levels,
+            confidence_levels=levels,
             window_size=window_size,
         )
 
         summary: Dict[int, Dict[str, float]] = {}
-        for level in confidence_levels:
+        for level in levels:
             percentile = int(round(level * 100))
             breach_column = f"breach_{percentile}_{method}"
+            breach_series = forecasts[breach_column]
+            valid_breaches = breach_series.dropna().astype(bool)
+            if valid_breaches.empty:
+                raise RuntimeError(
+                    f"No valid windows available for VaR backtest at {percentile}%."
+                )
+
             kupiec = self.kupiec_pof_test(
-                forecasts[breach_column].tolist(),
+                valid_breaches.tolist(),
                 expected_breach_rate=1.0 - level,
             )
+            kupiec["total_windows"] = int(breach_series.size)
+            kupiec["skipped_windows"] = int(breach_series.isna().sum())
             summary[percentile] = kupiec
 
         return summary

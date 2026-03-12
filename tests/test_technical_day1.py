@@ -83,3 +83,24 @@ def test_data_loader_smoke(mock_read_sql, mock_create_engine):
     assert len(df) == 2
     assert "close" in df.columns
     assert mock_read_sql.called
+
+@patch('src.agents.technical.data_loader.create_engine')
+@patch('src.agents.technical.data_loader.pd.read_sql')
+def test_data_loader_uses_parameterized_query(mock_read_sql, mock_create_engine):
+    """Ensure query uses bind parameters instead of direct string interpolation."""
+    mock_read_sql.return_value = pd.DataFrame(
+        {"symbol": ["X"], "timestamp": ["2026-03-09T03:45:00Z"], "close": [100.0]}
+    )
+
+    loader = DataLoader("sqlite:///:memory:")
+    malicious_symbol = "ABC'; DROP TABLE sentinel_db.ohlcv_bars; --"
+    loader.load_historical_bars(malicious_symbol, limit=1)
+
+    _, kwargs = mock_read_sql.call_args
+    query = mock_read_sql.call_args.args[0]
+    query_text = str(query)
+
+    assert ":symbol" in query_text
+    assert ":limit" in query_text
+    assert kwargs["params"]["symbol"] == malicious_symbol
+    assert kwargs["params"]["limit"] == 1
