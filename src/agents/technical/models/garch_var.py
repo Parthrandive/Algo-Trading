@@ -161,9 +161,12 @@ class GarchVaRModel:
             )
             for partial_call in partial_moment_calls:
                 try:
-                    partial_moment = float(
+                    val = float(
                         np.asarray(partial_call()).reshape(-1)[0]
                     )
+                    if not np.isfinite(val):
+                        continue
+                    partial_moment = val
                     break
                 except Exception:
                     continue
@@ -174,6 +177,8 @@ class GarchVaRModel:
                 )
 
             es_standardized = partial_moment / tail_probability
+            if not np.isfinite(es_standardized):
+                raise RuntimeError("ES calculation produced non-finite result.")
             return quantile, es_standardized
         except Exception:
             logger.warning(
