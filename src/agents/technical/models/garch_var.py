@@ -148,19 +148,31 @@ class GarchVaRModel:
         dist_params = self._distribution_params(fit_result)
 
         try:
-            quantile = float(
-                np.asarray(distribution.ppf(np.array([tail_probability]), dist_params))
-                .reshape(-1)[0]
+            # Some arch versions expect scalar probabilities, others accept vectors.
+            quantile_raw = distribution.ppf(tail_probability, dist_params)
+            quantile = float(np.asarray(quantile_raw).reshape(-1)[0])
+
+            partial_moment = None
+            partial_moment_calls = (
+                lambda: distribution.partial_moment(1, quantile, dist_params),
+                lambda: distribution.partial_moment(1, np.array([quantile]), dist_params),
+                lambda: distribution.partial_moment(1, quantile, parameters=dist_params),
+                lambda: distribution.partial_moment(1, np.array([quantile]), parameters=dist_params),
             )
-            partial_moment = float(
-                np.asarray(
-                    distribution.partial_moment(
-                        1,
-                        np.array([quantile]),
-                        dist_params,
+            for partial_call in partial_moment_calls:
+                try:
+                    partial_moment = float(
+                        np.asarray(partial_call()).reshape(-1)[0]
                     )
-                ).reshape(-1)[0]
-            )
+                    break
+                except Exception:
+                    continue
+
+            if partial_moment is None:
+                raise RuntimeError(
+                    "Distribution partial moment calculation failed across compatibility calls."
+                )
+
             es_standardized = partial_moment / tail_probability
             return quantile, es_standardized
         except Exception:
