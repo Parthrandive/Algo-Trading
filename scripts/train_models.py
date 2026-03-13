@@ -1,0 +1,74 @@
+import argparse
+import logging
+import subprocess
+import sys
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+
+
+def run_command(command: list[str]) -> bool:
+    """Run a shell command and stream output. Return True if successful."""
+    cmd_str = " ".join(command)
+    logger.info(f"Running: {cmd_str}")
+    
+    try:
+        result = subprocess.run(command, check=True)
+        return result.returncode == 0
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Command failed with exit code {e.returncode}: {cmd_str}")
+        return False
+    except Exception as e:
+        logger.error(f"Failed to execute command '{cmd_str}': {e}")
+        return False
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Unified Technical Agent Model Training Entrypoint.")
+    parser.add_argument("--symbol", default="TATASTEEL.NS", help="Stock symbol to train all models on")
+    parser.add_argument("--limit", type=int, default=None, help="Max rows to fetch from DB")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    
+    # Optional skip flags
+    parser.add_argument("--skip-arima-lstm", action="store_true", help="Skip ARIMA-LSTM training")
+    parser.add_argument("--skip-cnn-pattern", action="store_true", help="Skip CNN Pattern training")
+    parser.add_argument("--skip-garch-var", action="store_true", help="Skip GARCH VaR fitting")
+    parser.add_argument("--skip-backtest", action="store_true", help="Skip Day 5 walk-forward backtest")
+    
+    args = parser.parse_args()
+
+    base_cmd = ["python", "scripts/"]
+    common_args = ["--symbol", args.symbol, "--seed", str(args.seed)]
+    if args.limit is not None:
+        common_args.extend(["--limit", str(args.limit)])
+        
+    logger.info(f"=== Starting Unified Training for {args.symbol} ===")
+
+    # 1. ARIMA-LSTM
+    if not args.skip_arima_lstm:
+        cmd = base_cmd + ["train_arima_lstm.py"] + common_args
+        if not run_command(cmd):
+            sys.exit(1)
+            
+    # 2. CNN Pattern
+    if not args.skip_cnn_pattern:
+        cmd = base_cmd + ["train_cnn_pattern.py"] + common_args
+        if not run_command(cmd):
+            sys.exit(1)
+            
+    # 3. GARCH VaR
+    if not args.skip_garch_var:
+        cmd = base_cmd + ["train_garch_var.py"] + common_args + ["--run-backtest"]
+        if not run_command(cmd):
+            sys.exit(1)
+            
+    # 4. Backtest & Ablation
+    if not args.skip_backtest:
+        cmd = base_cmd + ["run_backtest.py"] + common_args
+        if not run_command(cmd):
+            sys.exit(1)
+            
+    logger.info("=== All requested training and backtesting completed successfully! ===")
+
+if __name__ == "__main__":
+    main()
