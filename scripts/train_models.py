@@ -71,7 +71,12 @@ def main():
         cmd = ["python", script_path] + common_args
         if not run_command(cmd):
             sys.exit(1)
-            
+    # 5. Generate Model Cards
+    logger.info("Generating Model Cards...")
+    script_path = os.path.join("scripts", "generate_model_cards.py")
+    cmd = ["python", script_path]
+    run_command(cmd)
+
     logger.info("=== All requested training and backtesting completed successfully! ===")
 
 if __name__ == "__main__":
