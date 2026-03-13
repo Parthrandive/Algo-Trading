@@ -1,0 +1,25 @@
+{
+    "timestamp": "2026-03-13T18:47:11.762654+00:00",
+    "symbol": "TATASTEEL.NS",
+    "input_rows": 168,
+    "train_rows": 123,
+    "val_rows": 31,
+    "feature_count": 17,
+    "hyperparameters": {
+        "arima_order": [
+            5,
+            1,
+            0
+        ],
+        "window_size": 10,
+        "learning_rate": 0.001,
+        "epochs_run": 10,
+        "batch_size": 32,
+        "patience": 5,
+        "seed": 42
+    },
+    "metrics": {
+        "final_train_loss": 2.902663711952952,
+        "best_val_loss": 3.788358688354492
+    }
+}

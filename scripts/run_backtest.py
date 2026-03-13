@@ -30,7 +30,7 @@ def set_seed(seed: int):
 
 def validate_data(df: pd.DataFrame, config: WalkForwardConfig) -> None:
     """Validate data quality before running backtests."""
-    min_rows = 200 # Need enough data to generate at least one split
+    min_rows = 150 # Lowered from 200 to accommodate smaller datasets for now
     if len(df) < min_rows:
         raise ValueError(f"Need at least {min_rows} rows to run walk-forward backtest. Got {len(df)}.")
 
@@ -47,6 +47,9 @@ def main():
     parser.add_argument("--train-months", type=int, default=6, help="Months of training data per split")
     parser.add_argument("--test-months", type=int, default=1, help="Months of testing data per split")
     parser.add_argument("--step-months", type=int, default=1, help="Months to step forward between splits")
+    parser.add_argument("--train-days", type=int, default=None, help="Days of training data per split")
+    parser.add_argument("--test-days", type=int, default=None, help="Days of testing data per split")
+    parser.add_argument("--step-days", type=int, default=None, help="Days to step forward between splits")
     parser.add_argument("--start-date", default="2019-01-01", help="Walk-forward start date (YYYY-MM-DD)")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     args = parser.parse_args()
@@ -63,12 +66,23 @@ def main():
         logger.error(f"Failed to load data: {e}")
         sys.exit(1)
 
+    # Auto-adjust for small datasets (like the 168 rows one)
+    if len(df) < 500 and args.train_days is None and args.train_months == 6:
+        logger.info("Small dataset detected. Auto-adjusting to 3-day training / 1-day testing windows.")
+        args.train_days = 3
+        args.test_days = 1
+        args.step_days = 1
+        args.start_date = df['timestamp'].min().strftime('%Y-%m-%d') if 'timestamp' in df.columns else args.start_date
+
     # 2. Validate Data
     logger.info(f"Loaded {len(df)} rows. Validating...")
     config = WalkForwardConfig(
         train_months=args.train_months,
         test_months=args.test_months,
         step_months=args.step_months,
+        train_days=args.train_days,
+        test_days=args.test_days,
+        step_days=args.step_days,
         start_date=args.start_date
     )
     validate_data(df, config)

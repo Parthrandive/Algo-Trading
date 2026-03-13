@@ -1,29 +1,18 @@
 # Technical Agent Backtest Report (Day 5)
 
-- Status: Framework implemented, awaiting real-data execution window.
-- Source plan: `docs/plans/Phase_2_Week1_Technical_Agent_Plan.md` (Day 5).
+- Generated: `2026-03-13T18:48:00.216978+00:00`
+- Walk-forward config: `{'train_months': 6, 'test_months': 1, 'step_months': 1, 'train_days': 3, 'test_days': 1, 'step_days': 1, 'start_date': '2026-02-09'}`
 
-## What Is Implemented
+## Aggregate Metrics
 
-- Walk-forward backtesting engine in `src/agents/technical/backtest.py`.
-- Rolling train/test splits (`6m train / 1m test / 1m step` configurable).
-- Backtests for:
-  - `arima_lstm`
-  - `cnn_pattern`
-  - `garch_var`
-- Metrics:
-  - Sharpe Ratio
-  - Sortino Ratio
-  - Max Drawdown
-  - Win Rate
-  - Profit Factor
-  - Directional Accuracy
-
-## Run Command (Once Real Data Is Attached)
-
-Use `TechnicalBacktester.run_model_backtests(market_df)` and then `write_reports(...)` to regenerate this report with live metrics.
+| Model | Sharpe | Sortino | Max Drawdown | Win Rate | Profit Factor | Directional Accuracy | Coverage | Predictions |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| arima_lstm | N/A | N/A | N/A | N/A | N/A | N/A | 0.0000 | 0 |
+| cnn_pattern | N/A | N/A | N/A | N/A | N/A | N/A | 0.0000 | 0 |
+| garch_var | N/A | N/A | N/A | N/A | N/A | N/A | 0.0000 | 0 |
 
 ## Notes
 
-- Current repository includes Day 5 framework and tests.
-- Final production numbers should be generated after the real OHLCV attachment for Day 5.
+- Metrics are computed on strategy returns from walk-forward predictions.
+- GARCH strategy uses a volatility-scaled directional proxy from fitted mean/trailing drift.
+- This report is generated from whichever dataset is passed to `TechnicalBacktester`.
