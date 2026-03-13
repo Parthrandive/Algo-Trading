@@ -19,6 +19,9 @@ class WalkForwardConfig:
     train_months: int = 6
     test_months: int = 1
     step_months: int = 1
+    train_days: Optional[int] = None
+    test_days: Optional[int] = None
+    step_days: Optional[int] = None
     start_date: str = "2019-01-01"
 
 
@@ -61,6 +64,10 @@ class TechnicalBacktester:
 
         prepared = market_df.copy()
         prepared["timestamp"] = pd.to_datetime(prepared["timestamp"], errors="coerce")
+        # Ensure timestamps are naive for comparison with config strings
+        if prepared["timestamp"].dt.tz is not None:
+            prepared["timestamp"] = prepared["timestamp"].dt.tz_localize(None)
+            
         prepared = prepared.dropna(subset=["timestamp", "close"]).sort_values("timestamp")
         prepared = prepared.drop_duplicates(subset=["timestamp"]).reset_index(drop=True)
         if prepared.empty:
@@ -88,15 +95,28 @@ class TechnicalBacktester:
         min_ts = prepared["timestamp"].min()
         max_ts = prepared["timestamp"].max()
         cursor = max(pd.Timestamp(self.config.start_date), min_ts)
+        
+        # Unit multipliers
         month = pd.DateOffset(months=1)
+        day = pd.DateOffset(days=1)
 
         splits: List[WalkForwardSplit] = []
         split_id = 1
         while True:
             train_start = cursor
-            train_end = train_start + (month * self.config.train_months)
+            
+            # Decide window size (days take precedence if set)
+            if self.config.train_days is not None:
+                train_end = train_start + (day * self.config.train_days)
+            else:
+                train_end = train_start + (month * self.config.train_months)
+                
             test_start = train_end
-            test_end = test_start + (month * self.config.test_months)
+            
+            if self.config.test_days is not None:
+                test_end = test_start + (day * self.config.test_days)
+            else:
+                test_end = test_start + (month * self.config.test_months)
 
             if test_end > max_ts:
                 break
@@ -122,7 +142,11 @@ class TechnicalBacktester:
                 )
                 split_id += 1
 
-            cursor = cursor + (month * self.config.step_months)
+            if self.config.step_days is not None:
+                cursor = cursor + (day * self.config.step_days)
+            else:
+                cursor = cursor + (month * self.config.step_months)
+                
             if cursor >= max_ts:
                 break
 

@@ -1,25 +1,19 @@
 # Technical Agent Ablation Report (Day 5)
 
-- Status: Ablation framework implemented, awaiting real-data execution window.
-- Source plan: `docs/plans/Phase_2_Week1_Technical_Agent_Plan.md` (Day 5).
+- Generated: `2026-03-13T18:48:00.217617+00:00`
+- Walk-forward config: `{'train_months': 6, 'test_months': 1, 'step_months': 1, 'train_days': 3, 'test_days': 1, 'step_days': 1, 'start_date': '2026-02-09'}`
 
-## What Is Implemented
+## ARIMA-LSTM Feature Group Ablation
 
-- Feature-group ablation flow in `src/agents/technical/backtest.py`.
-- Baseline + one-at-a-time removals for ARIMA-LSTM feature groups:
-  - `volume`
-  - `rsi`
-  - `macd`
-  - `macro` (drops `macro_*` columns when present)
-- Delta tracking versus baseline for:
-  - Sharpe Ratio
-  - Directional Accuracy
-
-## Run Command (Once Real Data Is Attached)
-
-Use `TechnicalBacktester.run_ablation(market_df)` and then `write_reports(...)` to regenerate this report with live ablation deltas.
+| Group | Sharpe | Directional Accuracy | Sharpe Delta vs Baseline | Accuracy Delta vs Baseline | Predictions | Dropped Columns |
+|---|---:|---:|---:|---:|---:|---|
+| baseline | N/A | N/A | N/A | N/A | 0 | None |
+| volume | N/A | N/A | N/A | N/A | 0 | volume |
+| rsi | N/A | N/A | N/A | N/A | 0 | rsi |
+| macd | N/A | N/A | N/A | N/A | 0 | macd, macd_hist, macd_signal |
+| macro | N/A | N/A | N/A | N/A | 0 | None |
 
 ## Notes
 
-- This document is a Day 5 scaffold output.
-- Production ablation rankings will be generated after Day 5 real data is available.
+- Ablation currently targets ARIMA-LSTM feature engineering groups.
+- `macro` group removes columns prefixed with `macro_` when present.

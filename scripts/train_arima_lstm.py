@@ -35,8 +35,8 @@ def set_seed(seed: int):
 
 def validate_data(df: pd.DataFrame) -> None:
     """Validate data quality before training."""
-    if len(df) < 100:
-        raise ValueError(f"Need at least 100 rows to train ARIMA-LSTM. Got {len(df)}.")
+    if len(df) < 40: # Lowered from 100 to support smaller datasets
+        raise ValueError(f"Need at least 40 rows to train ARIMA-LSTM. Got {len(df)}.")
 
     required_cols = {'open', 'high', 'low', 'close', 'volume'}
     missing = required_cols - set(df.columns)
@@ -170,24 +170,37 @@ def main():
 
     # 3. Feature Engineering
     logger.info("Engineering features...")
-    df_features = engineer_features(df).dropna()
-    logger.info(f"Data shape after feature engineering: {df_features.shape}")
-
-    # 4. Initialize Model & ARIMA Fit
+    df_features = engineer_features(df)
+    
+    # Initialize Model
     hybrid = ArimaLstmHybrid(
         arima_order=arima_order,
         learning_rate=args.lr,
         window_size=args.window_size
     )
     
-    # Identify feature columns
+    # Identify feature columns (ignore fully NaN columns and non-numeric types)
     target_col = 'close'
     exclude_cols = {'symbol', 'timestamp', target_col}
-    hybrid.feature_columns = [c for c in df_features.columns if c not in exclude_cols]
+    hybrid.feature_columns = [
+        c for c in df_features.columns 
+        if c not in exclude_cols 
+        and pd.api.types.is_numeric_dtype(df_features[c])
+        and not df_features[c].isna().all()
+    ]
+    
+    # Now drop rows that have NaNs *only* in our selected features (e.g. from rolling windows)
+    df_features = df_features.dropna(subset=hybrid.feature_columns + [target_col]).reset_index(drop=True)
+    logger.info(f"Data shape after feature engineering: {df_features.shape}")
     
     logger.info(f"Fitting ARIMA{hybrid.arima_order} on {target_col}...")
     import statsmodels.api as sm
-    arima_model = sm.tsa.ARIMA(df_features[target_col].values, order=hybrid.arima_order)
+    arima_model = sm.tsa.ARIMA(
+        df_features[target_col].values, 
+        order=hybrid.arima_order,
+        enforce_stationarity=False,
+        enforce_invertibility=False
+    )
     hybrid.arima_results = arima_model.fit()
     
     arima_preds = hybrid.arima_results.predict(typ='levels')

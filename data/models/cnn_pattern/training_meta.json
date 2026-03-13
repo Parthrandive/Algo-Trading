@@ -1,0 +1,28 @@
+{
+    "timestamp": "2026-03-13T18:47:36.855179+00:00",
+    "symbol": "TATASTEEL.NS",
+    "input_rows": 168,
+    "total_windows": 148,
+    "train_windows": 118,
+    "val_windows": 30,
+    "class_distribution": {
+        "0": 54,
+        "1": 33,
+        "2": 61
+    },
+    "hyperparameters": {
+        "window_size": 20,
+        "learning_rate": 0.001,
+        "epochs_run": 18,
+        "batch_size": 32,
+        "patience": 10,
+        "neutral_threshold": 0.001,
+        "normalize": true,
+        "seed": 42
+    },
+    "metrics": {
+        "final_train_loss": 0.3628814220428467,
+        "best_val_loss": 1.0328956842422485,
+        "best_val_acc": 0.36666666666666664
+    }
+}

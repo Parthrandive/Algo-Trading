@@ -37,7 +37,7 @@ def main():
     
     args = parser.parse_args()
 
-    base_cmd = ["python", "scripts/"]
+    import os
     common_args = ["--symbol", args.symbol, "--seed", str(args.seed)]
     if args.limit is not None:
         common_args.extend(["--limit", str(args.limit)])
@@ -46,28 +46,37 @@ def main():
 
     # 1. ARIMA-LSTM
     if not args.skip_arima_lstm:
-        cmd = base_cmd + ["train_arima_lstm.py"] + common_args
+        script_path = os.path.join("scripts", "train_arima_lstm.py")
+        cmd = ["python", script_path] + common_args
         if not run_command(cmd):
             sys.exit(1)
             
     # 2. CNN Pattern
     if not args.skip_cnn_pattern:
-        cmd = base_cmd + ["train_cnn_pattern.py"] + common_args
+        script_path = os.path.join("scripts", "train_cnn_pattern.py")
+        cmd = ["python", script_path] + common_args
         if not run_command(cmd):
             sys.exit(1)
             
     # 3. GARCH VaR
     if not args.skip_garch_var:
-        cmd = base_cmd + ["train_garch_var.py"] + common_args + ["--run-backtest"]
+        script_path = os.path.join("scripts", "train_garch_var.py")
+        cmd = ["python", script_path] + common_args + ["--run-backtest"]
         if not run_command(cmd):
             sys.exit(1)
             
     # 4. Backtest & Ablation
     if not args.skip_backtest:
-        cmd = base_cmd + ["run_backtest.py"] + common_args
+        script_path = os.path.join("scripts", "run_backtest.py")
+        cmd = ["python", script_path] + common_args
         if not run_command(cmd):
             sys.exit(1)
-            
+    # 5. Generate Model Cards
+    logger.info("Generating Model Cards...")
+    script_path = os.path.join("scripts", "generate_model_cards.py")
+    cmd = ["python", script_path]
+    run_command(cmd)
+
     logger.info("=== All requested training and backtesting completed successfully! ===")
 
 if __name__ == "__main__":

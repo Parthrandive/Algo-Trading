@@ -34,7 +34,7 @@ class DataLoader:
 
         query = """
             SELECT *
-            FROM sentinel_db.ohlcv_bars
+            FROM ohlcv_bars
             WHERE symbol = :symbol
             ORDER BY timestamp ASC
         """

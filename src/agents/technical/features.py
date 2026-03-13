@@ -56,12 +56,16 @@ def add_rsi(df: pd.DataFrame, target_col: str = 'close', period: int = 14) -> pd
     avg_gain = gain.rolling(window=period, min_periods=period).mean()
     avg_loss = loss.rolling(window=period, min_periods=period).mean()
 
-    rs = avg_gain / avg_loss
-    result['rsi'] = 100 - (100 / (1 + rs))
-    # Handle edge case where avg_loss is 0
-    result['rsi'] = result['rsi'].fillna(100)
-    # Mask initial NaNs correctly depending on the rolling window
-    result.loc[result.index[:period-1], 'rsi'] = np.nan
+    # Prevent division by zero
+    rs = avg_gain / avg_loss.replace(0, np.nan)
+    
+    rsi = 100 - (100 / (1 + rs))
+    # If avg_loss was 0, RSI is 100
+    rsi = rsi.fillna(100)
+    
+    result['rsi'] = rsi
+    # Mask initial periods correctly
+    result.loc[result.index[:period], 'rsi'] = np.nan
     return result
 
 def add_macd(df: pd.DataFrame, target_col: str = 'close', fast: int = 12, slow: int = 26, signal: int = 9) -> pd.DataFrame:

@@ -36,8 +36,8 @@ def set_seed(seed: int):
 
 def validate_data(df: pd.DataFrame) -> None:
     """Validate data quality before training."""
-    if len(df) < 60:
-        raise ValueError(f"Need at least 60 rows to train CNN Pattern Classifier. Got {len(df)}.")
+    if len(df) < 40: # Lowered from 60 to support smaller datasets
+        raise ValueError(f"Need at least 40 rows to train CNN Pattern Classifier. Got {len(df)}.")
 
     required_cols = {'open', 'high', 'low', 'close', 'volume'}
     missing = required_cols - set(df.columns)
@@ -211,6 +211,7 @@ def main():
     parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
     parser.add_argument("--batch-size", type=int, default=32, help="Batch size")
     parser.add_argument("--window-size", type=int, default=20, help="Time steps per window")
+    parser.add_argument("--neutral-threshold", type=float, default=0.001, help="Threshold for neutral price change")
     parser.add_argument("--normalize", action="store_true", default=True, help="Use per-window normalization")
     parser.add_argument("--patience", type=int, default=5, help="Early stopping patience")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
@@ -225,8 +226,11 @@ def main():
     db_url = os.getenv("DATABASE_URL", "postgresql://sentinel:sentinel@localhost:5432/sentinel_db")
     loader = DataLoader(db_url)
     try:
-        df = loader.load_historical_bars(args.symbol, limit=args.limit).dropna()
+        df = loader.load_historical_bars(args.symbol, limit=args.limit)
         df = df.sort_values('timestamp').reset_index(drop=True)
+        # Only dropna on the actual open/high/low/close/volume columns to prevent dropping rows due to unrelated columns
+        df = df.dropna(subset=['open', 'high', 'low', 'close', 'volume', 'timestamp'])
+        df = df.reset_index(drop=True)
     except Exception as e:
         logger.error(f"Failed to load data: {e}")
         sys.exit(1)
