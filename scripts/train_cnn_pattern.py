@@ -36,8 +36,8 @@ def set_seed(seed: int):
 
 def validate_data(df: pd.DataFrame) -> None:
     """Validate data quality before training."""
-    if len(df) < 60:
-        raise ValueError(f"Need at least 60 rows to train CNN Pattern Classifier. Got {len(df)}.")
+    if len(df) < 40: # Lowered from 60 to support smaller datasets
+        raise ValueError(f"Need at least 40 rows to train CNN Pattern Classifier. Got {len(df)}.")
 
     required_cols = {'open', 'high', 'low', 'close', 'volume'}
     missing = required_cols - set(df.columns)

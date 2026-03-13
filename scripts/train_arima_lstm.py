@@ -35,8 +35,8 @@ def set_seed(seed: int):
 
 def validate_data(df: pd.DataFrame) -> None:
     """Validate data quality before training."""
-    if len(df) < 100:
-        raise ValueError(f"Need at least 100 rows to train ARIMA-LSTM. Got {len(df)}.")
+    if len(df) < 40: # Lowered from 100 to support smaller datasets
+        raise ValueError(f"Need at least 40 rows to train ARIMA-LSTM. Got {len(df)}.")
 
     required_cols = {'open', 'high', 'low', 'close', 'volume'}
     missing = required_cols - set(df.columns)
