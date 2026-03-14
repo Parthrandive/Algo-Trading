@@ -34,15 +34,19 @@ def main():
     parser.add_argument("--skip-cnn-pattern", action="store_true", help="Skip CNN Pattern training")
     parser.add_argument("--skip-garch-var", action="store_true", help="Skip GARCH VaR fitting")
     parser.add_argument("--skip-backtest", action="store_true", help="Skip Day 5 walk-forward backtest")
+    parser.add_argument("--use-nse", action="store_true", help="Fetch data natively from NSE if DB is empty/unavailable")
+    parser.add_argument("--interval", default="1d", help="Candle interval for all models, e.g. 1d, 1h")
     
     args = parser.parse_args()
 
     import os
-    common_args = ["--symbol", args.symbol, "--seed", str(args.seed)]
+    common_args = ["--symbol", args.symbol, "--seed", str(args.seed), "--interval", args.interval]
     if args.limit is not None:
         common_args.extend(["--limit", str(args.limit)])
+    if args.use_nse:
+        common_args.append("--use-nse")
         
-    logger.info(f"=== Starting Unified Training for {args.symbol} ===")
+    logger.info(f"=== Starting Unified Training for {args.symbol} at {args.interval} interval ===")
 
     # 1. ARIMA-LSTM
     if not args.skip_arima_lstm:

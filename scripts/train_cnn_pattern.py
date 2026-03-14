@@ -216,17 +216,25 @@ def main():
     parser.add_argument("--patience", type=int, default=5, help="Early stopping patience")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--output-dir", default="data/models/cnn_pattern/", help="Output directory")
+    parser.add_argument("--use-nse", action="store_true", help="Fetch data natively from NSE if DB is empty/unavailable")
+    parser.add_argument("--interval", default="1d", help="Candle interval (e.g. 1d, 1h). Default: 1d")
     args = parser.parse_args()
 
     set_seed(args.seed)
+    
+    # Auto-adjust threshold for forex pairs due to lower volatility
+    if args.symbol.endswith("=X") and args.neutral_threshold == 0.001:
+        args.neutral_threshold = 0.0002
+        logger.info(f"Forex symbol detected. Auto-adjusted neutral_threshold to {args.neutral_threshold}")
+
     os.makedirs(args.output_dir, exist_ok=True)
 
     # 1. Fetch Data
-    logger.info(f"Fetching data for {args.symbol} from DB...")
+    logger.info(f"Fetching data for {args.symbol}...")
     db_url = os.getenv("DATABASE_URL", "postgresql://sentinel:sentinel@localhost:5432/sentinel_db")
     loader = DataLoader(db_url)
     try:
-        df = loader.load_historical_bars(args.symbol, limit=args.limit)
+        df = loader.load_historical_bars(args.symbol, limit=args.limit, use_nse_fallback=args.use_nse, min_fallback_rows=40, interval=args.interval)
         df = df.sort_values('timestamp').reset_index(drop=True)
         # Only dropna on the actual open/high/low/close/volume columns to prevent dropping rows due to unrelated columns
         df = df.dropna(subset=['open', 'high', 'low', 'close', 'volume', 'timestamp'])

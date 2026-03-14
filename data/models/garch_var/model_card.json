@@ -6,7 +6,7 @@
     "description": "Volatility forecasting and parametric Value-at-Risk / Expected Shortfall modeling.",
     "hyperparameters": {
         "window_size": 252,
-        "dist": "normal",
+        "dist": "t",
         "seed": 42
     },
     "features": [
@@ -15,5 +15,5 @@
     "metrics": {
         "fit_convergence": 0
     },
-    "training_date": "2026-03-13T18:47:16.534665+00:00"
+    "training_date": "2026-03-14T07:09:20.797683+00:00"
 }

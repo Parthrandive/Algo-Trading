@@ -128,7 +128,7 @@ class TechnicalBacktester:
                 (prepared["timestamp"] >= test_start) & (prepared["timestamp"] < test_end)
             ].copy()
 
-            if not train_df.empty and len(test_df) >= 2:
+            if not train_df.empty and len(test_df) >= 1:
                 splits.append(
                     WalkForwardSplit(
                         split_id=split_id,

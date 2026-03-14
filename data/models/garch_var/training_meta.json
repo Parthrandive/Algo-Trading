@@ -1,30 +1,53 @@
 {
-    "timestamp": "2026-03-13T18:47:16.534665+00:00",
-    "symbol": "TATASTEEL.NS",
-    "input_rows": 168,
+    "timestamp": "2026-03-14T07:09:20.797683+00:00",
+    "symbol": "USDINR=X",
+    "input_rows": 3581,
     "hyperparameters": {
         "window_size": 252,
-        "dist": "normal",
+        "dist": "t",
         "seed": 42
     },
     "fit_results": {
         "convergence_flag": 0,
         "params": {
-            "mu": -0.050129460583771934,
-            "omega": 0.08752781357493561,
-            "alpha[1]": 8.960583622707421e-12,
-            "beta[1]": 0.8802678636734582
+            "mu": 0.0047652075821615555,
+            "omega": 0.0003353761129136597,
+            "alpha[1]": 0.037972841920359,
+            "beta[1]": 0.9480980278513758,
+            "nu": 2.275041551323531
         }
     },
     "forecasts": {
-        "volatility_forecast": 0.008550030704257207,
-        "parametric_var_95": -0.014564843620281634,
-        "parametric_es_95": -0.01813755244409081,
-        "historical_var_95": -0.01177685535192668,
-        "historical_es_95": -0.025064147518171875,
-        "parametric_var_99": -0.020391640357670385,
-        "parametric_es_99": -0.02328895802321729,
-        "historical_var_99": -0.03924028134651515,
-        "historical_es_99": -0.044519857055275724
+        "volatility_forecast": 0.0013912783035706772,
+        "parametric_var_95": -0.0012550442686144847,
+        "parametric_es_95": -0.0024359325556705304,
+        "historical_var_95": -0.001287667641786854,
+        "historical_es_95": -0.0034211701444262564,
+        "parametric_var_99": -0.0028196138011961974,
+        "parametric_es_99": -0.005144685291123347,
+        "historical_var_99": -0.0027618571882177144,
+        "historical_es_99": -0.008404468429157355
+    },
+    "backtest": {
+        "95": {
+            "observations": 3325,
+            "breaches": 157,
+            "breach_rate": 0.04721804511278196,
+            "expected_breach_rate": 0.050000000000000044,
+            "likelihood_ratio": 0.5515425584735567,
+            "p_value": 0.45768808973722097,
+            "total_windows": 3328,
+            "skipped_windows": 3
+        },
+        "99": {
+            "observations": 3325,
+            "breaches": 38,
+            "breach_rate": 0.011428571428571429,
+            "expected_breach_rate": 0.010000000000000009,
+            "likelihood_ratio": 0.6552433955994843,
+            "p_value": 0.41824424315998177,
+            "total_windows": 3328,
+            "skipped_windows": 3
+        }
     }
 }

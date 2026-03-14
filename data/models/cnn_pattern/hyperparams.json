@@ -8,6 +8,6 @@
         "close",
         "volume"
     ],
-    "neutral_threshold": 0.001,
+    "neutral_threshold": 0.0002,
     "normalize": true
 }

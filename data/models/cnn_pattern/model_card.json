@@ -7,7 +7,7 @@
     "hyperparameters": {
         "window_size": 20,
         "learning_rate": 0.001,
-        "neutral_threshold": 0.001,
+        "neutral_threshold": 0.0002,
         "normalize": true
     },
     "features": [
@@ -23,5 +23,5 @@
         "final_train_acc": null,
         "final_val_acc": null
     },
-    "training_date": "2026-03-13T18:47:36.855179+00:00"
+    "training_date": "2026-03-14T07:08:16.629066+00:00"
 }

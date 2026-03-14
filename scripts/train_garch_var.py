@@ -51,17 +51,25 @@ def main():
     parser.add_argument("--run-backtest", action="store_true", help="Run historical Kupiec POF backtest")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--output-dir", default="data/models/garch_var/", help="Output directory for metadata")
+    parser.add_argument("--use-nse", action="store_true", help="Fetch data natively from NSE if DB is empty/unavailable")
+    parser.add_argument("--interval", default="1d", help="Candle interval (e.g. 1d, 1h). Default: 1d")
     args = parser.parse_args()
 
     set_seed(args.seed)
+    
+    # Auto-adjust distribution for forex to account for fat tails
+    if args.symbol.endswith("=X") and args.dist == "normal":
+        args.dist = "t"
+        logger.info(f"Forex symbol detected. Auto-adjusted GARCH distribution to '{args.dist}' (Student's t)")
+
     os.makedirs(args.output_dir, exist_ok=True)
 
     # 1. Fetch Data
-    logger.info(f"Fetching data for {args.symbol} from DB...")
+    logger.info(f"Fetching data for {args.symbol}...")
     db_url = os.getenv("DATABASE_URL", "postgresql://sentinel:sentinel@localhost:5432/sentinel_db")
     loader = DataLoader(db_url)
     try:
-        df = loader.load_historical_bars(args.symbol, limit=args.limit).dropna(subset=['close'])
+        df = loader.load_historical_bars(args.symbol, limit=args.limit, use_nse_fallback=args.use_nse, min_fallback_rows=30, interval=args.interval).dropna(subset=['close'])
         df = df.sort_values('timestamp').reset_index(drop=True)
     except Exception as e:
         logger.error(f"Failed to load data: {e}")
