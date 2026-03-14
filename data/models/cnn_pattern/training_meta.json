@@ -1,28 +1,28 @@
 {
-    "timestamp": "2026-03-13T18:47:36.855179+00:00",
-    "symbol": "TATASTEEL.NS",
-    "input_rows": 168,
-    "total_windows": 148,
-    "train_windows": 118,
-    "val_windows": 30,
+    "timestamp": "2026-03-14T06:51:21.088286+00:00",
+    "symbol": "INFY.NS",
+    "input_rows": 125,
+    "total_windows": 105,
+    "train_windows": 84,
+    "val_windows": 21,
     "class_distribution": {
-        "0": 54,
-        "1": 33,
-        "2": 61
+        "0": 34,
+        "1": 22,
+        "2": 49
     },
     "hyperparameters": {
         "window_size": 20,
         "learning_rate": 0.001,
-        "epochs_run": 18,
+        "epochs_run": 17,
         "batch_size": 32,
-        "patience": 10,
+        "patience": 5,
         "neutral_threshold": 0.001,
         "normalize": true,
         "seed": 42
     },
     "metrics": {
-        "final_train_loss": 0.3628814220428467,
-        "best_val_loss": 1.0328956842422485,
-        "best_val_acc": 0.36666666666666664
+        "final_train_loss": 0.2760750828754334,
+        "best_val_loss": 0.9982805848121643,
+        "best_val_acc": 0.5238095238095238
     }
 }

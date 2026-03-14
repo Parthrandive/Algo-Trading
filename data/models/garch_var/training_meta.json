@@ -1,7 +1,7 @@
 {
-    "timestamp": "2026-03-13T18:47:16.534665+00:00",
-    "symbol": "TATASTEEL.NS",
-    "input_rows": 168,
+    "timestamp": "2026-03-14T06:51:25.164222+00:00",
+    "symbol": "INFY.NS",
+    "input_rows": 125,
     "hyperparameters": {
         "window_size": 252,
         "dist": "normal",
@@ -10,21 +10,21 @@
     "fit_results": {
         "convergence_flag": 0,
         "params": {
-            "mu": -0.050129460583771934,
-            "omega": 0.08752781357493561,
-            "alpha[1]": 8.960583622707421e-12,
-            "beta[1]": 0.8802678636734582
+            "mu": -0.06857984817091803,
+            "omega": 8.156708461449773e-09,
+            "alpha[1]": 7.747752196276365e-14,
+            "beta[1]": 0.9842281292985364
         }
     },
     "forecasts": {
-        "volatility_forecast": 0.008550030704257207,
-        "parametric_var_95": -0.014564843620281634,
-        "parametric_es_95": -0.01813755244409081,
-        "historical_var_95": -0.01177685535192668,
-        "historical_es_95": -0.025064147518171875,
-        "parametric_var_99": -0.020391640357670385,
-        "parametric_es_99": -0.02328895802321729,
-        "historical_var_99": -0.03924028134651515,
-        "historical_es_99": -0.044519857055275724
+        "volatility_forecast": 0.0046177885565365975,
+        "parametric_var_95": -0.008281384737423405,
+        "parametric_es_95": -0.010210970079638457,
+        "historical_var_95": -0.011301117656587199,
+        "historical_es_95": -0.020173318758983188,
+        "parametric_var_99": -0.011428381072978217,
+        "parametric_es_99": -0.012993194209140652,
+        "historical_var_99": -0.025985548009104523,
+        "historical_es_99": -0.032219650379733844
     }
 }

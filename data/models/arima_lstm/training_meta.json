@@ -1,9 +1,9 @@
 {
-    "timestamp": "2026-03-13T18:47:11.762654+00:00",
-    "symbol": "TATASTEEL.NS",
-    "input_rows": 168,
-    "train_rows": 123,
-    "val_rows": 31,
+    "timestamp": "2026-03-14T06:51:16.712972+00:00",
+    "symbol": "INFY.NS",
+    "input_rows": 125,
+    "train_rows": 88,
+    "val_rows": 23,
     "feature_count": 17,
     "hyperparameters": {
         "arima_order": [
@@ -13,13 +13,13 @@
         ],
         "window_size": 10,
         "learning_rate": 0.001,
-        "epochs_run": 10,
+        "epochs_run": 50,
         "batch_size": 32,
         "patience": 5,
         "seed": 42
     },
     "metrics": {
-        "final_train_loss": 2.902663711952952,
-        "best_val_loss": 3.788358688354492
+        "final_train_loss": 128.16248057438776,
+        "best_val_loss": 34.745243072509766
     }
 }

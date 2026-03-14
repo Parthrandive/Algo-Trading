@@ -30,7 +30,7 @@ def set_seed(seed: int):
 
 def validate_data(df: pd.DataFrame, config: WalkForwardConfig) -> None:
     """Validate data quality before running backtests."""
-    min_rows = 150 # Lowered from 200 to accommodate smaller datasets for now
+    min_rows = 100 # Lowered from 150 to accommodate intraday datasets
     if len(df) < min_rows:
         raise ValueError(f"Need at least {min_rows} rows to run walk-forward backtest. Got {len(df)}.")
 
@@ -52,26 +52,28 @@ def main():
     parser.add_argument("--step-days", type=int, default=None, help="Days to step forward between splits")
     parser.add_argument("--start-date", default="2019-01-01", help="Walk-forward start date (YYYY-MM-DD)")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument("--use-nse", action="store_true", help="Fetch data natively from NSE if DB is empty/unavailable")
+    parser.add_argument("--interval", default="1d", help="Candle interval (e.g. 1d, 1h). Default: 1d")
     args = parser.parse_args()
 
     set_seed(args.seed)
 
     # 1. Fetch Data
-    logger.info(f"Fetching data for {args.symbol} from DB...")
+    logger.info(f"Fetching data for {args.symbol}...")
     db_url = os.getenv("DATABASE_URL", "postgresql://sentinel:sentinel@localhost:5432/sentinel_db")
     loader = DataLoader(db_url)
     try:
-        df = loader.load_historical_bars(args.symbol, limit=args.limit)
+        df = loader.load_historical_bars(args.symbol, limit=args.limit, use_nse_fallback=args.use_nse, min_fallback_rows=100, interval=args.interval)
     except Exception as e:
         logger.error(f"Failed to load data: {e}")
         sys.exit(1)
 
-    # Auto-adjust for small datasets (like the 168 rows one)
+    # Auto-adjust for small datasets (like the 252 rows one from NSE)
     if len(df) < 500 and args.train_days is None and args.train_months == 6:
-        logger.info("Small dataset detected. Auto-adjusting to 3-day training / 1-day testing windows.")
-        args.train_days = 3
-        args.test_days = 1
-        args.step_days = 1
+        logger.info("Small dataset detected. Auto-adjusting to 15-day training / 3-day testing windows.")
+        args.train_days = 15
+        args.test_days = 3
+        args.step_days = 3
         args.start_date = df['timestamp'].min().strftime('%Y-%m-%d') if 'timestamp' in df.columns else args.start_date
 
     # 2. Validate Data
