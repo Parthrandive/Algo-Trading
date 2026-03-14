@@ -313,11 +313,11 @@ def show_historical_data(
                     df["timestamp"] = df["timestamp"].dt.tz_localize("UTC").dt.tz_convert(ist)
                 else:
                     df["timestamp"] = df["timestamp"].dt.tz_convert(ist)
-            except Exception as e:
+            except Exception:
                 pass
 
-    print(f"Reading from: PostgreSQL -> sentinel_db.ohlcv_bars")
-    print(f"\nLast 10 records:")
+    print("Reading from: PostgreSQL -> sentinel_db.ohlcv_bars")
+    print("\nLast 10 records:")
     print(df.tail(10)[display_columns])
 
     result["status"] = "SUCCESS"

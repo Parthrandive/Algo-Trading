@@ -120,22 +120,12 @@ class Bar(MarketDataBase):
 
     @model_validator(mode="after")
     def validate_ohlc(self):
-        # We use a logger to warn about minor inconsistencies instead of raising error,
-        # and auto-correct to valid OHLC bounds to ensure pipeline stability.
-        # This is particularly important for FX (USDINR=X) where small data glitches occur.
-        
-        # High must be >= all others
-        max_others = max(self.open, self.low, self.close)
-        if self.high < max_others:
-            # logger.warning(f"Inconsistent High ({self.high}) for {self.symbol}. Adjusting to {max_others}.")
-            object.__setattr__(self, 'high', max_others)
-            
-        # Low must be <= all others
-        min_others = min(self.open, self.high, self.close)
-        if self.low > min_others:
-            # logger.warning(f"Inconsistent Low ({self.low}) for {self.symbol}. Adjusting to {min_others}.")
-            object.__setattr__(self, 'low', min_others)
-            
+        if self.high < self.low:
+            raise ValueError("high must be greater than or equal to low")
+        if self.close > self.high:
+            raise ValueError("close must be less than or equal to high")
+        if self.close < self.low:
+            raise ValueError("close must be greater than or equal to low")
         return self
 
 class CorporateActionType(str, Enum):
