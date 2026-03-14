@@ -1,7 +1,6 @@
 import os
 import json
 import logging
-import pandas as pd
 from typing import Optional
 from datetime import datetime, timezone
 
@@ -75,7 +74,17 @@ class TechnicalAgent:
                 
             # Engineer features for models
             df_feat = engineer_features(df)
-            df_feat = df_feat.dropna().reset_index(drop=True)
+            required_core_cols = set(self.cnn.feature_columns) | {"close"}
+            missing_core = sorted(col for col in required_core_cols if col not in df_feat.columns)
+            if missing_core:
+                logger.warning(f"Missing required feature columns for {symbol}: {missing_core}")
+                return None
+
+            # Ignore unrelated/all-NaN columns from upstream payloads (e.g., optional DB columns).
+            # ARIMA feature columns may drift across model versions and are handled as best-effort at inference.
+            arima_present_cols = {col for col in self.arima_features if col in df_feat.columns}
+            clean_subset = sorted(required_core_cols | arima_present_cols)
+            df_feat = df_feat.dropna(subset=clean_subset).reset_index(drop=True)
             if len(df_feat) < max(self.arima_lstm.window_size, self.cnn.window_size):
                 logger.warning(f"Not enough data after feature engineering for {symbol}.")
                 return None
