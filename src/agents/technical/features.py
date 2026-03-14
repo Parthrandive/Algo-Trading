@@ -93,13 +93,14 @@ def add_macd(df: pd.DataFrame, target_col: str = 'close', fast: int = 12, slow: 
     
     return result
 
-def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
+def engineer_features(df: pd.DataFrame, is_forex: bool = False) -> pd.DataFrame:
     """
     Complete feature engineering pipeline.
     Combines various indicators commonly used in predicting price action.
     
     Args:
         df: Input DataFrame with at least 'close' column, sorted by time.
+        is_forex: If true, use shorter rolling windows for faster adaptation.
         
     Returns:
         DataFrame transformed with all features.
@@ -113,8 +114,9 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     # Lags
     df = add_lag_features(df, target_col='close', lags=5)
     
-    # Rolling stats
-    df = add_rolling_features(df, target_col='close', windows=[7, 14])
+    # Rolling stats - shorter for forex to avoid dropping too much data during walk-forward
+    windows = [4, 7] if is_forex else [7, 14]
+    df = add_rolling_features(df, target_col='close', windows=windows)
     
     # RSI
     df = add_rsi(df, target_col='close', period=14)

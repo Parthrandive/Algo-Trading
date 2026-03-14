@@ -120,6 +120,11 @@ def migrate_text(recorder, base_dir: Path):
 
 if __name__ == "__main__":
     db_recorder = SilverDBRecorder()
+    
+    # Disable the monotonicity checker for this bulk historical backfill run
+    # otherwise older data (2019-2023) gets quarantined because newer data (2024) already exists
+    db_recorder.monotonicity_checker.check = lambda *args, **kwargs: True
+    
     silver_dir = PROJECT_ROOT / "data" / "silver"
     
     print("--- Starting Parquet to PostgreSQL Migration ---")

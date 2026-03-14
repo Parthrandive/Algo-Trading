@@ -172,7 +172,8 @@ def main():
 
     # 3. Feature Engineering
     logger.info("Engineering features...")
-    df_features = engineer_features(df)
+    is_forex = args.symbol.endswith("=X")
+    df_features = engineer_features(df, is_forex=is_forex)
     
     # Initialize Model
     hybrid = ArimaLstmHybrid(

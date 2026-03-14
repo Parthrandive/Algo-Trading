@@ -68,8 +68,8 @@ def main():
         logger.error(f"Failed to load data: {e}")
         sys.exit(1)
 
-    # Auto-adjust for small datasets (like the 252 rows one from NSE)
-    if len(df) < 500 and args.train_days is None and args.train_months == 6:
+    # Auto-adjust for small datasets (like the 252 rows one from NSE or ~3600 from yfinance)
+    if len(df) < 4000 and args.train_days is None and args.train_months == 6:
         logger.info("Small dataset detected. Auto-adjusting to 15-day training / 3-day testing windows.")
         args.train_days = 15
         args.test_days = 3

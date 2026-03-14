@@ -56,6 +56,12 @@ def main():
     args = parser.parse_args()
 
     set_seed(args.seed)
+    
+    # Auto-adjust distribution for forex to account for fat tails
+    if args.symbol.endswith("=X") and args.dist == "normal":
+        args.dist = "t"
+        logger.info(f"Forex symbol detected. Auto-adjusted GARCH distribution to '{args.dist}' (Student's t)")
+
     os.makedirs(args.output_dir, exist_ok=True)
 
     # 1. Fetch Data

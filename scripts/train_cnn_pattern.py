@@ -221,6 +221,12 @@ def main():
     args = parser.parse_args()
 
     set_seed(args.seed)
+    
+    # Auto-adjust threshold for forex pairs due to lower volatility
+    if args.symbol.endswith("=X") and args.neutral_threshold == 0.001:
+        args.neutral_threshold = 0.0002
+        logger.info(f"Forex symbol detected. Auto-adjusted neutral_threshold to {args.neutral_threshold}")
+
     os.makedirs(args.output_dir, exist_ok=True)
 
     # 1. Fetch Data
