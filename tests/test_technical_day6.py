@@ -61,6 +61,20 @@ def test_technical_agent_predict(sample_market_data):
     assert isinstance(prediction.es_99, float)
     assert 0.0 <= prediction.confidence <= 1.0
 
+def test_technical_agent_ignores_all_nan_optional_columns(sample_market_data):
+    """
+    Regression test: optional/all-NaN payload columns must not block inference.
+    """
+    df = sample_market_data.copy()
+    df["vwap"] = np.nan
+
+    agent = TechnicalAgent(models_dir="data/models")
+    agent.loader = MockDataLoader(df)
+
+    prediction = agent.predict("MOCK.NS")
+    assert prediction is not None
+    assert isinstance(prediction, TechnicalPrediction)
+
 def test_no_data_leakage(sample_market_data):
     """
     Test that Technical Agent predictions are strictly forward-looking.
