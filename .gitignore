@@ -69,3 +69,6 @@ tools/
 .env
 .env.local
 secrets.json
+data/test_tmp/
+data/e2e_test/
+data/backfill/
