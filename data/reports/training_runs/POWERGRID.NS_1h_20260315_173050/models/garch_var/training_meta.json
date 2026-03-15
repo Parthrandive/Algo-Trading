@@ -1,0 +1,52 @@
+{
+    "timestamp": "2026-03-15T12:00:40.103160+00:00",
+    "symbol": "POWERGRID.NS",
+    "input_rows": 1708,
+    "hyperparameters": {
+        "window_size": 252,
+        "dist": "normal",
+        "seed": 42
+    },
+    "fit_results": {
+        "convergence_flag": 0,
+        "params": {
+            "mu": 0.0624466276942272,
+            "omega": 0.049209518593734826,
+            "alpha[1]": 3.9457605415244517e-13,
+            "beta[1]": 0.9288946159874925
+        }
+    },
+    "forecasts": {
+        "volatility_forecast": 0.008319041953606762,
+        "parametric_var_95": -0.01305914005320927,
+        "parametric_es_95": -0.016535328106954007,
+        "historical_var_95": -0.008122271642798001,
+        "historical_es_95": -0.012342141127761518,
+        "parametric_var_99": -0.018728519285887382,
+        "parametric_es_99": -0.021547562637463824,
+        "historical_var_99": -0.014187510863767749,
+        "historical_es_99": -0.02155800544261499
+    },
+    "backtest": {
+        "95": {
+            "observations": 1455,
+            "breaches": 60,
+            "breach_rate": 0.041237113402061855,
+            "expected_breach_rate": 0.050000000000000044,
+            "likelihood_ratio": 2.4951259548719804,
+            "p_value": 0.11419923950357336,
+            "total_windows": 1455,
+            "skipped_windows": 0
+        },
+        "99": {
+            "observations": 1455,
+            "breaches": 30,
+            "breach_rate": 0.020618556701030927,
+            "expected_breach_rate": 0.010000000000000009,
+            "likelihood_ratio": 12.682692792058617,
+            "p_value": 0.00036905569357559287,
+            "total_windows": 1455,
+            "skipped_windows": 0
+        }
+    }
+}

@@ -73,7 +73,8 @@ class TechnicalAgent:
                 return None
                 
             # Engineer features for models
-            df_feat = engineer_features(df)
+            is_forex = symbol.endswith("=X")
+            df_feat = engineer_features(df, is_forex=is_forex)
             required_core_cols = set(self.cnn.feature_columns) | {"close"}
             missing_core = sorted(col for col in required_core_cols if col not in df_feat.columns)
             if missing_core:

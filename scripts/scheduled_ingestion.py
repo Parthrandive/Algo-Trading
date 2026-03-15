@@ -139,6 +139,31 @@ def ingestion_job():
         logger.info(f"Preprocessing Agent completed successfully. Cleaned {len(output.records)} rows into Gold.")
     except Exception as e:
         logger.error(f"Daily preprocessing failed with error: {e}")
+
+    try:
+        from src.agents.regime.regime_agent import RegimeAgent
+
+        logger.info("Running Daily Regime Agent Inference...")
+        regime_agent = RegimeAgent()
+        regime_payloads = []
+        for symbol in todays_symbols:
+            try:
+                pred = regime_agent.detect_regime(symbol=symbol, limit=800)
+                regime_payloads.append(
+                    {
+                        "symbol": pred.symbol,
+                        "regime_state": pred.regime_state.value,
+                        "risk_level": pred.risk_level.value,
+                        "confidence": pred.confidence,
+                    }
+                )
+            except Exception as inner_exc:
+                logger.warning(f"Regime inference failed for {symbol}: {inner_exc}")
+        logger.info(f"Regime Agent completed. Generated {len(regime_payloads)} prediction(s).")
+        if regime_payloads:
+            logger.info(f"Regime sample: {regime_payloads[:3]}")
+    except Exception as e:
+        logger.error(f"Daily regime inference failed with error: {e}")
         
     finally:
         logger.info(f"Finished job at {datetime.now(timezone.utc)}")
