@@ -1,0 +1,130 @@
+{
+  "timestamp_utc": "2026-03-15T15:44:22.225315+00:00",
+  "snapshot_id": "phase2_run_20260315_154420",
+  "db_url": null,
+  "persist_enabled": true,
+  "symbols": [
+    "USDINR=X",
+    "LT.NS"
+  ],
+  "results": [
+    {
+      "symbol": "USDINR=X",
+      "technical": {
+        "symbol": "USDINR=X",
+        "timestamp": "2026-03-15T15:44:21.903283Z",
+        "price_forecast": 71.91788106825214,
+        "direction": "up",
+        "volatility_estimate": 0.0029868960755624137,
+        "var_95": -0.004750239101930732,
+        "var_99": -0.007294019208155566,
+        "es_95": -0.006343953105700093,
+        "es_99": -0.008898640326416784,
+        "confidence": 0.9925754070281982,
+        "model_id": "ensemble_arima_cnn_garch_v1.0",
+        "schema_version": "1.0"
+      },
+      "regime": {
+        "symbol": "USDINR=X",
+        "timestamp": "2026-03-15T15:44:22.079341Z",
+        "regime_state": "Bear",
+        "transition_probability": 0.8741,
+        "confidence": 0.5871,
+        "risk_level": "reduced_risk",
+        "model_id": "ensemble_hmm_pearl_ood_v1.0",
+        "schema_version": "1.0",
+        "details": {
+          "rows_used": 500,
+          "hmm": {
+            "regime_state": "Bear",
+            "transition_probability": 0.9091,
+            "confidence": 0.6494,
+            "hidden_state": 0
+          },
+          "pearl": {
+            "regime_state": "Sideways",
+            "transition_probability": 0.8217,
+            "confidence": 0.511,
+            "probabilities": {
+              "Bull": 0.027333,
+              "Bear": 0.332666,
+              "Sideways": 0.510977,
+              "Crisis": 0.031545,
+              "RBI-Band transition": 0.097479
+            }
+          },
+          "ood": {
+            "warning": false,
+            "alien": false,
+            "mahalanobis_distance": 1.643733,
+            "kl_divergence": 0.340279
+          },
+          "macro_features": {
+            "macro_directional_flag": 0,
+            "macro_regime_index": -0.282404,
+            "macro_regime_shock": 0.007608,
+            "macro_coverage_ratio": 0.530303
+          }
+        }
+      },
+      "skipped_agents": [],
+      "not_implemented_agents": [
+        "sentiment",
+        "consensus"
+      ]
+    },
+    {
+      "symbol": "LT.NS",
+      "technical": null,
+      "regime": {
+        "symbol": "LT.NS",
+        "timestamp": "2026-03-15T15:44:22.204500Z",
+        "regime_state": "Alien",
+        "transition_probability": 0.7,
+        "confidence": 0.3679,
+        "risk_level": "neutral_cash",
+        "model_id": "ensemble_hmm_pearl_ood_v1.0",
+        "schema_version": "1.0",
+        "details": {
+          "rows_used": 500,
+          "hmm": {
+            "regime_state": "Sideways",
+            "transition_probability": 0.1417,
+            "confidence": 0.448,
+            "hidden_state": 1
+          },
+          "pearl": {
+            "regime_state": "Sideways",
+            "transition_probability": 0.5962,
+            "confidence": 0.588,
+            "probabilities": {
+              "Bull": 0.083077,
+              "Bear": 0.047546,
+              "Sideways": 0.58801,
+              "Crisis": 0.097205,
+              "RBI-Band transition": 0.184162
+            }
+          },
+          "ood": {
+            "warning": true,
+            "alien": true,
+            "mahalanobis_distance": 5.777935,
+            "kl_divergence": 10.642375
+          },
+          "macro_features": {
+            "macro_directional_flag": 0,
+            "macro_regime_index": -0.359186,
+            "macro_regime_shock": 0.010217,
+            "macro_coverage_ratio": 0.530303
+          }
+        }
+      },
+      "skipped_agents": [],
+      "not_implemented_agents": [
+        "sentiment",
+        "consensus"
+      ]
+    }
+  ],
+  "failures": []
+}

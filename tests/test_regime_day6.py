@@ -130,3 +130,16 @@ def test_day6_ood_alien_override():
     assert pred.risk_level == RiskLevel.NEUTRAL_CASH
     assert pred.transition_probability >= 0.7
 
+
+def test_day6_detect_regime_survives_persistence_failure():
+    class _FailingRecorder:
+        def save_regime_prediction(self, *args, **kwargs):
+            raise RuntimeError("db down")
+
+    agent = RegimeAgent(loader=_Loader(_frame()))
+    agent.phase2_recorder = _FailingRecorder()
+
+    pred = agent.detect_regime("RELIANCE.NS")
+
+    assert pred is not None
+    assert pred.symbol == "RELIANCE.NS"
