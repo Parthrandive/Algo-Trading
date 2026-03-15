@@ -10,6 +10,7 @@ from src.agents.technical.features import engineer_features
 from src.agents.technical.models.arima_lstm import ArimaLstmHybrid
 from src.agents.technical.models.cnn_pattern import CnnPatternClassifier
 from src.agents.technical.models.garch_var import GarchVaRModel
+from src.db.phase2_recorder import Phase2Recorder
 
 logger = logging.getLogger(__name__)
 
@@ -19,10 +20,17 @@ class TechnicalAgent:
     Runs baseline models (ARIMA-LSTM, 2D CNN, GARCH).
     """
     
-    def __init__(self, db_url: Optional[str] = None, models_dir: str = "data/models"):
+    def __init__(
+        self,
+        db_url: Optional[str] = None,
+        models_dir: str = "data/models",
+        persist_predictions: bool = True,
+    ):
         self.db_url = db_url or os.getenv("DATABASE_URL", "postgresql://sentinel:sentinel@localhost:5432/sentinel_db")
         self.loader = DataLoader(self.db_url)
         self.models_dir = models_dir
+        self.persist_predictions = persist_predictions
+        self.phase2_recorder = Phase2Recorder(self.db_url) if persist_predictions else None
         
         # Load ARIMA-LSTM
         arima_dir = os.path.join(models_dir, "arima_lstm")
@@ -61,13 +69,19 @@ class TechnicalAgent:
             dist=garch_hp.get("dist", "normal")
         )
 
-    def predict(self, symbol: str) -> Optional[TechnicalPrediction]:
+    def predict(
+        self,
+        symbol: str,
+        *,
+        limit: int = 300,
+        data_snapshot_id: str | None = None,
+    ) -> Optional[TechnicalPrediction]:
         """
-        Produce a technical prediction for the given symbol using up to 300 bars of history.
+        Produce a technical prediction for the given symbol using recent market history.
         """
         # 1. Fetch data
         try:
-            df = self.loader.load_historical_bars(symbol, limit=300)
+            df = self.loader.load_historical_bars(symbol, limit=limit)
             if df.empty or len(df) < 20:
                 logger.warning(f"Not enough data for {symbol}.")
                 return None
@@ -115,17 +129,17 @@ class TechnicalAgent:
             self.garch.fit(df_feat, price_col='close')
             risk_metrics = self.garch.forecast_risk(confidence_levels=(0.95, 0.99))
             vol_est = risk_metrics.get("volatility_forecast", 0.0)
-            var_95 = risk_metrics.get("parametric_var_0.95", 0.0)
-            var_99 = risk_metrics.get("parametric_var_0.99", 0.0)
-            es_95 = risk_metrics.get("parametric_es_0.95", 0.0)
-            es_99 = risk_metrics.get("parametric_es_0.99", 0.0)
+            var_95 = risk_metrics.get("parametric_var_95", 0.0)
+            var_99 = risk_metrics.get("parametric_var_99", 0.0)
+            es_95 = risk_metrics.get("parametric_es_95", 0.0)
+            es_99 = risk_metrics.get("parametric_es_99", 0.0)
         except Exception as e:
             logger.error(f"GARCH fitting failed: {e}")
             vol_est = var_95 = var_99 = es_95 = es_99 = 0.0
             
         now = datetime.now(timezone.utc)
-        
-        return TechnicalPrediction(
+
+        prediction = TechnicalPrediction(
             symbol=symbol,
             timestamp=now,
             price_forecast=float(price_forecast),
@@ -138,3 +152,14 @@ class TechnicalAgent:
             confidence=float(confidence),
             model_id="ensemble_arima_cnn_garch_v1.0"
         )
+
+        if self.phase2_recorder is not None:
+            try:
+                self.phase2_recorder.save_technical_prediction(
+                    prediction,
+                    data_snapshot_id=data_snapshot_id,
+                )
+            except Exception as exc:
+                logger.warning(f"Failed to persist technical prediction for {symbol}: {exc}")
+
+        return prediction

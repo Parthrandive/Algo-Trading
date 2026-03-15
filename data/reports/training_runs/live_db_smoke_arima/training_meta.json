@@ -1,0 +1,25 @@
+{
+    "timestamp": "2026-03-15T15:37:50.031490+00:00",
+    "symbol": "USDINR=X",
+    "input_rows": 800,
+    "train_rows": 628,
+    "val_rows": 158,
+    "feature_count": 31,
+    "hyperparameters": {
+        "arima_order": [
+            5,
+            1,
+            0
+        ],
+        "window_size": 10,
+        "learning_rate": 0.001,
+        "epochs_run": 2,
+        "batch_size": 32,
+        "patience": 1,
+        "seed": 42
+    },
+    "metrics": {
+        "final_train_loss": 0.0014392268140559178,
+        "best_val_loss": 0.0013319354479175967
+    }
+}

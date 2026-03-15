@@ -96,3 +96,18 @@ def test_no_data_leakage(sample_market_data):
     # In a real environment, we'd also check the target horizon timestamp.
     # For now, we verify generation time is after input time.
     assert prediction.timestamp > last_input_ts, "Data leakage detected: Prediction timestamp is not strictly after the last input timestamp!"
+
+
+def test_technical_agent_predict_survives_persistence_failure(sample_market_data):
+    class _FailingRecorder:
+        def save_technical_prediction(self, *args, **kwargs):
+            raise RuntimeError("db down")
+
+    agent = TechnicalAgent(models_dir="data/models")
+    agent.loader = MockDataLoader(sample_market_data)
+    agent.phase2_recorder = _FailingRecorder()
+
+    prediction = agent.predict("MOCK.NS")
+
+    assert prediction is not None
+    assert isinstance(prediction, TechnicalPrediction)

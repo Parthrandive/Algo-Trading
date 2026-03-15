@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
 
+from src.db.phase2_recorder import Phase2Recorder
 from src.agents.regime.data_loader import RegimeDataLoader
 from src.agents.regime.models import HMMRegimeModel, OODDetector, PearlMetaModel
 from src.agents.regime.schemas import RegimePrediction, RegimeState, RiskLevel
+
+logger = logging.getLogger(__name__)
 
 
 class RegimeAgent:
@@ -30,6 +34,8 @@ class RegimeAgent:
         hmm_model: HMMRegimeModel | None = None,
         pearl_model: PearlMetaModel | None = None,
         ood_detector: OODDetector | None = None,
+        database_url: str | None = None,
+        persist_predictions: bool = True,
     ) -> None:
         self.loader = loader or RegimeDataLoader()
         self.model_id = model_id
@@ -42,12 +48,27 @@ class RegimeAgent:
             warning_kl=1.0,
             alien_kl=6.0,
         )
+        self.phase2_recorder = Phase2Recorder(database_url) if persist_predictions else None
 
-    def detect_regime(self, symbol: str, limit: int = 500) -> RegimePrediction:
+    def _persist_prediction(self, prediction: RegimePrediction, *, data_snapshot_id: str | None = None) -> None:
+        if self.phase2_recorder is None:
+            return
+        try:
+            self.phase2_recorder.save_regime_prediction(prediction, data_snapshot_id=data_snapshot_id)
+        except Exception as exc:
+            logger.warning("Failed to persist regime prediction for %s: %s", prediction.symbol, exc)
+
+    def detect_regime(
+        self,
+        symbol: str,
+        limit: int = 500,
+        *,
+        data_snapshot_id: str | None = None,
+    ) -> RegimePrediction:
         raw = self.loader.load_features(symbol=symbol, limit=limit)
         now = datetime.now(timezone.utc)
         if raw.empty:
-            return RegimePrediction(
+            prediction = RegimePrediction(
                 symbol=symbol,
                 timestamp=now,
                 regime_state=RegimeState.SIDEWAYS,
@@ -57,11 +78,13 @@ class RegimeAgent:
                 model_id=self.model_id,
                 details={"reason": "no_gold_features_available"},
             )
+            self._persist_prediction(prediction, data_snapshot_id=data_snapshot_id)
+            return prediction
 
         prepared = self._prepare_features(raw)
         if len(prepared) < self.warmup_rows:
             fallback = self._heuristic_prediction(prepared)
-            return RegimePrediction(
+            prediction = RegimePrediction(
                 symbol=symbol,
                 timestamp=now,
                 regime_state=fallback["regime_state"],
@@ -71,6 +94,8 @@ class RegimeAgent:
                 model_id=f"{self.model_id}_fallback",
                 details={"reason": "insufficient_warmup_rows", "rows_used": int(len(prepared))},
             )
+            self._persist_prediction(prediction, data_snapshot_id=data_snapshot_id)
+            return prediction
 
         if not self.hmm.fitted:
             self.hmm.fit(prepared)
@@ -95,7 +120,7 @@ class RegimeAgent:
         if risk_level == RiskLevel.FULL_RISK:
             risk_level = self._risk_level_from_state(regime_state, confidence)
 
-        return RegimePrediction(
+        prediction = RegimePrediction(
             symbol=symbol,
             timestamp=now,
             regime_state=regime_state,
@@ -131,6 +156,8 @@ class RegimeAgent:
                 },
             },
         )
+        self._persist_prediction(prediction, data_snapshot_id=data_snapshot_id)
+        return prediction
 
     @staticmethod
     def _prepare_features(df: pd.DataFrame) -> pd.DataFrame:
