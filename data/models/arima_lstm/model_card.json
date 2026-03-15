@@ -1,0 +1,43 @@
+{
+    "model_id": "arima_lstm_hybrid_v1",
+    "version": "1.0",
+    "owner": "Technical Agent",
+    "algorithm": "ARIMA-LSTM Hybrid",
+    "description": "ARIMA for linear trend forecasting combined with LSTM for non-linear residual prediction.",
+    "hyperparameters": {
+        "arima_order": [
+            5,
+            1,
+            0
+        ],
+        "lstm_hidden_size": 64,
+        "lstm_layers": 1,
+        "learning_rate": 0.001,
+        "window_size": 10
+    },
+    "features": [
+        "open",
+        "high",
+        "low",
+        "volume",
+        "close_lag_1",
+        "close_lag_2",
+        "close_lag_3",
+        "close_lag_4",
+        "close_lag_5",
+        "close_roll_mean_4",
+        "close_roll_std_4",
+        "close_roll_mean_7",
+        "close_roll_std_7",
+        "rsi",
+        "macd",
+        "macd_signal",
+        "macd_hist"
+    ],
+    "metrics": {
+        "final_train_loss": null,
+        "final_val_loss": null
+    },
+    "training_date": "2026-03-14T07:08:11.777927+00:00",
+    "training_symbol": "USDINR=X"
+}

@@ -120,18 +120,12 @@ class Bar(MarketDataBase):
 
     @model_validator(mode="after")
     def validate_ohlc(self):
-        if self.high < self.open:
-            raise ValueError("High cannot be lower than Open")
         if self.high < self.low:
-            raise ValueError("High cannot be lower than Low")
-        if self.high < self.close:
-            raise ValueError("High cannot be lower than Close")
-        if self.low > self.open:
-            raise ValueError("Low cannot be higher than Open")
-        if self.low > self.close:
-            raise ValueError("Low cannot be higher than Close")
-        if self.low > self.high:
-            raise ValueError("Low cannot be higher than High")
+            raise ValueError("high must be greater than or equal to low")
+        if self.close > self.high:
+            raise ValueError("close must be less than or equal to high")
+        if self.close < self.low:
+            raise ValueError("close must be greater than or equal to low")
         return self
 
 class CorporateActionType(str, Enum):

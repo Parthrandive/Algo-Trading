@@ -303,9 +303,21 @@ def show_historical_data(
 
     if "timestamp" in df.columns:
         df = df.sort_values(by="timestamp", ascending=True)
+        # Convert to IST for easier reading
+        import pytz
+        ist = pytz.timezone("Asia/Kolkata")
+        if pd.api.types.is_datetime64_any_dtype(df["timestamp"]):
+            try:
+                # If naive, localize to UTC first, then convert. If aware, just convert.
+                if df["timestamp"].dt.tz is None:
+                    df["timestamp"] = df["timestamp"].dt.tz_localize("UTC").dt.tz_convert(ist)
+                else:
+                    df["timestamp"] = df["timestamp"].dt.tz_convert(ist)
+            except Exception:
+                pass
 
-    print(f"Reading from: PostgreSQL -> sentinel_db.ohlcv_bars")
-    print(f"\nLast 10 records:")
+    print("Reading from: PostgreSQL -> sentinel_db.ohlcv_bars")
+    print("\nLast 10 records:")
     print(df.tail(10)[display_columns])
 
     result["status"] = "SUCCESS"
@@ -356,7 +368,15 @@ def show_live_quote(symbol_candidates: list[str]) -> dict:
                 print(f"Price:  {tick.price}")
                 print(f"Volume: {tick.volume}")
                 print(f"Source: {tick.source_type}")
-                print(f"Time:   {tick.timestamp}")
+                import pytz
+                ist = pytz.timezone("Asia/Kolkata")
+                tick_time_ist = tick.timestamp
+                if hasattr(tick_time_ist, "astimezone"):
+                    if tick_time_ist.tzinfo is None:
+                        tick_time_ist = tick_time_ist.replace(tzinfo=timezone.utc)
+                    tick_time_ist = tick_time_ist.astimezone(ist)
+
+                print(f"Time:   {tick_time_ist}")
 
                 # Save tick to database
                 from src.db.silver_db_recorder import SilverDBRecorder
@@ -445,6 +465,10 @@ def run(argv: list[str]) -> int:
     else:
         live = show_live_quote(symbol_candidates)
 
+    # --- 3. Auto-trigger Preprocessing (Silver -> Gold) ---
+    target_symbol = normalize_symbol(symbol_candidates[0])
+    _run_preprocessing(target_symbol)
+
     if args.json:
         payload = {
             "requested_symbol": args.symbol,
@@ -457,6 +481,27 @@ def run(argv: list[str]) -> int:
     if historical["status"] == "ERROR" and live.get("status") == "ERROR":
         return EXIT_FAILURE
     return EXIT_SUCCESS
+
+
+def _run_preprocessing(symbol: str) -> None:
+    """Auto-trigger preprocessing pipeline for the given symbol after ingestion."""
+    print(f"\n--- 3. Auto-Preprocessing (Silver → Gold) for {symbol} ---")
+    try:
+        from src.agents.preprocessing.pipeline import PreprocessingPipeline
+
+        pipeline = PreprocessingPipeline(config_path="configs/transform_config_v1.json")
+        snapshot_id = f"auto_{symbol}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+
+        output = pipeline.process_snapshot(
+            market_source_path="db_virtual",
+            macro_source_path="db_virtual",
+            text_source_path="db_virtual",
+            snapshot_id=snapshot_id,
+            symbol_filter=symbol,
+        )
+        print(f"Preprocessing complete: {len(output.records)} cleaned rows → gold_features")
+    except Exception as exc:
+        print(f"Warning: Auto-preprocessing failed for {symbol}: {exc}")
 
 
 def main() -> None:

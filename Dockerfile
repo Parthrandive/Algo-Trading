@@ -12,7 +12,7 @@ COPY requirements.txt .
 # Install dependencies and fail fast if critical market/data libs are missing.
 RUN python -m pip install --upgrade pip \
     && python -m pip install -r requirements.txt \
-    && python -c "import yfinance, nsepython, psycopg2"
+    && python -c "import yfinance, nsepython, psycopg2, torch, statsmodels"
 
 COPY . .
 

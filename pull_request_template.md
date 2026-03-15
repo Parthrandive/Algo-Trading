@@ -1,21 +1,12 @@
 # Pull Request Template (Evidence-First)
 
-Use this template for every PR. Incomplete PRs should not be approved.
-
-Required governance references:
-- `docs/governance/release_change_request_template.md`
-- `docs/governance/ci_benchmark_evidence_checklist.md`
-
-Direct links:
-- [Release Change Request Template](./docs/governance/release_change_request_template.md)
-- [CI Benchmark Evidence Checklist](./docs/governance/ci_benchmark_evidence_checklist.md)
+Use this template for every PR. Incomplete PRs should not be merged.
 
 ## Submission Checklist (Required)
 
 - [ ] I completed all required sections below.
-- [ ] I linked or attached the completed release change request template.
-- [ ] I linked or attached the completed CI benchmark evidence checklist.
-- [ ] I confirmed this PR follows the evidence-first policy (no fixed uplift claims without controlled evidence).
+- [ ] CI pipeline passes (unit tests, schema checks, linting).
+- [ ] I confirmed this PR follows the evidence-first policy (no fixed uplift claims without benchmark evidence).
 
 ## 1. Change Metadata (Required)
 
@@ -23,50 +14,36 @@ Direct links:
 - Major change: `yes` | `no`
 - Scope: `USD/INR` | `NSE` | `Gold` | `Multi-asset`
 - Phase(s) impacted:
-- Target environment: `staging` | `production`
+- Target environment: `paper-trading` | `production`
 - Linked issue(s):
 
 ## 2. Evidence-First Required Statements (Required)
 
 - Expected impact statement:
-  - `Expected impact: Unknown until controlled benchmark/A-B; target is non-regression plus measurable improvement.`
+  - `Expected impact: Unknown until controlled benchmark; target is non-regression plus measurable improvement.`
 - Go criterion:
-  - `Go criterion: all applicable phase gate checks pass.`
+  - `Go criterion: all applicable CI and phase gate checks pass.`
 - No-go criterion:
-  - `No-go criterion: any latency, risk, or correctness gate fails.`
+  - `No-go criterion: any test, risk, or correctness gate fails.`
 
-## 3. Baseline vs Candidate Evidence (Required)
+## 3. Benchmark Evidence (Required)
 
-- Baseline artifact ID:
-- Candidate artifact ID:
-- Measurement window:
-- Statistical method and threshold:
-- Replay benchmark result:
-- Peak-load benchmark result:
-- Fast Loop metrics (p50, p95, p99, p99.9, jitter):
-- Degrade-path safety result (`p99 > 10ms` behavior):
-- Correctness parity result:
-- Observability and recovery parity result:
+- CI test suite result: `pass` | `fail`
+- Replay benchmark result (if applicable):
+- Schema compatibility check: `pass` | `fail` | `N/A`
+- Paper-trading validation period and result (for model/execution changes):
+- Correctness parity result (if modifying existing logic):
 
-## 4. Shadow A/B Status (Tier 2 Enforcement)
-
-- Shadow A/B required: `yes` | `no`
-- Enforcement active: `yes` | `no` (active after three months paper trading)
-- A/B window:
-- Non-regression result (risk-adjusted metrics):
-- Non-regression result (slippage/impact):
-- Decision summary:
-
-## 5. Risk, Rollback, and Ops (Required)
+## 4. Risk and Rollback (Required)
 
 - Risk controls impacted:
 - New failure modes:
 - Rollback trigger(s):
 - Rollback plan:
-- 48-hour post-deploy owner:
+- Post-deploy monitoring plan:
 
-## 6. Reviewer Gate (Required)
+## 5. Review Gate (Required)
 
-- [ ] Risk reviewer confirms gates are met.
-- [ ] Engineering reviewer confirms benchmark evidence is complete.
-- [ ] Trading/Product reviewer confirms deployment decision (`GO`/`NO-GO`).
+- [ ] Owner self-review: I have reviewed my own changes for correctness, test coverage, and risk.
+- [ ] Partner cross-check: Partner has reviewed critical sections and confirms no obvious issues.
+- [ ] Decision: `GO` | `NO-GO`

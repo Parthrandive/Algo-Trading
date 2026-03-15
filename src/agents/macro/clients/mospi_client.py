@@ -97,14 +97,20 @@ class MOSPIClient:
         )
 
         # Deterministic fallback payload; production fetchers can replace this.
-        simulated_raw = {
-            "data": [
-                {
-                    "date": datetime.combine(date_range.end, datetime.min.time()).isoformat(),
-                    "value": 5.0  # Dummy value
-                }
-            ]
-        }
+        from src.agents.macro.clients.mospi_scraper import fetch_real_mospi_data
+        try:
+            logger.info(f"Calling real MOSPI scraper for {name.value}...")
+            simulated_raw = fetch_real_mospi_data(name.value, date_range)
+        except Exception as e:
+            logger.error(f"Real scraper failed ({e}), falling back to simulated payload.")
+            simulated_raw = {
+                "data": [
+                    {
+                        "date": datetime.combine(date_range.end, datetime.min.time()).isoformat(),
+                        "value": 5.0  # Dummy value
+                    }
+                ]
+            }
 
         parser = self._parsers.get(name)
         if not parser:

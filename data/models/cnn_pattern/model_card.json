@@ -1,0 +1,27 @@
+{
+    "model_id": "cnn_pattern_classifier_v1",
+    "version": "1.0",
+    "owner": "Technical Agent",
+    "algorithm": "2D Convolutional Neural Network",
+    "description": "Treats historical OHLCV windows as 1D/2D images to classify next-bar price direction (Up/Down/Neutral).",
+    "hyperparameters": {
+        "window_size": 20,
+        "learning_rate": 0.001,
+        "neutral_threshold": 0.0002,
+        "normalize": true
+    },
+    "features": [
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume"
+    ],
+    "metrics": {
+        "final_train_loss": null,
+        "final_val_loss": null,
+        "final_train_acc": null,
+        "final_val_acc": null
+    },
+    "training_date": "2026-03-14T07:08:16.629066+00:00"
+}

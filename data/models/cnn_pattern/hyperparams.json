@@ -1,0 +1,13 @@
+{
+    "window_size": 20,
+    "learning_rate": 0.001,
+    "feature_columns": [
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume"
+    ],
+    "neutral_threshold": 0.0002,
+    "normalize": true
+}

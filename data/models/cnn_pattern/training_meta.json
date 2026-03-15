@@ -1,0 +1,28 @@
+{
+    "timestamp": "2026-03-14T07:26:10.850314+00:00",
+    "symbol": "USDINR=X",
+    "input_rows": 1879,
+    "total_windows": 1859,
+    "train_windows": 1487,
+    "val_windows": 372,
+    "class_distribution": {
+        "0": 837,
+        "1": 231,
+        "2": 791
+    },
+    "hyperparameters": {
+        "window_size": 20,
+        "learning_rate": 0.001,
+        "epochs_run": 11,
+        "batch_size": 32,
+        "patience": 5,
+        "neutral_threshold": 0.0002,
+        "normalize": true,
+        "seed": 42
+    },
+    "metrics": {
+        "final_train_loss": 0.9816599347564143,
+        "best_val_loss": 0.9796976530423729,
+        "best_val_acc": 0.49731182795698925
+    }
+}
