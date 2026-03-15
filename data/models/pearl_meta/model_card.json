@@ -1,0 +1,20 @@
+{
+  "model_id": "pearl_meta_v1.0",
+  "version": "1.0",
+  "owner": "Regime Agent",
+  "logic_summary": "PEARL-like adaptive context model that reweights base regime probabilities using a recent adaptation window.",
+  "inputs": [
+    "close_log_return_zscore",
+    "rolling_vol_20",
+    "macro_directional_flag"
+  ],
+  "thresholds": {
+    "adaptation_window": 60,
+    "max_adaptation_weight": 0.7
+  },
+  "performance_summary": {
+    "validation_scope": "Context-shift adaptation tests on bullish base regime with bearish tail",
+    "observations": "Model shifts regime prediction toward recent context while retaining bounded transition confidence.",
+    "status": "baseline_accepted"
+  }
+}

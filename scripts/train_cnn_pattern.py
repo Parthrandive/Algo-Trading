@@ -20,6 +20,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
 from src.agents.technical.data_loader import DataLoader
+from src.agents.technical.features import engineer_features
 from src.agents.technical.models.cnn_pattern import CnnPatternClassifier, CNNPatternModel
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -218,6 +219,7 @@ def main():
     parser.add_argument("--output-dir", default="data/models/cnn_pattern/", help="Output directory")
     parser.add_argument("--use-nse", action="store_true", help="Fetch data natively from NSE if DB is empty/unavailable")
     parser.add_argument("--interval", default="1d", help="Candle interval (e.g. 1d, 1h). Default: 1d")
+    parser.add_argument("--disable-macro-context", action="store_true", help="Disable macro composite features for CNN training")
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -253,10 +255,24 @@ def main():
         learning_rate=args.lr,
         neutral_threshold=args.neutral_threshold
     )
-    classifier.feature_columns = ['open', 'high', 'low', 'close', 'volume']
+    # Build engineered frame so CNN can leverage macro context.
+    is_forex = args.symbol.endswith("=X")
+    df_model = engineer_features(df, is_forex=is_forex)
+
+    base_features = ['open', 'high', 'low', 'close', 'volume']
+    macro_features = ['macro_regime_index', 'macro_regime_shock', 'macro_coverage_ratio', 'macro_directional_flag']
+    classifier.feature_columns = base_features.copy()
+    if not args.disable_macro_context:
+        classifier.feature_columns.extend([c for c in macro_features if c in df_model.columns])
+    # Ensure no NaN leaks into training windows.
+    df_model = df_model.copy()
+    for col in classifier.feature_columns:
+        if col not in df_model.columns:
+            df_model[col] = 0.0
+        df_model[col] = pd.to_numeric(df_model[col], errors='coerce').replace([np.inf, -np.inf], np.nan).fillna(0.0)
     
     logger.info(f"Preparing windows (normalize={args.normalize})...")
-    X, y = prepare_data_with_normalization(classifier, df, args.normalize)
+    X, y = prepare_data_with_normalization(classifier, df_model, args.normalize)
     X, y = X.to(classifier.device), y.to(classifier.device)
     
     # Analyze Class Distribution
@@ -300,6 +316,7 @@ def main():
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "symbol": args.symbol,
         "input_rows": len(df),
+        "engineered_rows": len(df_model),
         "total_windows": len(X),
         "train_windows": len(X_train),
         "val_windows": len(X_val),

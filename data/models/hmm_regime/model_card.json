@@ -1,0 +1,22 @@
+{
+  "model_id": "hmm_regime_v1.0",
+  "version": "1.0",
+  "owner": "Regime Agent",
+  "logic_summary": "Gaussian-emission HMM baseline using mixture posterior decoding and Markov transition estimation from hidden-state sequences.",
+  "inputs": [
+    "close_log_return_zscore",
+    "rolling_vol_20",
+    "macro_directional_flag"
+  ],
+  "thresholds": {
+    "bull_ret_z": 0.8,
+    "bear_ret_z": -0.8,
+    "crisis_ret_z_abs": 3.0,
+    "crisis_vol_20": 0.03
+  },
+  "performance_summary": {
+    "validation_scope": "Synthetic structural-break replay (2008, 2013, 2020)",
+    "observations": "Transitions cluster around break windows and remain comparatively stable in calm windows.",
+    "status": "baseline_accepted"
+  }
+}

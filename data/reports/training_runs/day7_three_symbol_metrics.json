@@ -1,0 +1,86 @@
+[
+  {
+    "symbol": "USDINR=X",
+    "interval": "1h",
+    "run_dir": "data/reports/training_runs/USDINR=X_1h_20260315_173416",
+    "arima_best_val_loss": 0.013464102743786167,
+    "cnn_best_val_loss": 1.064739712491778,
+    "cnn_best_val_acc": 0.39691444600280507,
+    "cnn_val_windows": 713,
+    "cnn_per_class_val_accuracy": {
+      "up": {
+        "correct": 209,
+        "total": 282,
+        "accuracy": 0.7411347517730497
+      },
+      "neutral": {
+        "correct": 65,
+        "total": 207,
+        "accuracy": 0.3140096618357488
+      },
+      "down": {
+        "correct": 9,
+        "total": 224,
+        "accuracy": 0.04017857142857143
+      }
+    },
+    "garch_confidence_levels": null,
+    "garch_backtest_summary": null
+  },
+  {
+    "symbol": "POWERGRID.NS",
+    "interval": "1h",
+    "run_dir": "data/reports/training_runs/POWERGRID.NS_1h_20260315_173050",
+    "arima_best_val_loss": 4.106320439138673,
+    "cnn_best_val_loss": 1.0694450005977112,
+    "cnn_best_val_acc": 0.41124260355029585,
+    "cnn_val_windows": 338,
+    "cnn_per_class_val_accuracy": {
+      "up": {
+        "correct": 31,
+        "total": 136,
+        "accuracy": 0.22794117647058823
+      },
+      "neutral": {
+        "correct": 19,
+        "total": 75,
+        "accuracy": 0.25333333333333335
+      },
+      "down": {
+        "correct": 89,
+        "total": 127,
+        "accuracy": 0.7007874015748031
+      }
+    },
+    "garch_confidence_levels": null,
+    "garch_backtest_summary": null
+  },
+  {
+    "symbol": "LT.NS",
+    "interval": "1h",
+    "run_dir": "data/reports/training_runs/LT.NS_1h_20260315_173203",
+    "arima_best_val_loss": 997.6914166389628,
+    "cnn_best_val_loss": 1.048025397154001,
+    "cnn_best_val_acc": 0.4171597633136095,
+    "cnn_val_windows": 338,
+    "cnn_per_class_val_accuracy": {
+      "up": {
+        "correct": 83,
+        "total": 126,
+        "accuracy": 0.6587301587301587
+      },
+      "neutral": {
+        "correct": 37,
+        "total": 88,
+        "accuracy": 0.42045454545454547
+      },
+      "down": {
+        "correct": 21,
+        "total": 124,
+        "accuracy": 0.1693548387096774
+      }
+    },
+    "garch_confidence_levels": null,
+    "garch_backtest_summary": null
+  }
+]

@@ -1,0 +1,25 @@
+{
+    "timestamp": "2026-03-15T12:01:39.818634+00:00",
+    "symbol": "LT.NS",
+    "input_rows": 1709,
+    "train_rows": 1356,
+    "val_rows": 339,
+    "feature_count": 31,
+    "hyperparameters": {
+        "arima_order": [
+            5,
+            1,
+            0
+        ],
+        "window_size": 10,
+        "learning_rate": 0.001,
+        "epochs_run": 6,
+        "batch_size": 32,
+        "patience": 5,
+        "seed": 42
+    },
+    "metrics": {
+        "final_train_loss": 306.8179147728839,
+        "best_val_loss": 997.6914166389628
+    }
+}

@@ -1,6 +1,19 @@
 import pandas as pd
 import numpy as np
 
+MACRO_COLUMNS = [
+    "CPI",
+    "WPI",
+    "IIP",
+    "FII_FLOW",
+    "DII_FLOW",
+    "FX_RESERVES",
+    "INDIA_US_10Y_SPREAD",
+    "RBI_BULLETIN",
+    "REPO_RATE",
+    "US_10Y",
+]
+
 def add_lag_features(df: pd.DataFrame, target_col: str, lags: int) -> pd.DataFrame:
     """
     Adds lagged features for a specific column.
@@ -93,6 +106,66 @@ def add_macd(df: pd.DataFrame, target_col: str = 'close', fast: int = 12, slow: 
     
     return result
 
+def add_macro_regime_features(df: pd.DataFrame, lookback: int = 120) -> pd.DataFrame:
+    """
+    Build a stable macro composite for technical models.
+    Produces no-NaN derived features, with graceful fallback to neutral values.
+    """
+    result = df.copy()
+    macro_weights = {
+        "CPI": -0.18,
+        "WPI": -0.16,
+        "IIP": 0.16,
+        "FII_FLOW": 0.18,
+        "DII_FLOW": 0.10,
+        "FX_RESERVES": 0.12,
+        "INDIA_US_10Y_SPREAD": -0.12,
+        "REPO_RATE": -0.14,
+        "US_10Y": -0.12,
+        "RBI_BULLETIN": 0.04,
+    }
+
+    weighted_sum = pd.Series(0.0, index=result.index, dtype=float)
+    available_weight = pd.Series(0.0, index=result.index, dtype=float)
+    total_abs_weight = float(sum(abs(weight) for weight in macro_weights.values()))
+
+    for col, weight in macro_weights.items():
+        if col not in result.columns:
+            result[col] = np.nan
+
+        raw = pd.to_numeric(result[col], errors="coerce")
+        # Forward/back-fill to create stable context values without dropping rows.
+        stable = raw.ffill().bfill()
+        roll_mean = stable.rolling(window=lookback, min_periods=max(12, lookback // 10)).mean()
+        roll_std = stable.rolling(window=lookback, min_periods=max(12, lookback // 10)).std().replace(0, np.nan)
+        zscore = ((stable - roll_mean) / roll_std).replace([np.inf, -np.inf], np.nan).fillna(0.0).clip(-5.0, 5.0)
+
+        presence = raw.notna().astype(float)
+        weighted_sum += zscore * float(weight) * presence
+        available_weight += abs(float(weight)) * presence
+        result[f"{col}_z"] = zscore
+        # Keep original macro columns numeric/no-NaN to avoid row drops downstream.
+        result[col] = stable.fillna(0.0)
+
+    result["macro_coverage_ratio"] = (available_weight / max(total_abs_weight, 1e-9)).clip(0.0, 1.0)
+    result["macro_regime_index"] = (
+        weighted_sum / available_weight.replace(0.0, np.nan)
+    ).replace([np.inf, -np.inf], np.nan).fillna(0.0).clip(-5.0, 5.0)
+    result["macro_regime_shock"] = result["macro_regime_index"].diff().fillna(0.0).clip(-5.0, 5.0)
+
+    if "macro_directional_flag" in result.columns:
+        upstream_raw = result["macro_directional_flag"]
+    else:
+        upstream_raw = pd.Series(0.0, index=result.index, dtype=float)
+    upstream_flag = pd.to_numeric(upstream_raw, errors="coerce").fillna(0.0)
+    derived_flag = np.select(
+        [result["macro_regime_shock"] >= 0.15, result["macro_regime_shock"] <= -0.15],
+        [1, -1],
+        default=0,
+    )
+    result["macro_directional_flag"] = np.where(upstream_flag != 0.0, upstream_flag, derived_flag).astype(float)
+    return result
+
 def engineer_features(df: pd.DataFrame, is_forex: bool = False) -> pd.DataFrame:
     """
     Complete feature engineering pipeline.
@@ -123,5 +196,10 @@ def engineer_features(df: pd.DataFrame, is_forex: bool = False) -> pd.DataFrame:
     
     # MACD
     df = add_macd(df, target_col='close')
+
+    # Macro regime composite (for exogenous context)
+    # Use shorter lookback for forex/hourly dynamics.
+    macro_lookback = 60 if is_forex else 120
+    df = add_macro_regime_features(df, lookback=macro_lookback)
     
     return df

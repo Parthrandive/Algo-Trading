@@ -24,6 +24,19 @@ from src.agents.technical.models.arima_lstm import ArimaLstmHybrid, LSTMResidual
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
+RAW_MACRO_COLUMNS = {
+    "CPI",
+    "WPI",
+    "IIP",
+    "FII_FLOW",
+    "DII_FLOW",
+    "FX_RESERVES",
+    "INDIA_US_10Y_SPREAD",
+    "RBI_BULLETIN",
+    "REPO_RATE",
+    "US_10Y",
+}
+
 
 def set_seed(seed: int):
     """Set reproducibility seeds."""
@@ -190,6 +203,7 @@ def main():
         if c not in exclude_cols 
         and pd.api.types.is_numeric_dtype(df_features[c])
         and not df_features[c].isna().all()
+        and c not in RAW_MACRO_COLUMNS
     ]
     
     # Now drop rows that have NaNs *only* in our selected features (e.g. from rolling windows)

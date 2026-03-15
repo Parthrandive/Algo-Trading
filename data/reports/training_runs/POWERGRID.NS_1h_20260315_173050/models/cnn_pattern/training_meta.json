@@ -1,0 +1,29 @@
+{
+    "timestamp": "2026-03-15T12:00:24.988175+00:00",
+    "symbol": "POWERGRID.NS",
+    "input_rows": 1708,
+    "engineered_rows": 1708,
+    "total_windows": 1688,
+    "train_windows": 1350,
+    "val_windows": 338,
+    "class_distribution": {
+        "0": 597,
+        "1": 465,
+        "2": 626
+    },
+    "hyperparameters": {
+        "window_size": 20,
+        "learning_rate": 0.001,
+        "epochs_run": 13,
+        "batch_size": 32,
+        "patience": 5,
+        "neutral_threshold": 0.001,
+        "normalize": true,
+        "seed": 42
+    },
+    "metrics": {
+        "final_train_loss": 0.920217685257947,
+        "best_val_loss": 1.0694450005977112,
+        "best_val_acc": 0.41124260355029585
+    }
+}

@@ -1,0 +1,22 @@
+{
+  "model_id": "ood_detector_v1.0",
+  "version": "1.0",
+  "owner": "Regime Agent",
+  "logic_summary": "Dual-signal novelty detector using Mahalanobis distance and KL-style z-score divergence to produce warning/alien flags.",
+  "inputs": [
+    "close_log_return_zscore",
+    "rolling_vol_20",
+    "macro_directional_flag"
+  ],
+  "thresholds": {
+    "warning_mahalanobis": 3.0,
+    "alien_mahalanobis": 5.0,
+    "warning_kl": 1.0,
+    "alien_kl": 6.0
+  },
+  "performance_summary": {
+    "validation_scope": "Boundary tests for normal, warning, and alien scenarios",
+    "observations": "Normal windows remain unflagged; staged de-risking is triggered under warning/alien distances.",
+    "status": "baseline_accepted"
+  }
+}
