@@ -82,6 +82,7 @@ class FXReservesClient:
             name.value,
             date_range,
         )
+        used_fallback = False
         if self._raw_fetcher is not None:
             payload = self._raw_fetcher(date_range)
         else:
@@ -91,8 +92,18 @@ class FXReservesClient:
                 payload = fetch_real_fx_reserves(date_range)
             except Exception as e:
                 logger.error("Real scraper failed (%s), falling back to simulated payload.", e)
+                used_fallback = True
                 payload = self._build_simulated_payload(date_range)
-        return self._parser.parse(payload)
+        self._parser.source_type = (
+            SourceType.FALLBACK_SCRAPER if used_fallback else SourceType.OFFICIAL_API
+        )
+        records = list(self._parser.parse(payload))
+        if used_fallback:
+            records = [
+                record.model_copy(update={"quality_status": QualityFlag.WARN})
+                for record in records
+            ]
+        return records
 
     @staticmethod
     def _build_simulated_payload(date_range: DateRange) -> dict[str, Any]:

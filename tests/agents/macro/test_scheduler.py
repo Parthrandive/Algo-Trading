@@ -1,7 +1,5 @@
 import json
-import logging
-from datetime import UTC, datetime, timedelta
-from typing import Any, Sequence
+from datetime import UTC, date, datetime
 from unittest.mock import Mock, patch
 
 import pytest
@@ -24,7 +22,6 @@ def mock_pipeline():
 
 @pytest.fixture
 def test_db_url(tmp_path):
-    import os
     db_path = tmp_path / "test_macro.db"
     return f"sqlite:///{db_path}"
 
@@ -80,7 +77,7 @@ def test_exponential_backoff_retry(mock_sleep, config_file, mock_pipeline, setup
     mock_pipeline.run_ingest.side_effect = [RuntimeError("Fetch failed"), [Mock(spec=MacroIndicator)]]
     
     scheduler = MacroScheduler(config_file, mock_pipeline, registry, database_url=setup_db)
-    date_range = DateRange(start=datetime(2026, 1, 1, tzinfo=UTC), end=datetime(2026, 1, 31, tzinfo=UTC))
+    date_range = DateRange(start=date(2026, 1, 1), end=date(2026, 1, 31))
     
     records = scheduler.run_job(MacroIndicatorType.CPI, date_range)
     assert len(records) == 1
@@ -93,7 +90,7 @@ def test_idempotent_ingest_guard(config_file, mock_pipeline, setup_db):
     
     scheduler = MacroScheduler(config_file, mock_pipeline, registry, database_url=setup_db)
     
-    date_range = DateRange(start=datetime(2026, 1, 1, tzinfo=UTC), end=datetime(2026, 1, 31, tzinfo=UTC))
+    date_range = DateRange(start=date(2026, 1, 1), end=date(2026, 1, 31))
     
     # Insert a dummy record into DB to simulate existing ingestion
     engine = get_engine(setup_db)
@@ -102,7 +99,7 @@ def test_idempotent_ingest_guard(config_file, mock_pipeline, setup_db):
         session.execute(
             insert(MacroIndicatorDB).values(
                 indicator_name="CPI",
-                timestamp=datetime(2026, 1, 15, tzinfo=UTC),
+                timestamp=datetime(2026, 1, 31, tzinfo=UTC),
                 value=5.0,
                 unit="%",
                 period="Monthly",
@@ -126,7 +123,7 @@ def test_provenance_logging(config_file, mock_pipeline, setup_db):
     mock_pipeline.run_ingest.return_value = [Mock(spec=MacroIndicator), Mock(spec=MacroIndicator)]
     
     scheduler = MacroScheduler(config_file, mock_pipeline, registry, database_url=setup_db)
-    date_range = DateRange(start=datetime(2026, 1, 1, tzinfo=UTC), end=datetime(2026, 1, 31, tzinfo=UTC))
+    date_range = DateRange(start=date(2026, 1, 1), end=date(2026, 1, 31))
     
     scheduler.run_job(MacroIndicatorType.CPI, date_range)
     

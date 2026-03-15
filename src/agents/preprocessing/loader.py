@@ -1,14 +1,15 @@
 import json
+import logging
 import re
 from pathlib import Path
-from typing import List
 
 import pandas as pd
-from pydantic import TypeAdapter, ValidationError
 
-from src.schemas.macro_data import MacroIndicator
 from src.schemas.market_data import Bar, Tick
 from src.schemas.preprocessing_data import PreprocessingContract
+
+logger = logging.getLogger(__name__)
+
 
 class SchemaVersionError(Exception):
     pass
@@ -50,6 +51,47 @@ class MacroLoader(PreprocessingLoader):
             return pd.DataFrame([payload])
         raise ValueError(f"Unsupported JSON payload type in {file_path}: {type(payload).__name__}")
 
+    @staticmethod
+    def _clean_macro_frame(df: pd.DataFrame) -> pd.DataFrame:
+        cleaned = df.copy()
+        required_columns = {"indicator_name", "timestamp", "value"}
+        missing = [column for column in required_columns if column not in cleaned.columns]
+        if missing:
+            raise ValueError(f"Macro payload is missing required columns: {sorted(missing)}")
+
+        cleaned["indicator_name"] = (
+            cleaned["indicator_name"]
+            .astype(str)
+            .str.strip()
+            .str.replace("MacroIndicatorType.", "", regex=False)
+            .str.upper()
+            .replace({"": pd.NA, "NAN": pd.NA, "NONE": pd.NA})
+        )
+        cleaned["timestamp"] = pd.to_datetime(cleaned["timestamp"], utc=True, errors="coerce")
+        cleaned["value"] = pd.to_numeric(cleaned["value"], errors="coerce")
+        cleaned = cleaned.replace([float("inf"), float("-inf")], pd.NA)
+
+        before = len(cleaned)
+        cleaned = cleaned.dropna(subset=["indicator_name", "timestamp", "value"])
+
+        sort_columns = ["indicator_name", "timestamp"]
+        if "ingestion_timestamp_utc" in cleaned.columns:
+            cleaned["ingestion_timestamp_utc"] = pd.to_datetime(
+                cleaned["ingestion_timestamp_utc"], utc=True, errors="coerce"
+            )
+            sort_columns.append("ingestion_timestamp_utc")
+
+        cleaned = cleaned.sort_values(sort_columns).drop_duplicates(
+            subset=["indicator_name", "timestamp"],
+            keep="last",
+        )
+        cleaned = cleaned.reset_index(drop=True)
+
+        dropped = before - len(cleaned)
+        if dropped:
+            logger.warning("MacroLoader dropped %d malformed/duplicate row(s) during cleaning.", dropped)
+        return cleaned
+
     def load(self, source_path: str, snapshot_id: str) -> pd.DataFrame:
         """
         Loads MacroIndicator data. When source_path is 'db_virtual', reads from PostgreSQL.
@@ -73,19 +115,18 @@ class MacroLoader(PreprocessingLoader):
         
         if df.empty:
             return df
-            
-        if 'timestamp' in df.columns:
-            df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
-            
-        if 'schema_version' in df.columns:
-            for version in df['schema_version'].unique():
+
+        df = self._clean_macro_frame(df)
+
+        if "schema_version" in df.columns:
+            for version in df["schema_version"].dropna().unique():
                 if not self._is_schema_allowed("macro.indicator", version):
                     raise SchemaVersionError(
                         f"Schema version {version} not accepted by contract. "
                         f"Allowed: {self._accepted_schemas}"
                     )
-                    
-        if 'dataset_snapshot_id' not in df.columns:
+
+        if "dataset_snapshot_id" not in df.columns:
             df["dataset_snapshot_id"] = snapshot_id
         return df
 

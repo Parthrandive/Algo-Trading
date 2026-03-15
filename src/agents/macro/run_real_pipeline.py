@@ -1,5 +1,5 @@
 import concurrent.futures
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Dict, Tuple
 
 from sqlalchemy import text
@@ -26,8 +26,68 @@ from src.db.connection import get_engine, get_session
 from src.db.models import Base
 from src.schemas.macro_data import MacroIndicatorType
 
+
+_INITIAL_BACKFILL_START: Dict[MacroIndicatorType, date] = {
+    MacroIndicatorType.REPO_RATE: date(2000, 1, 1),
+    MacroIndicatorType.US_10Y: date(2000, 1, 1),
+    MacroIndicatorType.CPI: date(2015, 1, 1),
+    MacroIndicatorType.WPI: date(2015, 1, 1),
+    MacroIndicatorType.IIP: date(2015, 1, 1),
+    MacroIndicatorType.FII_FLOW: date(2019, 1, 1),
+    MacroIndicatorType.DII_FLOW: date(2019, 1, 1),
+    MacroIndicatorType.FX_RESERVES: date(2010, 1, 1),
+    MacroIndicatorType.RBI_BULLETIN: date(2010, 1, 1),
+    MacroIndicatorType.INDIA_US_10Y_SPREAD: date(2010, 1, 1),
+}
+
+_LOOKBACK_DAYS: Dict[MacroIndicatorType, int] = {
+    MacroIndicatorType.CPI: 120,
+    MacroIndicatorType.WPI: 120,
+    MacroIndicatorType.IIP: 180,
+    MacroIndicatorType.FII_FLOW: 14,
+    MacroIndicatorType.DII_FLOW: 14,
+    MacroIndicatorType.REPO_RATE: 365,
+    MacroIndicatorType.US_10Y: 14,
+    MacroIndicatorType.FX_RESERVES: 45,
+    MacroIndicatorType.RBI_BULLETIN: 60,
+    MacroIndicatorType.INDIA_US_10Y_SPREAD: 14,
+}
+
+
+def _latest_indicator_date(session, indicator: MacroIndicatorType) -> date | None:
+    result = session.execute(
+        text(
+            """
+            SELECT MAX(timestamp) AS latest_ts
+            FROM macro_indicators
+            WHERE indicator_name = :indicator
+            """
+        ),
+        {"indicator": indicator.value},
+    ).scalar()
+    if result is None:
+        return None
+    return result.date()
+
+
+def _build_indicator_range(indicator: MacroIndicatorType, now_date: date, latest_date: date | None) -> DateRange:
+    initial_start = _INITIAL_BACKFILL_START.get(indicator, now_date - timedelta(days=90))
+    lookback_days = _LOOKBACK_DAYS.get(indicator, 30)
+
+    if latest_date is None:
+        start = initial_start
+    else:
+        start = max(initial_start, latest_date - timedelta(days=lookback_days))
+
+    if start > now_date:
+        start = now_date
+
+    return DateRange(start=start, end=now_date)
+
+
 def run_macro():
     engine = get_engine()
+    Session = get_session(engine)
     Base.metadata.create_all(engine)
     akshare = AkShareClient()
     
@@ -59,12 +119,8 @@ def run_macro():
             registry=registry,
         )
     
-        # Range covering the latest release window up to today
         now = datetime.now(UTC)
-        date_range = DateRange(
-            start=datetime(2026, 2, 20, tzinfo=UTC),
-            end=now
-        )
+        now_date = now.date()
         
         required_indicators = [
             MacroIndicatorType.CPI,
@@ -79,23 +135,45 @@ def run_macro():
             MacroIndicatorType.INDIA_US_10Y_SPREAD
         ]
         
-        def fetch_indicator(indicator):
-            print(f"\n--- Fetching {indicator.value} ---")
-            try:
-                records = scheduler.run_job(indicator, date_range)
-                print(f"Ingested {len(records)} {indicator.value} records.")
-            except Exception as e:
-                print(f"Failed to fetch {indicator.value}: {e}")
+        with Session() as session:
+            indicator_ranges = {
+                indicator: _build_indicator_range(
+                    indicator=indicator,
+                    now_date=now_date,
+                    latest_date=_latest_indicator_date(session, indicator),
+                )
+                for indicator in required_indicators
+            }
 
+        def fetch_indicator(indicator):
+            indicator_range = indicator_ranges[indicator]
+            print(f"\n--- Fetching {indicator.value} ({indicator_range.start} -> {indicator_range.end}) ---")
+            try:
+                records = scheduler.run_job(indicator, indicator_range)
+                return indicator.value, len(records), None
+            except Exception as e:
+                return indicator.value, 0, str(e)
+
+        ingestion_results = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(10, len(required_indicators))) as executor:
-            executor.map(fetch_indicator, required_indicators)
+            futures = [executor.submit(fetch_indicator, indicator) for indicator in required_indicators]
+            for future in concurrent.futures.as_completed(futures):
+                ingestion_results.append(future.result())
+
+        print("\n--- Ingestion Summary ---")
+        for indicator_name, count, error in sorted(ingestion_results):
+            if error:
+                print(f"{indicator_name}: FAILED ({error})")
+            elif count == 0:
+                print(f"{indicator_name}: no new records (up-to-date or source lag)")
+            else:
+                print(f"{indicator_name}: ingested {count} record(s)")
                 
     except Exception as e:
         print(f"Error orchestrating pipeline: {e}")
 
     # Verify what was written
     print("\n--- DB Contents ---")
-    Session = get_session(engine)
     with Session() as session:
         results = session.execute(text("SELECT indicator_name, timestamp, value, unit, quality_status FROM macro_indicators ORDER BY timestamp DESC LIMIT 5")).fetchall()
         for row in results:

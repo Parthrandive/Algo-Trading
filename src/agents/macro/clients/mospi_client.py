@@ -98,12 +98,14 @@ class MOSPIClient:
 
         # Deterministic fallback payload; production fetchers can replace this.
         from src.agents.macro.clients.mospi_scraper import fetch_real_mospi_data
+        used_fallback = False
         try:
             logger.info(f"Calling real MOSPI scraper for {name.value}...")
-            simulated_raw = fetch_real_mospi_data(name.value, date_range)
+            payload = fetch_real_mospi_data(name.value, date_range)
         except Exception as e:
             logger.error(f"Real scraper failed ({e}), falling back to simulated payload.")
-            simulated_raw = {
+            used_fallback = True
+            payload = {
                 "data": [
                     {
                         "date": datetime.combine(date_range.end, datetime.min.time()).isoformat(),
@@ -116,7 +118,16 @@ class MOSPIClient:
         if not parser:
             raise ValueError(f"No parser configured for {name.value}")
 
-        return parser.parse(simulated_raw)
+        parser.source_type = (
+            SourceType.FALLBACK_SCRAPER if used_fallback else SourceType.OFFICIAL_API
+        )
+        records = list(parser.parse(payload))
+        if used_fallback:
+            records = [
+                record.model_copy(update={"quality_status": QualityFlag.WARN})
+                for record in records
+            ]
+        return records
 
     # ------------------------------------------------------------------
     # Test helper — produces a valid MacroIndicator with provenance tags
