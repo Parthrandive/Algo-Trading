@@ -1,11 +1,3 @@
-<<<<<<< HEAD
-import logging
-import re
-from dataclasses import dataclass
-from datetime import UTC, datetime
-from pathlib import Path
-from typing import Protocol, Sequence
-=======
 import hashlib
 import html
 import json
@@ -26,31 +18,18 @@ try:
     import pdfplumber
 except ImportError:  # pragma: no cover - exercised in environments without PDF extras.
     pdfplumber = None
->>>>>>> 701ccfb8293a2001f6b46632488e94f99447ad31
 
 from src.agents.textual.services.pdf_service import PDFExtractor
 from src.schemas.text_data import SourceType as TextSourceType
 from src.schemas.text_sidecar import SourceRouteDetail
-from src.agents.textual.services.pdf_service import PDFExtractor
 
 logger = logging.getLogger(__name__)
+IST = ZoneInfo("Asia/Kolkata")
+_TAG_RE = re.compile(r"<[^>]+>")
+_WS_RE = re.compile(r"\s+")
+_NSE_KEYWORDS = ("nse", "nifty", "sensex", "bank nifty")
 
-_RBI_DEFAULT_SOURCE_POLICY: dict[str, object] = {
-    "rss_feed_url": "https://www.rbi.org.in/Scripts/rss.aspx",
-    "dbie_download_url": "https://data.rbi.org.in/DBIE/#/",
-    "fallback_scraper_url": "https://www.rbi.org.in/Scripts/BS_ViewBulletin.aspx",
-    "simulate_rss_outage": False,
-    "simulate_dbie_outage": False,
-    "enable_emergency_fallback_scraper": False,
-}
-
-
-@dataclass(frozen=True)
-class _RBIResolvedRoute:
-    source_type: TextSourceType
-    route_detail: SourceRouteDetail
-    source_url: str
-    source_channel: str
+HTTPGetter = Callable[[str, dict[str, str] | None], str]
 
 _RBI_DEFAULT_SOURCE_POLICY: dict[str, object] = {
     "rss_feed_url": "https://www.rbi.org.in/Scripts/rss.aspx",
@@ -165,6 +144,79 @@ class BaseTextAdapter:
     source_name = "base_source"
     source_type = TextSourceType.RSS_FEED
     source_route_detail = SourceRouteDetail.OFFICIAL_FEED
+    cache_namespace = "default"
+
+    def __init__(
+        self,
+        *,
+        max_items: int = 25,
+        http_get: HTTPGetter | None = None,
+        cache_root: Path | None = None,
+    ) -> None:
+        self.max_items = max_items
+        self._has_custom_http_get = http_get is not None
+        self._http_get = http_get or self._default_http_get
+        base_root = cache_root or (Path(__file__).resolve().parents[3] / "data" / "textual_cache")
+        self._cache_dir = base_root / self.cache_namespace
+        self._cache_dir.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def _normalize_text(value: str) -> str:
+        return _WS_RE.sub(" ", _TAG_RE.sub(" ", html.unescape(value or ""))).strip()
+
+    @staticmethod
+    def _default_http_get(url: str, headers: dict[str, str] | None = None) -> str:
+        request_headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        }
+        if headers:
+            request_headers.update(headers)
+        req = urllib.request.Request(url=url, headers=request_headers)
+        with urllib.request.urlopen(req, timeout=20) as response:
+            raw = response.read()
+            charset = response.headers.get_content_charset() or "utf-8"
+            return raw.decode(charset, errors="ignore")
+
+    def _fetch_text(
+        self,
+        *,
+        url: str,
+        cache_key: str,
+        headers: dict[str, str] | None = None,
+    ) -> str:
+        cache_file = self._cache_dir / f"{cache_key}.txt"
+        try:
+            text = self._http_get(url, headers)
+            if text.strip():
+                cache_file.write_text(text, encoding="utf-8")
+                return text
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[%s] fetch failed for %s: %s", self.source_name, url, exc)
+
+        if cache_file.exists():
+            return cache_file.read_text(encoding="utf-8")
+        return ""
+
+    @staticmethod
+    def _parse_rss_datetime(raw_value: str | None) -> datetime | None:
+        if not raw_value:
+            return None
+        try:
+            parsed = parsedate_to_datetime(raw_value)
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=UTC)
+            return parsed.astimezone(UTC)
+        except Exception:  # noqa: BLE001
+            return None
+
+    @staticmethod
+    def _stable_id(prefix: str, token: str) -> str:
+        digest = hashlib.sha1(token.encode("utf-8")).hexdigest()[:16]
+        return f"{prefix}_{digest}"
 
     def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
         _ = as_of_utc
@@ -175,124 +227,299 @@ class NSENewsAdapter(BaseTextAdapter):
     source_name = "nse_news"
     source_type = TextSourceType.RSS_FEED
     source_route_detail = SourceRouteDetail.OFFICIAL_FEED
+    cache_namespace = "nse_news"
+
+    _NSE_ANNOUNCEMENT_URL = "https://www.nseindia.com/api/corporate-announcements?index=equities"
+    _ET_FALLBACK_URL = "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms"
+
+    def __init__(self, **kwargs: Any):
+        super().__init__(**kwargs)
 
     def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
+        records = self._fetch_from_nse_api(as_of_utc=as_of_utc)
+        if records:
+            return records[: self.max_items]
+        fallback_records = self._fetch_fallback_from_economic_times(as_of_utc=as_of_utc)
+        if fallback_records:
+            return fallback_records[: self.max_items]
         now = as_of_utc or datetime.now(UTC)
         return [
             RawTextRecord(
                 record_type="news_article",
                 source_name=self.source_name,
-                source_id="nse_news_101",
+                source_id="nse_news_offline_fallback_001",
                 timestamp=now,
-                content="NSE expands its derivatives segment with new index additions.",
+                content="NSE official API and ET fallback unavailable; using deterministic offline sample.",
                 payload={
-                    "headline": "NSE Index Expansion",
-                    "publisher": "NSE India",
-                    "url": "https://nseindia.com/news/101",
+                    "headline": "NSE Offline Fallback Sample",
+                    "publisher": "NSE",
+                    "url": "https://www.nseindia.com/companies-listing/corporate-filings-announcements",
+                    "author": "NSE Corporate Announcements",
+                    "language": "en",
+                    "source_type": self.source_type.value,
+                    "ingestion_timestamp_utc": now,
+                    "ingestion_timestamp_ist": now.astimezone(IST),
+                    "schema_version": "1.0",
+                    "quality_status": "warn",
                     "is_published": True,
+                    "is_embargoed": False,
                     "license_ok": True,
+                    "manipulation_risk_score": 0.14,
+                    "confidence": 0.58,
+                    "quality_flags": ["official_feed", "offline_fallback", "nse"],
                 },
                 source_type=self.source_type,
-                source_route_detail=self.source_route_detail,
+                source_route_detail=SourceRouteDetail.OFFICIAL_FEED,
             )
         ]
+
+    def _fetch_from_nse_api(self, *, as_of_utc: datetime | None) -> list[RawTextRecord]:
+        payload = self._fetch_text(
+            url=self._NSE_ANNOUNCEMENT_URL,
+            cache_key="corporate_announcements",
+            headers={
+                "Accept": "application/json, text/plain, */*",
+                "Referer": "https://www.nseindia.com/",
+            },
+        )
+        if not payload.strip():
+            return []
+        if not payload.strip().startswith("["):
+            return []
+
+        now_utc = datetime.now(UTC)
+        records: list[RawTextRecord] = []
+        try:
+            rows = json.loads(payload)
+        except json.JSONDecodeError:
+            return []
+
+        for row in rows[: self.max_items]:
+            if not isinstance(row, dict):
+                continue
+            title = self._normalize_text(str(row.get("subject") or row.get("sm_name") or ""))
+            if not title:
+                continue
+            detail = self._normalize_text(str(row.get("details") or row.get("desc") or title))
+            raw_link = str(row.get("attchmntFile") or row.get("attachement") or "").strip()
+            if raw_link and raw_link.startswith("/"):
+                raw_link = f"https://www.nseindia.com{raw_link}"
+            url = raw_link or "https://www.nseindia.com/companies-listing/corporate-filings-announcements"
+
+            timestamp = now_utc
+            for key in ("broadcastdate", "an_dt", "date", "sort_date"):
+                raw_value = row.get(key)
+                if not raw_value:
+                    continue
+                candidate = self._parse_rss_datetime(str(raw_value))
+                if candidate is not None:
+                    timestamp = candidate
+                    break
+
+            if as_of_utc and timestamp > as_of_utc:
+                continue
+
+            source_token = str(row.get("id") or row.get("announcementId") or f"{title}|{url}")
+            source_id = self._stable_id("nse_news", source_token)
+            records.append(
+                RawTextRecord(
+                    record_type="news_article",
+                    source_name=self.source_name,
+                    source_id=source_id,
+                    timestamp=timestamp,
+                    content=detail,
+                    payload={
+                        "headline": title,
+                        "publisher": "NSE",
+                        "url": url,
+                        "author": "NSE Corporate Announcements",
+                        "language": "en",
+                        "source_type": self.source_type.value,
+                        "ingestion_timestamp_utc": now_utc,
+                        "ingestion_timestamp_ist": now_utc.astimezone(IST),
+                        "schema_version": "1.0",
+                        "quality_status": "pass",
+                        "is_published": True,
+                        "is_embargoed": False,
+                        "license_ok": True,
+                        "manipulation_risk_score": 0.08,
+                        "confidence": 0.88,
+                        "quality_flags": ["official_feed", "nse"],
+                    },
+                    source_type=self.source_type,
+                    source_route_detail=SourceRouteDetail.OFFICIAL_FEED,
+                )
+            )
+        return records
+
+    def _fetch_fallback_from_economic_times(self, *, as_of_utc: datetime | None) -> list[RawTextRecord]:
+        feed = self._fetch_text(url=self._ET_FALLBACK_URL, cache_key="et_fallback_markets")
+        if not feed.strip():
+            return []
+
+        now_utc = datetime.now(UTC)
+        records: list[RawTextRecord] = []
+        try:
+            root = ET.fromstring(feed)
+        except ET.ParseError:
+            return []
+
+        for item in root.findall(".//item"):
+            title = self._normalize_text(item.findtext("title") or "")
+            description = self._normalize_text(item.findtext("description") or "")
+            link = (item.findtext("link") or "").strip()
+            if not title or not link:
+                continue
+            text_blob = f"{title} {description}".lower()
+            if not any(keyword in text_blob for keyword in _NSE_KEYWORDS):
+                continue
+
+            timestamp = self._parse_rss_datetime(item.findtext("pubDate")) or now_utc
+            if as_of_utc and timestamp > as_of_utc:
+                continue
+            source_id = self._stable_id("nse_fallback", item.findtext("guid") or link)
+            records.append(
+                RawTextRecord(
+                    record_type="news_article",
+                    source_name=self.source_name,
+                    source_id=source_id,
+                    timestamp=timestamp,
+                    content=description or title,
+                    payload={
+                        "headline": title,
+                        "publisher": "Economic Times",
+                        "url": link,
+                        "author": "Economic Times",
+                        "language": "en",
+                        "source_type": self.source_type.value,
+                        "ingestion_timestamp_utc": now_utc,
+                        "ingestion_timestamp_ist": now_utc.astimezone(IST),
+                        "schema_version": "1.0",
+                        "quality_status": "warn",
+                        "is_published": True,
+                        "is_embargoed": False,
+                        "license_ok": True,
+                        "manipulation_risk_score": 0.22,
+                        "confidence": 0.62,
+                        "quality_flags": ["fallback_scraper", "nse_keyword_filter"],
+                    },
+                    source_type=self.source_type,
+                    source_route_detail=SourceRouteDetail.FALLBACK_SCRAPER,
+                )
+            )
+        return records
 
 
 class EconomicTimesAdapter(BaseTextAdapter):
     source_name = "economic_times"
     source_type = TextSourceType.RSS_FEED
     source_route_detail = SourceRouteDetail.OFFICIAL_FEED
+    cache_namespace = "economic_times"
+    _FEED_URL = "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms"
+
+    def __init__(self, **kwargs: Any):
+        super().__init__(**kwargs)
 
     def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
-        now = as_of_utc or datetime.now(UTC)
-        return [
-            RawTextRecord(
-                record_type="news_article",
-                source_name=self.source_name,
-                source_id="et_news_202",
-                timestamp=now,
-                content="Indian markets hit record high as FII inflows surge.",
-                payload={
-                    "headline": "Markets at Record High",
-                    "publisher": "Economic Times",
-                    "url": "https://economictimes.indiatimes.com/news/202",
-                    "is_published": True,
-                    "license_ok": True,
-                },
-                source_type=self.source_type,
-                source_route_detail=self.source_route_detail,
-            ),
-            RawTextRecord(
-                record_type="news_article",
-                source_name=self.source_name,
-                source_id="et_news_blocked_303",
-                timestamp=now,
-                content="Unlicensed content example for compliance testing.",
-                payload={
-                    "headline": "Compliance Test Case",
-                    "publisher": "Economic Times",
-                    "url": "https://economictimes.indiatimes.com/news/303",
-                    "is_published": True,
-                    "license_ok": False,  # Should be rejected
-                },
-                source_type=self.source_type,
-                source_route_detail=SourceRouteDetail.FALLBACK_SCRAPER,
-            ),
-        ]
+        feed = self._fetch_text(url=self._FEED_URL, cache_key="markets_rss")
+        if not feed.strip():
+            return [self._build_offline_fallback_record(as_of_utc=as_of_utc)]
 
+        now_utc = datetime.now(UTC)
+        records: list[RawTextRecord] = []
+        try:
+            root = ET.fromstring(feed)
+        except ET.ParseError:
+            return [self._build_offline_fallback_record(as_of_utc=as_of_utc, now_utc=now_utc)]
+
+        for item in root.findall(".//item")[: self.max_items]:
+            title = self._normalize_text(item.findtext("title") or "")
+            description = self._normalize_text(item.findtext("description") or "")
+            link = (item.findtext("link") or "").strip()
+            if not title or not link:
+                continue
+            timestamp = self._parse_rss_datetime(item.findtext("pubDate")) or now_utc
+            if as_of_utc and timestamp > as_of_utc:
+                continue
+
+            guid = (item.findtext("guid") or link).strip()
+            source_id = self._stable_id("et_news", guid)
+            records.append(
+                RawTextRecord(
+                    record_type="news_article",
+                    source_name=self.source_name,
+                    source_id=source_id,
+                    timestamp=timestamp,
+                    content=description or title,
+                    payload={
+                        "headline": title,
+                        "publisher": "Economic Times",
+                        "url": link,
+                        "author": "Economic Times",
+                        "language": "en",
+                        "source_type": self.source_type.value,
+                        "ingestion_timestamp_utc": now_utc,
+                        "ingestion_timestamp_ist": now_utc.astimezone(IST),
+                        "schema_version": "1.0",
+                        "quality_status": "pass",
+                        "is_published": True,
+                        "is_embargoed": False,
+                        "license_ok": True,
+                        "manipulation_risk_score": 0.14,
+                        "confidence": 0.79,
+                        "quality_flags": ["official_feed", "markets"],
+                    },
+                    source_type=self.source_type,
+                    source_route_detail=self.source_route_detail,
+                )
+            )
+
+        if records:
+            return records
+        return [self._build_offline_fallback_record(as_of_utc=as_of_utc, now_utc=now_utc)]
+
+    def _build_offline_fallback_record(
+        self,
+        *,
+        as_of_utc: datetime | None,
+        now_utc: datetime | None = None,
+    ) -> RawTextRecord:
+        now = as_of_utc or now_utc or datetime.now(UTC)
+        ingest_now = now_utc or now
+        return RawTextRecord(
+            record_type="news_article",
+            source_name=self.source_name,
+            source_id="economic_times_offline_fallback_001",
+            timestamp=now,
+            content="Economic Times feed unavailable; using deterministic offline sample.",
+            payload={
+                "headline": "Economic Times Offline Fallback Sample",
+                "publisher": "Economic Times",
+                "url": "https://economictimes.indiatimes.com/markets",
+                "author": "Economic Times",
+                "language": "en",
+                "source_type": self.source_type.value,
+                "ingestion_timestamp_utc": ingest_now,
+                "ingestion_timestamp_ist": ingest_now.astimezone(IST),
+                "schema_version": "1.0",
+                "quality_status": "warn",
+                "is_published": True,
+                "is_embargoed": False,
+                "license_ok": True,
+                "manipulation_risk_score": 0.18,
+                "confidence": 0.64,
+                "quality_flags": ["official_feed", "offline_fallback", "markets"],
+            },
+            source_type=self.source_type,
+            source_route_detail=self.source_route_detail,
+        )
 
 class RBIReportsAdapter(BaseTextAdapter):
     source_name = "rbi_reports"
     source_type = TextSourceType.OFFICIAL_API
     source_route_detail = SourceRouteDetail.PRIMARY_API
+    cache_namespace = "rbi_reports"
 
-<<<<<<< HEAD
-    def __init__(self, pdf_paths: Sequence[str] | None = None):
-        self.pdf_extractor = PDFExtractor()
-        self.pdf_paths = list(pdf_paths or [])
-
-    @staticmethod
-    def _path_url(path: Path) -> str:
-        try:
-            return path.resolve().as_uri()
-        except ValueError:
-            return str(path.resolve())
-
-    def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
-        now = as_of_utc or datetime.now(UTC)
-
-        docs = _read_pdf_documents(self.pdf_paths)
-        if docs:
-            records: list[RawTextRecord] = []
-            for pdf_path, pdf_bytes in docs:
-                extraction = self.pdf_extractor.extract(pdf_bytes)
-                source_token = _safe_token(pdf_path.stem)
-                records.append(
-                    RawTextRecord(
-                        record_type="news_article",
-                        source_name=self.source_name,
-                        source_id=f"rbi_report_{source_token}",
-                        timestamp=now,
-                        content=extraction.text,
-                        payload={
-                            "headline": f"RBI Report Extract ({pdf_path.name})",
-                            "publisher": "Reserve Bank of India",
-                            "url": self._path_url(pdf_path),
-                            "is_published": True,
-                            "license_ok": True,
-                            "extraction_quality_score": extraction.quality_score,
-                            "pdf_quality_status": extraction.quality_status,
-                            "pdf_extracted_char_count": extraction.metrics["extracted_char_count"],
-                        },
-                        source_type=self.source_type,
-                        source_route_detail=self.source_route_detail,
-                    )
-                )
-            return records
-
-        mock_pdf_content = b"%PDF-1.4 ... RBI Bulletin Content ... Monetary Policy ..."
-        extraction = self.pdf_extractor.extract(mock_pdf_content)
-=======
     _RSS_INDEX_URL = "https://www.rbi.org.in/Scripts/rss.aspx"
     _LEGACY_RSS_FEED_URLS = (
         "https://www.rbi.org.in/pressreleases_rss.xml",
@@ -399,16 +626,7 @@ class RBIReportsAdapter(BaseTextAdapter):
 
         records: list[RawTextRecord] = []
         seen_source_ids: set[str] = set()
-<<<<<<< HEAD
-<<<<<<< HEAD
-        rss_feed_urls = self._discover_rbi_rss_urls()
->>>>>>> 701ccfb8293a2001f6b46632488e94f99447ad31
 
-=======
-
-=======
-
->>>>>>> 7138034 (ee)
         # 3. RSS Route
         if resolved_route.source_type == TextSourceType.RSS_FEED:
             rss_feed_urls = self._discover_rbi_rss_urls()
@@ -474,7 +692,7 @@ class RBIReportsAdapter(BaseTextAdapter):
                 return records[: self.max_items]
 
         # 4. DBIE (Official API / Primary API) Route
-        if resolved_route.source_type == TextSourceType.OFFICIAL_API:
+        if not records and resolved_route.source_type in (TextSourceType.RSS_FEED, TextSourceType.OFFICIAL_API):
             records.extend(
                 self._fetch_dbie_downloads(
                     now_utc=now_utc,
@@ -492,7 +710,10 @@ class RBIReportsAdapter(BaseTextAdapter):
                 return records[: self.max_items]
 
         # 5. Emergency Scraper Route
-        if resolved_route.source_type == TextSourceType.FALLBACK_SCRAPER:
+        if not records and (
+            resolved_route.source_type in (TextSourceType.RSS_FEED, TextSourceType.OFFICIAL_API, TextSourceType.FALLBACK_SCRAPER)
+            and (self._allow_emergency_fallback or bool(self.source_policy.get("enable_emergency_fallback_scraper")))
+        ):
             records.extend(
                 self._fetch_emergency_scraper_records(
                     now_utc=now_utc,
@@ -504,35 +725,16 @@ class RBIReportsAdapter(BaseTextAdapter):
                 return records[: self.max_items]
 
         # 6. Offline Fallback (CI/Safety)
-<<<<<<< HEAD
->>>>>>> 2ba82ae (Implement RBI source routing and emergency fallback for Textual Data Agent)
-=======
->>>>>>> 7138034 (ee)
         return [
             RawTextRecord(
                 record_type="news_article",
                 source_name=self.source_name,
-<<<<<<< HEAD
-                source_id="rbi_report_feb_2026",
-                timestamp=now,
-                content=extraction.text,
-=======
                 source_id="rbi_rss_fallback_001",
                 timestamp=record_timestamp,
                 content="RBI official channels unavailable; using deterministic fallback sample.",
-<<<<<<< HEAD
->>>>>>> 2ba82ae (Implement RBI source routing and emergency fallback for Textual Data Agent)
-=======
->>>>>>> 7138034 (ee)
                 payload={
-                    "headline": "RBI MPC Policy Update (Extracted)",
+                    "headline": "RBI Official Feed Fallback Sample",
                     "publisher": "Reserve Bank of India",
-<<<<<<< HEAD
-<<<<<<< HEAD
-                    "url": "https://rbi.org.in/reports/feb_2026.pdf",
-=======
-=======
->>>>>>> 7138034 (ee)
                     "url": resolved_route.source_url,
                     "author": "RBI",
                     "language": "en",
@@ -541,38 +743,18 @@ class RBIReportsAdapter(BaseTextAdapter):
                     "ingestion_timestamp_ist": now_utc.astimezone(IST),
                     "schema_version": "1.0",
                     "quality_status": "warn",
->>>>>>> 2ba82ae (Implement RBI source routing and emergency fallback for Textual Data Agent)
                     "is_published": True,
+                    "is_embargoed": False,
                     "license_ok": True,
-<<<<<<< HEAD
-                    "extraction_quality_score": extraction.quality_score,
-                    "pdf_quality_status": extraction.quality_status,
-                    "pdf_extracted_char_count": extraction.metrics["extracted_char_count"],
-=======
                     "manipulation_risk_score": 0.08,
                     "confidence": 0.6,
                     "quality_flags": ["official_feed", "offline_fallback", "rbi_rss_xml"],
                     "source_channel": resolved_route.source_channel,
-<<<<<<< HEAD
->>>>>>> 2ba82ae (Implement RBI source routing and emergency fallback for Textual Data Agent)
-=======
->>>>>>> 7138034 (ee)
                 },
                 source_type=resolved_route.source_type,
                 source_route_detail=resolved_route.route_detail,
             )
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
         ]
-=======
-        ][: self.max_items]
-=======
-        ]
->>>>>>> 2ba82ae (Implement RBI source routing and emergency fallback for Textual Data Agent)
-=======
-        ]
->>>>>>> 7138034 (ee)
 
     def _build_local_pdf_records(
         self,
@@ -755,7 +937,7 @@ class RBIReportsAdapter(BaseTextAdapter):
                         "url": absolute,
                         "author": "RBI",
                         "language": "en",
-                        "source_type": self.source_type.value,
+                        "source_type": TextSourceType.FALLBACK_SCRAPER.value,
                         "ingestion_timestamp_utc": now_utc,
                         "ingestion_timestamp_ist": now_utc.astimezone(IST),
                         "schema_version": "1.0",
@@ -763,12 +945,12 @@ class RBIReportsAdapter(BaseTextAdapter):
                         "is_published": True,
                         "is_embargoed": False,
                         "license_ok": True,
-                        "fallback_emergency_active": True,
+                        "fallback_emergency_active": self._allow_emergency_fallback,
                         "manipulation_risk_score": 0.28,
                         "confidence": 0.56,
                         "quality_flags": ["fallback_scraper", "outage_emergency", "rbi_html_scrape"],
                     },
-                    source_type=self.source_type,
+                    source_type=TextSourceType.FALLBACK_SCRAPER,
                     source_route_detail=SourceRouteDetail.FALLBACK_SCRAPER,
                 )
             )
@@ -805,66 +987,14 @@ class RBIReportsAdapter(BaseTextAdapter):
         query_part = re.sub(r"[^a-zA-Z0-9]+", "_", parsed.query).strip("_")
         key = "_".join(part for part in (path_part, query_part) if part)
         return key or "root"
->>>>>>> 701ccfb8293a2001f6b46632488e94f99447ad31
 
 
 class EarningsTranscriptAdapter(BaseTextAdapter):
     source_name = "earnings_transcripts"
     source_type = TextSourceType.OFFICIAL_API
     source_route_detail = SourceRouteDetail.OFFICIAL_FEED
+    cache_namespace = "earnings_transcripts"
 
-<<<<<<< HEAD
-    def __init__(self, pdf_paths: Sequence[str] | None = None):
-        self.pdf_extractor = PDFExtractor()
-        self.pdf_paths = list(pdf_paths or [])
-
-    @staticmethod
-    def _path_url(path: Path) -> str:
-        try:
-            return path.resolve().as_uri()
-        except ValueError:
-            return str(path.resolve())
-
-    def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
-        now = as_of_utc or datetime.now(UTC)
-
-        docs = _read_pdf_documents(self.pdf_paths)
-        if docs:
-            records: list[RawTextRecord] = []
-            for pdf_path, pdf_bytes in docs:
-                extraction = self.pdf_extractor.extract(pdf_bytes)
-                source_token = _safe_token(pdf_path.stem)
-                inferred_symbol = _infer_transcript_symbol(pdf_path)
-                inferred_quarter = _infer_transcript_quarter(pdf_path)
-                inferred_year = _infer_year(pdf_path, now.year)
-                records.append(
-                    RawTextRecord(
-                        record_type="earnings_transcript",
-                        source_name=self.source_name,
-                        source_id=f"earnings_transcript_{source_token}",
-                        timestamp=now,
-                        content=extraction.text,
-                        payload={
-                            "symbol": inferred_symbol,
-                            "quarter": inferred_quarter,
-                            "year": inferred_year,
-                            "url": self._path_url(pdf_path),
-                            "is_published": True,
-                            "license_ok": True,
-                            "extraction_quality_score": extraction.quality_score,
-                            "pdf_quality_status": extraction.quality_status,
-                            "pdf_extracted_char_count": extraction.metrics["extracted_char_count"],
-                        },
-                        source_type=self.source_type,
-                        source_route_detail=self.source_route_detail,
-                    )
-                )
-            return records
-
-        mock_pdf_content = b"%PDF-1.4 ... INFY Q3 Transcript ... Earnings Call ..."
-        extraction = self.pdf_extractor.extract(mock_pdf_content)
-
-=======
     # Mock list of URLs for phase 1 testing
     _MOCK_PDF_URLS = [
         "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" # Placeholder dummy pdf
@@ -997,35 +1127,48 @@ class EarningsTranscriptAdapter(BaseTextAdapter):
 
     def _build_offline_fallback_records(self, now_utc: datetime) -> list[RawTextRecord]:
         # Offline-safe deterministic fallback so default agent runs are reproducible in CI.
->>>>>>> 701ccfb8293a2001f6b46632488e94f99447ad31
         return [
             RawTextRecord(
                 record_type="earnings_transcript",
                 source_name=self.source_name,
-                source_id="infosys_q3_2026",
-                timestamp=now,
-                content=extraction.text,
+                source_id="earnings_transcript_q1_2026",
+                timestamp=now_utc,
+                content=(
+                    "Q1 FY2026 earnings call transcript highlights: revenue growth remained resilient "
+                    "while management guided stable margins for the next quarter."
+                ),
                 payload={
-                    "symbol": "INFY",
-                    "quarter": "Q3",
-                    "year": 2026,
-                    "url": "https://infosys.com/investors/q3_2026.pdf",
+                    "symbol": "DUMMY.NS",
+                    "quarter": "Q1",
+                    "year": now_utc.year,
+                    "url": "https://example.com/earnings/transcript/q1-2026",
+                    "author": "Company Management",
+                    "language": "en",
+                    "source_type": self.source_type.value,
+                    "ingestion_timestamp_utc": now_utc,
+                    "ingestion_timestamp_ist": now_utc.astimezone(IST),
+                    "schema_version": "1.0",
+                    "quality_status": "pass",
                     "is_published": True,
+                    "is_embargoed": False,
                     "license_ok": True,
-                    "extraction_quality_score": extraction.quality_score,
-                    "pdf_quality_status": extraction.quality_status,
-                    "pdf_extracted_char_count": extraction.metrics["extracted_char_count"],
+                    "manipulation_risk_score": 0.0,
+                    "confidence": 0.9,
+                    "quality_flags": ["offline_fallback"],
+                    "extraction_quality_score": 0.85, # Dummy fallback score
+                    "pdf_quality_status": "pass",
                 },
                 source_type=self.source_type,
                 source_route_detail=self.source_route_detail,
             )
-        ]
+        ][: self.max_items]
 
 
 class XPostAdapter(BaseTextAdapter):
     source_name = "x_posts"
     source_type = TextSourceType.SOCIAL_MEDIA
     source_route_detail = SourceRouteDetail.PRIMARY_API
+    cache_namespace = "x_posts"
 
     def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
         now = as_of_utc or datetime.now(UTC)
