@@ -86,11 +86,11 @@ class NSEDIIFIIClient:
             name.value,
             date_range,
         )
-        
+
+        used_fallback = False
         if self._raw_fetcher is not None:
             payload = self._raw_fetcher(date_range)
         else:
-            import logging
             from src.agents.macro.clients.nse_fiidii_scraper import fetch_real_fii_dii
             
             try:
@@ -98,9 +98,18 @@ class NSEDIIFIIClient:
                 payload = fetch_real_fii_dii(date_range)
             except Exception as e:
                 logger.error("Real scraper failed (%s), falling back to simulated payload.", e)
+                used_fallback = True
                 payload = self._build_simulated_payload(date_range)
 
-        parsed = self._parser.parse(payload)
+        self._parser.source_type = (
+            SourceType.FALLBACK_SCRAPER if used_fallback else SourceType.OFFICIAL_API
+        )
+        parsed = list(self._parser.parse(payload))
+        if used_fallback:
+            parsed = [
+                record.model_copy(update={"quality_status": QualityFlag.WARN})
+                for record in parsed
+            ]
         records = [record for record in parsed if record.indicator_name == name]
         if not records:
             logger.warning("No %s records produced from NSE/NSDL payload", name.value)

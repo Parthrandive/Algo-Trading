@@ -14,6 +14,7 @@ from src.agents.macro.clients.rbi_client import RBIClient
 from src.agents.macro.clients.nse_fiidii_client import NSEDIIFIIClient
 from src.agents.macro.clients.fx_reserves_client import FXReservesClient
 from src.agents.macro.clients.bond_spread_client import BondSpreadClient
+from src.agents.macro.clients.akshare_client import AkShareClient
 from src.agents.macro.pipeline import MacroIngestPipeline
 from src.agents.macro.recorder import MacroSilverRecorder
 from src.agents.macro.scheduler import MacroScheduler
@@ -32,6 +33,7 @@ def run_verification():
     fiidii = NSEDIIFIIClient()
     fx = FXReservesClient()
     bond = BondSpreadClient()
+    akshare = AkShareClient()
     
     # 3. Setup Pipeline
     pipeline = MacroIngestPipeline(recorder=recorder)
@@ -48,6 +50,8 @@ def run_verification():
         MacroIndicatorType.IIP: (mospi, IIPParser()),
         MacroIndicatorType.FII_FLOW: (fiidii, FIIDIIParser()),
         MacroIndicatorType.DII_FLOW: (fiidii, FIIDIIParser()),
+        MacroIndicatorType.REPO_RATE: (akshare, CPIParser()),
+        MacroIndicatorType.US_10Y: (akshare, CPIParser()),
         MacroIndicatorType.FX_RESERVES: (fx, FXReservesParser()),
         MacroIndicatorType.RBI_BULLETIN: (rbi, RBIBulletinParser()),
         MacroIndicatorType.INDIA_US_10Y_SPREAD: (bond, BondSpreadParser()),
@@ -85,6 +89,8 @@ def run_verification():
         MacroIndicatorType.IIP,
         MacroIndicatorType.FII_FLOW,
         MacroIndicatorType.DII_FLOW,
+        MacroIndicatorType.REPO_RATE,
+        MacroIndicatorType.US_10Y,
         MacroIndicatorType.FX_RESERVES,
         MacroIndicatorType.RBI_BULLETIN,
         MacroIndicatorType.INDIA_US_10Y_SPREAD

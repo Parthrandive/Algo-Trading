@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Sequence, Tuple
 from zoneinfo import ZoneInfo
 
 from src.agents.macro.client import DateRange
@@ -97,35 +97,43 @@ class RBIClient:
             date_range,
         )
 
-        payload = self._get_payload(name, date_range)
+        payload, used_fallback = self._get_payload(name, date_range)
 
         if name in self._parsers:
-            return self._parsers[name].parse(payload)
+            parser = self._parsers[name]
+            parser.source_type = (
+                SourceType.FALLBACK_SCRAPER if used_fallback else SourceType.OFFICIAL_API
+            )
+            records = list(parser.parse(payload))
+        else:
+            # INDIA_10Y is a direct value series (%); mapped inline to MacroIndicator.
+            source_type = SourceType.FALLBACK_SCRAPER if used_fallback else SourceType.OFFICIAL_API
+            quality_status = QualityFlag.WARN if used_fallback else QualityFlag.PASS
+            records = [self._build_india_10y_record(payload, source_type, quality_status)]
 
-        # INDIA_10Y is a direct value series (%); mapped inline to MacroIndicator.
-        return [self._build_india_10y_record(payload)]
+        if used_fallback:
+            records = [
+                record.model_copy(update={"quality_status": QualityFlag.WARN})
+                for record in records
+            ]
+        return records
 
     def _get_payload(
         self,
         name: MacroIndicatorType,
         date_range: DateRange,
-    ) -> dict[str, Any]:
+    ) -> Tuple[dict[str, Any], bool]:
         if name in self._raw_fetchers:
-            return self._raw_fetchers[name](date_range)
-        return self._build_simulated_payload(name, date_range)
+            return self._raw_fetchers[name](date_range), False
 
-    @staticmethod
-    def _build_simulated_payload(
-        name: MacroIndicatorType,
-        date_range: DateRange,
-    ) -> dict[str, Any]:
         if name == MacroIndicatorType.RBI_BULLETIN:
             from src.agents.macro.clients.rbi_bulletin_scraper import fetch_real_rbi_bulletin
+
             try:
-                logger.info(f"Calling real RBI Bulletin scraper...")
-                return fetch_real_rbi_bulletin(date_range)
+                logger.info("Calling real RBI Bulletin scraper...")
+                return fetch_real_rbi_bulletin(date_range), False
             except Exception as e:
-                logger.error(f"Real RBI Bulletin scraper failed ({e}), falling back to simulated.")
+                logger.error("Real RBI Bulletin scraper failed (%s), falling back to simulated.", e)
                 return {
                     "publications": [
                         {
@@ -133,7 +141,24 @@ class RBIClient:
                             "title": "RBI Bulletin (simulated)",
                         }
                     ]
-                }
+                }, True
+
+        return self._build_simulated_payload(name, date_range), True
+
+    @staticmethod
+    def _build_simulated_payload(
+        name: MacroIndicatorType,
+        date_range: DateRange,
+    ) -> dict[str, Any]:
+        if name == MacroIndicatorType.RBI_BULLETIN:
+            return {
+                "publications": [
+                    {
+                        "date": date_range.end.isoformat(),
+                        "title": "RBI Bulletin (simulated)",
+                    }
+                ]
+            }
         if name == MacroIndicatorType.FX_RESERVES:
             day_seed = date_range.end.toordinal() % 20
             return {
@@ -149,7 +174,11 @@ class RBIClient:
         raise ValueError(f"Unsupported RBI payload request: {name.value}")
 
     @staticmethod
-    def _build_india_10y_record(raw_data: dict[str, Any]) -> MacroIndicator:
+    def _build_india_10y_record(
+        raw_data: dict[str, Any],
+        source_type: SourceType = SourceType.OFFICIAL_API,
+        quality_status: QualityFlag = QualityFlag.PASS,
+    ) -> MacroIndicator:
         raw_date = raw_data.get("date")
         if not isinstance(raw_date, str) or not raw_date.strip():
             raise ValueError("Missing/invalid 'date' for INDIA_10Y payload")
@@ -165,11 +194,11 @@ class RBIClient:
             unit="%",
             period="Daily",
             timestamp=ts,
-            source_type=SourceType.OFFICIAL_API,
+            source_type=source_type,
             ingestion_timestamp_utc=now_utc,
             ingestion_timestamp_ist=now_utc.astimezone(IST),
             schema_version="1.1",
-            quality_status=QualityFlag.PASS,
+            quality_status=quality_status,
         )
 
     def _make_stub_record(

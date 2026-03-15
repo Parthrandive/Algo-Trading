@@ -2,6 +2,7 @@
 Scraper for fetching real FX Reserves data from the RBI website.
 """
 
+import io
 import logging
 import urllib.request
 from typing import Any
@@ -37,8 +38,10 @@ def fetch_real_fx_reserves(date_range: DateRange) -> dict[str, Any]:
         req = urllib.request.Request(_RBI_WSS_URL, headers=headers)
         with urllib.request.urlopen(req, timeout=15) as response:
             raw_data = response.read()
+            charset = response.headers.get_content_charset() or "utf-8"
 
-        dfs = pd.read_html(raw_data)
+        html = raw_data.decode(charset, errors="ignore")
+        dfs = pd.read_html(io.StringIO(html))
         if len(dfs) < 2:
             raise ValueError("Could not find the expected number of tables in WSS.")
         

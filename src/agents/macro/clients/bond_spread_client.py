@@ -88,12 +88,22 @@ class BondSpreadClient:
             name.value,
             date_range,
         )
+        used_fallback = self._raw_fetcher is None
         payload = (
             self._raw_fetcher(date_range)
             if self._raw_fetcher is not None
             else self._build_simulated_payload(date_range)
         )
-        return self._parser.parse(payload)
+        self._parser.source_type = (
+            SourceType.FALLBACK_SCRAPER if used_fallback else SourceType.OFFICIAL_API
+        )
+        records = list(self._parser.parse(payload))
+        if used_fallback:
+            records = [
+                record.model_copy(update={"quality_status": QualityFlag.WARN})
+                for record in records
+            ]
+        return records
 
     @staticmethod
     def _build_simulated_payload(date_range: DateRange) -> dict[str, Any]:

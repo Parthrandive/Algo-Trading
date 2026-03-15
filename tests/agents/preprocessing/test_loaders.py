@@ -59,6 +59,85 @@ def test_macro_loader_preserves_existing_dataset_snapshot_id(tmp_path):
     assert df["dataset_snapshot_id"].iloc[0] == upstream_snapshot_id
 
 
+def test_macro_loader_cleans_invalid_rows_and_dedupes(tmp_path):
+    loader = MacroLoader()
+
+    payload = [
+        {
+            "indicator_name": "CPI",
+            "value": "5.5",
+            "unit": "%",
+            "period": "Monthly",
+            "timestamp": "2026-01-01T00:00:00+00:00",
+            "source_type": "official_api",
+            "schema_version": "v1.1",
+            "ingestion_timestamp_utc": "2026-01-02T00:00:00+00:00",
+        },
+        {
+            "indicator_name": "CPI",
+            "value": "5.8",
+            "unit": "%",
+            "period": "Monthly",
+            "timestamp": "2026-01-01T00:00:00+00:00",
+            "source_type": "official_api",
+            "schema_version": "v1.1",
+            "ingestion_timestamp_utc": "2026-01-03T00:00:00+00:00",
+        },
+        {
+            "indicator_name": "WPI",
+            "value": "2.4",
+            "unit": "%",
+            "period": "Monthly",
+            "timestamp": "2026-01-02T00:00:00+00:00",
+            "source_type": "official_api",
+            "schema_version": "v1.1",
+            "ingestion_timestamp_utc": "2026-01-03T00:00:00+00:00",
+        },
+        {
+            "indicator_name": "IIP",
+            "value": "not-a-number",
+            "unit": "%",
+            "period": "Monthly",
+            "timestamp": "2026-01-03T00:00:00+00:00",
+            "source_type": "official_api",
+            "schema_version": "v1.1",
+            "ingestion_timestamp_utc": "2026-01-03T00:00:00+00:00",
+        },
+        {
+            "indicator_name": None,
+            "value": "1.0",
+            "unit": "%",
+            "period": "Monthly",
+            "timestamp": "2026-01-03T00:00:00+00:00",
+            "source_type": "official_api",
+            "schema_version": "v1.1",
+            "ingestion_timestamp_utc": "2026-01-03T00:00:00+00:00",
+        },
+        {
+            "indicator_name": "DII_FLOW",
+            "value": "123.5",
+            "unit": "INR_Cr",
+            "period": "Daily",
+            "timestamp": "not-a-date",
+            "source_type": "official_api",
+            "schema_version": "v1.1",
+            "ingestion_timestamp_utc": "2026-01-03T00:00:00+00:00",
+        },
+    ]
+
+    test_file = tmp_path / "macro_dirty.json"
+    with open(test_file, "w") as f:
+        json.dump(payload, f)
+
+    df = loader.load(str(test_file), "snapshot_clean_macro")
+
+    assert len(df) == 2
+    assert set(df["indicator_name"].tolist()) == {"CPI", "WPI"}
+    cpi_value = df.loc[df["indicator_name"] == "CPI", "value"].iloc[0]
+    assert cpi_value == pytest.approx(5.8)
+    assert isinstance(df["timestamp"].dtype, pd.DatetimeTZDtype)
+
+
 def test_market_loader_success(tmp_path):
     loader = MarketLoader()
     

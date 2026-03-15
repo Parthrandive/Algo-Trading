@@ -82,24 +82,34 @@ class FXReservesClient:
             name.value,
             date_range,
         )
-        payload = (
-            self._raw_fetcher(date_range)
-            if self._raw_fetcher is not None
-            else self._try_real_then_simulated(date_range)
+        if self._raw_fetcher is not None:
+            payload = self._raw_fetcher(date_range)
+            used_fallback = False
+        else:
+            payload, used_fallback = self._try_real_then_simulated(date_range)
+
+        self._parser.source_type = (
+            SourceType.FALLBACK_SCRAPER if used_fallback else SourceType.OFFICIAL_API
         )
-        return self._parser.parse(payload)
+        records = list(self._parser.parse(payload))
+        if used_fallback:
+            records = [
+                record.model_copy(update={"quality_status": QualityFlag.WARN})
+                for record in records
+            ]
+        return records
 
     @staticmethod
-    def _try_real_then_simulated(date_range: DateRange) -> dict[str, Any]:
+    def _try_real_then_simulated(date_range: DateRange) -> tuple[dict[str, Any], bool]:
         """Try the real RBI scraper first; fall back to simulated payload."""
         from src.agents.macro.clients.rbi_fx_reserves_scraper import fetch_real_fx_reserves
 
         try:
             logger.info("Calling real RBI FX Reserves scraper...")
-            return fetch_real_fx_reserves(date_range)
+            return fetch_real_fx_reserves(date_range), False
         except Exception as e:
             logger.error("Real scraper failed (%s), falling back to simulated payload.", e)
-            return FXReservesClient._build_simulated_payload(date_range)
+            return FXReservesClient._build_simulated_payload(date_range), True
 
     @staticmethod
     def _build_simulated_payload(date_range: DateRange) -> dict[str, Any]:

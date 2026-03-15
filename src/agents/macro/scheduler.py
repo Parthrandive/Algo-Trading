@@ -4,8 +4,8 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import Any, Dict, Optional, Sequence, Tuple
 
+from sqlalchemy import func, inspect
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.orm import Session
 
 from src.agents.macro.client import DateRange, MacroClientInterface
 from src.agents.macro.parsers import BaseParser
@@ -38,6 +38,18 @@ class MacroScheduler:
             
         self.engine = get_engine(database_url)
         self.Session = get_session(self.engine)
+        self._ingestion_log_columns: set[str] | None = None
+
+    def _get_ingestion_log_columns(self) -> set[str]:
+        if self._ingestion_log_columns is None:
+            try:
+                self._ingestion_log_columns = {
+                    col["name"] for col in inspect(self.engine).get_columns("ingestion_log")
+                }
+            except Exception as e:
+                logger.warning("Failed to introspect ingestion_log columns: %s", e)
+                self._ingestion_log_columns = set()
+        return self._ingestion_log_columns
 
     def get_retry_policy(self, indicator: MacroIndicatorType) -> dict[str, Any]:
         """Extract retry policy from config for the indicator, or fallback to default."""
@@ -55,20 +67,35 @@ class MacroScheduler:
     def is_already_ingested(self, indicator: MacroIndicatorType, date_range: DateRange) -> bool:
         """
         Idempotent ingest guard:
-        Checks if records for the given indicator and date range already exist in the DB.
+        Skip only when the latest observation is already within the configured
+        freshness window relative to the requested range end.
         """
         try:
             with self.Session() as session:
-                count = (
+                latest_ts = (
                     session.query(MacroIndicatorDB)
                     .filter(
-                        MacroIndicatorDB.indicator_name == indicator.value,
-                        MacroIndicatorDB.timestamp >= date_range.start,
-                        MacroIndicatorDB.timestamp <= date_range.end,
+                        MacroIndicatorDB.indicator_name == indicator.value
                     )
-                    .count()
+                    .with_entities(func.max(MacroIndicatorDB.timestamp))
+                    .scalar()
                 )
-                return count > 0
+
+                if latest_ts is None:
+                    return False
+
+                if latest_ts.tzinfo is None:
+                    latest_ts = latest_ts.replace(tzinfo=UTC)
+
+                indicator_cfg = self.config.get("indicator_configs", {}).get(indicator.value, {})
+                freshness_hours_raw = indicator_cfg.get("freshness_window_hours", 24)
+                freshness_hours = float(freshness_hours_raw) if freshness_hours_raw else 24.0
+                freshness_delta = timedelta(hours=max(freshness_hours, 1.0))
+
+                range_end = datetime.combine(date_range.end, datetime.max.time(), tzinfo=UTC)
+                freshness_anchor = range_end - freshness_delta
+
+                return latest_ts >= freshness_anchor
         except Exception as e:
             logger.warning("Failed to check ingestion status (defaulting to False): %s", e)
             return False
@@ -83,21 +110,25 @@ class MacroScheduler:
         dataset_snapshot_id: Optional[str] = None,
     ) -> None:
         """Write provenance logging to IngestionLog table."""
+        values = {
+            "run_timestamp": datetime.now(UTC),
+            "symbol": indicator.value,
+            "data_type": "macro",
+            "records_ingested": records_ingested,
+            "status": status,
+            "error_message": error_message,
+            "duration_ms": duration_ms,
+            "dataset_snapshot_id": dataset_snapshot_id,
+            "code_hash": "macro_v1.1",  # placeholder for actual commit hash
+        }
+
+        available_columns = self._get_ingestion_log_columns()
+        if available_columns:
+            values = {k: v for k, v in values.items() if k in available_columns}
+
         try:
             with self.Session() as session:
-                session.execute(
-                    insert(IngestionLog).values(
-                        run_timestamp=datetime.now(UTC),
-                        symbol=indicator.value,
-                        data_type="macro",
-                        records_ingested=records_ingested,
-                        status=status,
-                        error_message=error_message,
-                        duration_ms=duration_ms,
-                        dataset_snapshot_id=dataset_snapshot_id,
-                        code_hash="macro_v1.1", # placeholder for actual commit hash
-                    )
-                )
+                session.execute(insert(IngestionLog).values(**values))
                 session.commit()
         except Exception as e:
             logger.error("Failed to write to IngestionLog: %s", e)
