@@ -1,11 +1,10 @@
-import asyncio
 import concurrent.futures
 from datetime import UTC, datetime
 from typing import Dict, Tuple
-from unittest.mock import Mock
 
 from sqlalchemy import text
 from src.agents.macro.client import DateRange, MacroClientInterface
+from src.agents.macro.clients.akshare_client import AkShareClient
 from src.agents.macro.clients.bond_spread_client import BondSpreadClient
 from src.agents.macro.clients.mospi_client import MOSPIClient
 from src.agents.macro.clients.nse_fiidii_client import NSEDIIFIIClient
@@ -27,13 +26,10 @@ from src.db.connection import get_engine, get_session
 from src.db.models import Base
 from src.schemas.macro_data import MacroIndicatorType
 
-import os
-import shutil
-from sqlalchemy import text
-
 def run_macro():
     engine = get_engine()
     Base.metadata.create_all(engine)
+    akshare = AkShareClient()
     
     # Set up registry with real clients
     registry: Dict[MacroIndicatorType, Tuple[MacroClientInterface, BaseParser]] = {
@@ -42,6 +38,9 @@ def run_macro():
         MacroIndicatorType.IIP: (MOSPIClient(), IIPParser()),
         MacroIndicatorType.FII_FLOW: (NSEDIIFIIClient(), FIIDIIParser()),
         MacroIndicatorType.DII_FLOW: (NSEDIIFIIClient(), FIIDIIParser()),
+        # Parser is unused when client returns MacroIndicator objects directly.
+        MacroIndicatorType.REPO_RATE: (akshare, CPIParser()),
+        MacroIndicatorType.US_10Y: (akshare, CPIParser()),
         MacroIndicatorType.FX_RESERVES: (FXReservesClient(), FXReservesParser()),
         MacroIndicatorType.RBI_BULLETIN: (RBIClient(), RBIBulletinParser()),
         MacroIndicatorType.INDIA_US_10Y_SPREAD: (BondSpreadClient(), BondSpreadParser()),
@@ -73,6 +72,8 @@ def run_macro():
             MacroIndicatorType.IIP,
             MacroIndicatorType.FII_FLOW,
             MacroIndicatorType.DII_FLOW,
+            MacroIndicatorType.REPO_RATE,
+            MacroIndicatorType.US_10Y,
             MacroIndicatorType.FX_RESERVES,
             MacroIndicatorType.RBI_BULLETIN,
             MacroIndicatorType.INDIA_US_10Y_SPREAD
