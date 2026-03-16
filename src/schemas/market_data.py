@@ -21,6 +21,19 @@ class QualityFlag(str, Enum):
     WARN = "warn"
     FAIL = "fail"
 
+
+class ObservationKind(str, Enum):
+    QUOTE = "quote"
+    BAR_UPDATE = "bar_update"
+    FINAL_BAR = "final_bar"
+
+
+class FreshnessStatus(str, Enum):
+    FRESH = "fresh"
+    STALE = "stale"
+    UNKNOWN = "unknown"
+
+
 class MarketDataBase(BaseModel):
     symbol: str
     exchange: str = Field(default="NSE")
@@ -191,4 +204,52 @@ class CorporateAction(MarketDataBase):
         } and self.ratio is None:
             raise ValueError("split/bonus/rights actions require ratio")
 
+        return self
+
+
+class LiveMarketObservation(MarketDataBase):
+    observation_kind: ObservationKind = Field(default=ObservationKind.QUOTE)
+    interval: Optional[str] = None
+    asset_type: str = Field(default="equity")
+    source_name: Optional[str] = None
+    source_status: str = Field(default="ok")
+    freshness_status: FreshnessStatus = Field(default=FreshnessStatus.UNKNOWN)
+    staleness_seconds: Optional[float] = Field(default=None, ge=0)
+    last_price: Optional[float] = Field(default=None, gt=0)
+    open: Optional[float] = Field(default=None, gt=0)
+    high: Optional[float] = Field(default=None, gt=0)
+    low: Optional[float] = Field(default=None, gt=0)
+    close: Optional[float] = Field(default=None, gt=0)
+    volume: Optional[int] = Field(default=None, ge=0)
+    bid: Optional[float] = None
+    ask: Optional[float] = None
+    bar_timestamp: Optional[datetime] = None
+    is_final_bar: bool = False
+
+    @field_validator("bar_timestamp")
+    @classmethod
+    def normalize_bar_timestamp(cls, value: Optional[datetime]) -> Optional[datetime]:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            raise ValueError("bar_timestamp must be timezone-aware")
+        return value.astimezone(UTC)
+
+    @model_validator(mode="after")
+    def validate_live_observation(self):
+        if self.last_price is None and self.close is None:
+            raise ValueError("live observation requires last_price or close")
+
+        if self.is_final_bar:
+            if self.observation_kind != ObservationKind.FINAL_BAR:
+                raise ValueError("finalized live bars must use observation_kind='final_bar'")
+            if self.bar_timestamp is None or self.interval is None:
+                raise ValueError("finalized live bars require bar_timestamp and interval")
+            missing_ohlc = [
+                name
+                for name in ("open", "high", "low", "close")
+                if getattr(self, name) is None
+            ]
+            if missing_ohlc:
+                raise ValueError(f"finalized live bars require OHLC fields: {missing_ohlc}")
         return self

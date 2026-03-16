@@ -34,6 +34,8 @@ INDEX_DDL = [
     "CREATE INDEX IF NOT EXISTS idx_text_type ON text_items (item_type, timestamp DESC);",
     "CREATE INDEX IF NOT EXISTS idx_ingest_ts ON ingestion_log (run_timestamp DESC);",
     "CREATE INDEX IF NOT EXISTS idx_ingest_symbol ON ingestion_log (symbol, run_timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_live_obs_symbol_ts ON live_market_observations (symbol, timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_quality_status ON market_data_quality (dataset_type, status, train_ready);",
     "CREATE INDEX IF NOT EXISTS idx_tech_pred_sym_ts ON technical_predictions (symbol, timestamp DESC);",
     "CREATE INDEX IF NOT EXISTS idx_regime_pred_sym_ts ON regime_predictions (symbol, timestamp DESC);",
     "CREATE INDEX IF NOT EXISTS idx_sentiment_sym_ts ON sentiment_scores (symbol, timestamp DESC);",

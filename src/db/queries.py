@@ -9,6 +9,7 @@ from src.db.models import (
     BacktestRunDB,
     ConsensusSignalDB,
     CorporateActionDB,
+    MarketDataQualityDB,
     ModelCardDB,
     OHLCVBar,
     PredictionLogDB,
@@ -75,6 +76,34 @@ def get_corporate_actions(symbol: str, start: datetime, end: datetime) -> pd.Dat
         df['ex_date'] = pd.to_datetime(df['ex_date'])
         
     return df
+
+
+def get_market_data_quality(symbol: str, interval: str, dataset_type: str = "historical") -> dict | None:
+    engine = get_engine()
+    stmt = select(MarketDataQualityDB).where(
+        and_(
+            MarketDataQualityDB.symbol == symbol,
+            MarketDataQualityDB.interval == interval,
+            MarketDataQualityDB.dataset_type == dataset_type,
+        )
+    )
+    df = pd.read_sql(stmt, engine)
+    if df.empty:
+        return None
+    row = df.iloc[0].to_dict()
+    if row.get("details_json"):
+        row["details_json"] = json.loads(row["details_json"])
+    for column in ("first_timestamp", "last_timestamp", "updated_at"):
+        if row.get(column) is not None:
+            row[column] = pd.to_datetime(row[column], utc=True, errors="coerce")
+    return row
+
+
+def is_symbol_train_ready(symbol: str, interval: str, dataset_type: str = "historical") -> bool:
+    quality = get_market_data_quality(symbol, interval, dataset_type=dataset_type)
+    if quality is None:
+        return False
+    return bool(quality.get("train_ready"))
 
 
 def _read_dataframe(stmt) -> pd.DataFrame:
