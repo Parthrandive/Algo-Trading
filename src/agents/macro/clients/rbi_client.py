@@ -129,19 +129,16 @@ class RBIClient:
         if name == MacroIndicatorType.RBI_BULLETIN:
             from src.agents.macro.clients.rbi_bulletin_scraper import fetch_real_rbi_bulletin
 
+            logger.info("Calling real RBI Bulletin scraper...")
             try:
-                logger.info("Calling real RBI Bulletin scraper...")
                 return fetch_real_rbi_bulletin(date_range), False
-            except Exception as e:
-                logger.error("Real RBI Bulletin scraper failed (%s), falling back to simulated.", e)
-                return {
-                    "publications": [
-                        {
-                            "date": date_range.end.isoformat(),
-                            "title": "RBI Bulletin (simulated)",
-                        }
-                    ]
-                }, True
+            except Exception as exc:
+                logger.warning(
+                    "RBI Bulletin fetch produced no usable rows for range %s (%s).",
+                    date_range,
+                    exc,
+                )
+                return {"publications": []}, True
 
         return self._build_simulated_payload(name, date_range), True
 

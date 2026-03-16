@@ -1,0 +1,213 @@
+{
+  "generated_at_utc": "2026-03-16T06:04:46.983726+00:00",
+  "symbol": "RELIANCE.NS",
+  "interval": "1h",
+  "bars": 49,
+  "coverage_threshold": 0.6,
+  "excluded_features": [
+    "CPI",
+    "FX_RESERVES",
+    "IIP",
+    "WPI"
+  ],
+  "macro_feature_report": {
+    "CPI": {
+      "first_available_date": "2026-03-07",
+      "last_available_date": "2026-03-08",
+      "row_count": 3,
+      "coverage_pct": 0.0,
+      "missing_after_join": 49,
+      "train_ready": false
+    },
+    "WPI": {
+      "first_available_date": "2026-03-07",
+      "last_available_date": "2026-03-08",
+      "row_count": 3,
+      "coverage_pct": 0.0,
+      "missing_after_join": 49,
+      "train_ready": false
+    },
+    "IIP": {
+      "first_available_date": "2026-03-07",
+      "last_available_date": "2026-03-08",
+      "row_count": 3,
+      "coverage_pct": 0.0,
+      "missing_after_join": 49,
+      "train_ready": false
+    },
+    "FII_FLOW": {
+      "first_available_date": "2026-03-07",
+      "last_available_date": "2026-03-08",
+      "row_count": 5,
+      "coverage_pct": 71.4286,
+      "missing_after_join": 14,
+      "train_ready": true
+    },
+    "DII_FLOW": {
+      "first_available_date": "2026-03-07",
+      "last_available_date": "2026-03-08",
+      "row_count": 5,
+      "coverage_pct": 71.4286,
+      "missing_after_join": 14,
+      "train_ready": true
+    },
+    "FX_RESERVES": {
+      "first_available_date": "2026-03-07",
+      "last_available_date": "2026-03-08",
+      "row_count": 5,
+      "coverage_pct": 0.0,
+      "missing_after_join": 49,
+      "train_ready": false
+    },
+    "INDIA_US_10Y_SPREAD": {
+      "first_available_date": "2026-03-07",
+      "last_available_date": "2026-03-08",
+      "row_count": 5,
+      "coverage_pct": 71.4286,
+      "missing_after_join": 14,
+      "train_ready": true
+    },
+    "RBI_BULLETIN": {
+      "first_available_date": "2026-03-07",
+      "last_available_date": "2026-03-08",
+      "row_count": 5,
+      "coverage_pct": 71.4286,
+      "missing_after_join": 14,
+      "train_ready": true
+    },
+    "REPO_RATE": {
+      "first_available_date": "2000-08-01",
+      "last_available_date": "2025-08-06",
+      "row_count": 227,
+      "coverage_pct": 100.0,
+      "missing_after_join": 0,
+      "train_ready": true
+    },
+    "US_10Y": {
+      "first_available_date": "2000-01-03",
+      "last_available_date": "2026-03-13",
+      "row_count": 6551,
+      "coverage_pct": 100.0,
+      "missing_after_join": 0,
+      "train_ready": true
+    }
+  },
+  "release_aware_join_samples": {
+    "FII_FLOW": [
+      {
+        "timestamp": "2026-03-06T08:45:00Z",
+        "FII_FLOW": null
+      },
+      {
+        "timestamp": "2026-03-06T09:45:00Z",
+        "FII_FLOW": null
+      },
+      {
+        "timestamp": "2026-03-09T03:45:00Z",
+        "FII_FLOW": -6030.38
+      },
+      {
+        "timestamp": "2026-03-09T04:45:00Z",
+        "FII_FLOW": -6030.38
+      },
+      {
+        "timestamp": "2026-03-09T05:45:00Z",
+        "FII_FLOW": -6030.38
+      }
+    ],
+    "DII_FLOW": [
+      {
+        "timestamp": "2026-03-06T08:45:00Z",
+        "DII_FLOW": null
+      },
+      {
+        "timestamp": "2026-03-06T09:45:00Z",
+        "DII_FLOW": null
+      },
+      {
+        "timestamp": "2026-03-09T03:45:00Z",
+        "DII_FLOW": 6971.51
+      },
+      {
+        "timestamp": "2026-03-09T04:45:00Z",
+        "DII_FLOW": 6971.51
+      },
+      {
+        "timestamp": "2026-03-09T05:45:00Z",
+        "DII_FLOW": 6971.51
+      }
+    ],
+    "INDIA_US_10Y_SPREAD": [
+      {
+        "timestamp": "2026-03-06T08:45:00Z",
+        "INDIA_US_10Y_SPREAD": null
+      },
+      {
+        "timestamp": "2026-03-06T09:45:00Z",
+        "INDIA_US_10Y_SPREAD": null
+      },
+      {
+        "timestamp": "2026-03-09T03:45:00Z",
+        "INDIA_US_10Y_SPREAD": 280.0
+      },
+      {
+        "timestamp": "2026-03-09T04:45:00Z",
+        "INDIA_US_10Y_SPREAD": 280.0
+      },
+      {
+        "timestamp": "2026-03-09T05:45:00Z",
+        "INDIA_US_10Y_SPREAD": 280.0
+      }
+    ],
+    "RBI_BULLETIN": [
+      {
+        "timestamp": "2026-03-06T08:45:00Z",
+        "RBI_BULLETIN": null
+      },
+      {
+        "timestamp": "2026-03-06T09:45:00Z",
+        "RBI_BULLETIN": null
+      },
+      {
+        "timestamp": "2026-03-09T03:45:00Z",
+        "RBI_BULLETIN": 1.0
+      },
+      {
+        "timestamp": "2026-03-09T04:45:00Z",
+        "RBI_BULLETIN": 1.0
+      },
+      {
+        "timestamp": "2026-03-09T05:45:00Z",
+        "RBI_BULLETIN": 1.0
+      }
+    ],
+    "REPO_RATE": [
+      {
+        "timestamp": "2026-03-05T03:45:00Z",
+        "REPO_RATE": 5.5
+      },
+      {
+        "timestamp": "2026-03-05T04:45:00Z",
+        "REPO_RATE": 5.5
+      },
+      {
+        "timestamp": "2026-03-05T05:45:00Z",
+        "REPO_RATE": 5.5
+      }
+    ],
+    "US_10Y": [
+      {
+        "timestamp": "2026-03-05T03:45:00Z",
+        "US_10Y": 4.09
+      },
+      {
+        "timestamp": "2026-03-05T04:45:00Z",
+        "US_10Y": 4.09
+      },
+      {
+        "timestamp": "2026-03-05T05:45:00Z",
+        "US_10Y": 4.09
+      }
+    ]
+  }
+}

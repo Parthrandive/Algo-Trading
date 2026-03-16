@@ -92,14 +92,16 @@ class NSEDIIFIIClient:
             payload = self._raw_fetcher(date_range)
         else:
             from src.agents.macro.clients.nse_fiidii_scraper import fetch_real_fii_dii
-            
             try:
                 logger.info("Calling real NSE FII/DII scraper...")
                 payload = fetch_real_fii_dii(date_range)
-            except Exception as e:
-                logger.error("Real scraper failed (%s), falling back to simulated payload.", e)
-                used_fallback = True
-                payload = self._build_simulated_payload(date_range)
+            except Exception as exc:
+                logger.warning(
+                    "NSE FII/DII fetch returned no usable data for range %s (%s).",
+                    date_range,
+                    exc,
+                )
+                return []
 
         self._parser.source_type = (
             SourceType.FALLBACK_SCRAPER if used_fallback else SourceType.OFFICIAL_API
@@ -114,20 +116,6 @@ class NSEDIIFIIClient:
         if not records:
             logger.warning("No %s records produced from NSE/NSDL payload", name.value)
         return records
-
-    @staticmethod
-    def _build_simulated_payload(date_range: DateRange) -> dict[str, Any]:
-        """
-        Deterministic fallback payload used when no network fetcher is injected.
-        """
-        day_seed = date_range.end.toordinal()
-        fii_flow = round(((day_seed % 2000) - 1000) * 2.75, 2)
-        dii_flow = round(-fii_flow * 0.8, 2)
-        return {
-            "date": date_range.end.isoformat(),
-            "fii_flow": fii_flow,
-            "dii_flow": dii_flow,
-        }
 
     def _make_stub_record(
         self,

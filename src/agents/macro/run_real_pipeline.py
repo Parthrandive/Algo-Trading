@@ -30,27 +30,27 @@ from src.schemas.macro_data import MacroIndicatorType
 _INITIAL_BACKFILL_START: Dict[MacroIndicatorType, date] = {
     MacroIndicatorType.REPO_RATE: date(2000, 1, 1),
     MacroIndicatorType.US_10Y: date(2000, 1, 1),
-    MacroIndicatorType.CPI: date(2015, 1, 1),
-    MacroIndicatorType.WPI: date(2015, 1, 1),
-    MacroIndicatorType.IIP: date(2015, 1, 1),
+    MacroIndicatorType.CPI: date(1957, 1, 1),
+    MacroIndicatorType.WPI: date(1960, 1, 1),
+    MacroIndicatorType.IIP: date(1994, 1, 1),
     MacroIndicatorType.FII_FLOW: date(2019, 1, 1),
     MacroIndicatorType.DII_FLOW: date(2019, 1, 1),
-    MacroIndicatorType.FX_RESERVES: date(2010, 1, 1),
-    MacroIndicatorType.RBI_BULLETIN: date(2010, 1, 1),
-    MacroIndicatorType.INDIA_US_10Y_SPREAD: date(2010, 1, 1),
+    MacroIndicatorType.FX_RESERVES: date(1950, 12, 1),
+    MacroIndicatorType.RBI_BULLETIN: date(1998, 1, 1),
+    MacroIndicatorType.INDIA_US_10Y_SPREAD: date(2011, 12, 1),
 }
 
 _LOOKBACK_DAYS: Dict[MacroIndicatorType, int] = {
-    MacroIndicatorType.CPI: 120,
-    MacroIndicatorType.WPI: 120,
-    MacroIndicatorType.IIP: 180,
+    MacroIndicatorType.CPI: 365,
+    MacroIndicatorType.WPI: 365,
+    MacroIndicatorType.IIP: 365,
     MacroIndicatorType.FII_FLOW: 14,
     MacroIndicatorType.DII_FLOW: 14,
     MacroIndicatorType.REPO_RATE: 365,
     MacroIndicatorType.US_10Y: 14,
-    MacroIndicatorType.FX_RESERVES: 45,
-    MacroIndicatorType.RBI_BULLETIN: 60,
-    MacroIndicatorType.INDIA_US_10Y_SPREAD: 14,
+    MacroIndicatorType.FX_RESERVES: 365,
+    MacroIndicatorType.RBI_BULLETIN: 365,
+    MacroIndicatorType.INDIA_US_10Y_SPREAD: 365,
 }
 
 

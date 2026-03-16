@@ -69,10 +69,20 @@ class MacroLoader(PreprocessingLoader):
         )
         cleaned["timestamp"] = pd.to_datetime(cleaned["timestamp"], utc=True, errors="coerce")
         cleaned["value"] = pd.to_numeric(cleaned["value"], errors="coerce")
+        if "release_date" in cleaned.columns:
+            cleaned["release_date"] = pd.to_datetime(cleaned["release_date"], utc=True, errors="coerce")
+        else:
+            cleaned["release_date"] = pd.NaT
         cleaned = cleaned.replace([float("inf"), float("-inf")], pd.NA)
 
         before = len(cleaned)
         cleaned = cleaned.dropna(subset=["indicator_name", "timestamp", "value"])
+
+        # Canonical normalized schema columns for downstream release-aware joins.
+        cleaned["series_name"] = cleaned["indicator_name"]
+        cleaned["observation_date"] = cleaned["timestamp"].dt.date
+        cleaned["source"] = cleaned.get("source", cleaned.get("source_type", pd.NA))
+        cleaned["frequency"] = cleaned.get("frequency", cleaned.get("period", pd.NA))
 
         sort_columns = ["indicator_name", "timestamp"]
         if "ingestion_timestamp_utc" in cleaned.columns:
