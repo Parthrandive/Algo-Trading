@@ -1,0 +1,42 @@
+{
+  "best_epoch": 1,
+  "epochs_ran": 26,
+  "best_val_loss": 1.0952359054653782,
+  "val_accuracy": 0.37057220708446864,
+  "val_balanced_accuracy": 0.3571078431372549,
+  "train_windows": 1436,
+  "val_windows": 367,
+  "neutral_threshold": 0.0045,
+  "class_distribution_train": {
+    "up": 174,
+    "neutral": 1092,
+    "down": 170
+  },
+  "class_distribution_val": {
+    "up": 45,
+    "neutral": 272,
+    "down": 50
+  },
+  "class_weight_balanced": {
+    "up": 2.75095796585083,
+    "neutral": 0.4383394420146942,
+    "down": 2.8156862258911133
+  },
+  "per_class_accuracy": {
+    "up": {
+      "correct": 0,
+      "total": 45,
+      "accuracy": 0.0
+    },
+    "neutral": {
+      "correct": 101,
+      "total": 272,
+      "accuracy": 0.3713235294117647
+    },
+    "down": {
+      "correct": 35,
+      "total": 50,
+      "accuracy": 0.7
+    }
+  }
+}
