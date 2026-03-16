@@ -1,0 +1,61 @@
+{
+  "symbol": "TCS.NS",
+  "source": "ohlcv_bars",
+  "rows": 1833,
+  "train_rows": 1466,
+  "val_rows": 367,
+  "regression_metrics": {
+    "best_epoch": 11,
+    "epochs_ran": 36,
+    "best_val_loss_scaled": 2.2413071251045458,
+    "val_rmse_inr": 18.67938812621179,
+    "val_mae_inr": 9.949280238215497,
+    "val_mape": 0.003620136346022449,
+    "val_directional_accuracy": 0.5258855585831063,
+    "train_sequences": 1446,
+    "val_sequences": 367,
+    "train_split_index": 1466
+  },
+  "classification_metrics": {
+    "best_epoch": 2,
+    "epochs_ran": 27,
+    "best_val_loss": 1.0937252616362612,
+    "val_accuracy": 0.6811989100817438,
+    "val_balanced_accuracy": 0.41471048513302033,
+    "train_windows": 1436,
+    "val_windows": 367,
+    "neutral_threshold": 0.0045,
+    "class_distribution_train": {
+      "up": 114,
+      "neutral": 1188,
+      "down": 134
+    },
+    "class_distribution_val": {
+      "up": 36,
+      "neutral": 284,
+      "down": 47
+    },
+    "class_weight_balanced": {
+      "up": 4.198830604553223,
+      "neutral": 0.4029180705547333,
+      "down": 3.572139263153076
+    },
+    "per_class_accuracy": {
+      "up": {
+        "correct": 15,
+        "total": 36,
+        "accuracy": 0.4166666666666667
+      },
+      "neutral": {
+        "correct": 235,
+        "total": 284,
+        "accuracy": 0.8274647887323944
+      },
+      "down": {
+        "correct": 0,
+        "total": 47,
+        "accuracy": 0.0
+      }
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import concurrent.futures
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import Dict, Tuple
 
@@ -54,27 +55,58 @@ _LOOKBACK_DAYS: Dict[MacroIndicatorType, int] = {
 }
 
 
-def _latest_indicator_date(session, indicator: MacroIndicatorType) -> date | None:
+_MIN_HISTORY_ROWS: Dict[MacroIndicatorType, int] = {
+    MacroIndicatorType.CPI: 120,
+    MacroIndicatorType.WPI: 120,
+    MacroIndicatorType.IIP: 120,
+    MacroIndicatorType.FII_FLOW: 250,
+    MacroIndicatorType.DII_FLOW: 250,
+    MacroIndicatorType.REPO_RATE: 120,
+    MacroIndicatorType.US_10Y: 1000,
+    MacroIndicatorType.FX_RESERVES: 250,
+    MacroIndicatorType.RBI_BULLETIN: 60,
+    MacroIndicatorType.INDIA_US_10Y_SPREAD: 250,
+}
+
+
+@dataclass(frozen=True)
+class IndicatorRangePlan:
+    date_range: DateRange
+    latest_date: date | None
+    row_count: int
+    min_history_rows: int
+    force_full_backfill: bool
+
+
+def _indicator_history_stats(session, indicator: MacroIndicatorType) -> tuple[date | None, int]:
     result = session.execute(
         text(
             """
-            SELECT MAX(timestamp) AS latest_ts
+            SELECT MAX(timestamp) AS latest_ts, COUNT(*) AS row_count
             FROM macro_indicators
             WHERE indicator_name = :indicator
             """
         ),
         {"indicator": indicator.value},
-    ).scalar()
-    if result is None:
-        return None
-    return result.date()
+    ).mappings().one()
+    latest_ts = result.get("latest_ts")
+    latest_date = latest_ts.date() if latest_ts is not None else None
+    row_count = int(result.get("row_count") or 0)
+    return latest_date, row_count
 
 
-def _build_indicator_range(indicator: MacroIndicatorType, now_date: date, latest_date: date | None) -> DateRange:
+def _build_indicator_range(
+    indicator: MacroIndicatorType,
+    now_date: date,
+    latest_date: date | None,
+    row_count: int,
+) -> IndicatorRangePlan:
     initial_start = _INITIAL_BACKFILL_START.get(indicator, now_date - timedelta(days=90))
     lookback_days = _LOOKBACK_DAYS.get(indicator, 30)
+    min_history_rows = _MIN_HISTORY_ROWS.get(indicator, 1)
+    force_full_backfill = latest_date is None or row_count < min_history_rows
 
-    if latest_date is None:
+    if force_full_backfill:
         start = initial_start
     else:
         start = max(initial_start, latest_date - timedelta(days=lookback_days))
@@ -82,7 +114,13 @@ def _build_indicator_range(indicator: MacroIndicatorType, now_date: date, latest
     if start > now_date:
         start = now_date
 
-    return DateRange(start=start, end=now_date)
+    return IndicatorRangePlan(
+        date_range=DateRange(start=start, end=now_date),
+        latest_date=latest_date,
+        row_count=row_count,
+        min_history_rows=min_history_rows,
+        force_full_backfill=force_full_backfill,
+    )
 
 
 def run_macro():
@@ -136,17 +174,37 @@ def run_macro():
         ]
         
         with Session() as session:
-            indicator_ranges = {
-                indicator: _build_indicator_range(
+            indicator_plans = {}
+            for indicator in required_indicators:
+                latest_date, row_count = _indicator_history_stats(session, indicator)
+                plan = _build_indicator_range(
                     indicator=indicator,
                     now_date=now_date,
-                    latest_date=_latest_indicator_date(session, indicator),
+                    latest_date=latest_date,
+                    row_count=row_count,
                 )
-                for indicator in required_indicators
-            }
+                indicator_plans[indicator] = plan
+                if plan.force_full_backfill:
+                    if latest_date is None:
+                        reason = "no existing rows"
+                    else:
+                        reason = (
+                            f"insufficient history "
+                            f"(rows={plan.row_count}, min_required={plan.min_history_rows})"
+                        )
+                    print(
+                        f"[macro-backfill] {indicator.value}: full backfill "
+                        f"{plan.date_range.start} -> {plan.date_range.end} ({reason})"
+                    )
+                else:
+                    print(
+                        f"[macro-backfill] {indicator.value}: incremental "
+                        f"{plan.date_range.start} -> {plan.date_range.end} "
+                        f"(latest={plan.latest_date}, rows={plan.row_count})"
+                    )
 
         def fetch_indicator(indicator):
-            indicator_range = indicator_ranges[indicator]
+            indicator_range = indicator_plans[indicator].date_range
             print(f"\n--- Fetching {indicator.value} ({indicator_range.start} -> {indicator_range.end}) ---")
             try:
                 records = scheduler.run_job(indicator, indicator_range)
