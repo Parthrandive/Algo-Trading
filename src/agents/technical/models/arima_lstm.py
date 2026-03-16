@@ -162,8 +162,23 @@ class ArimaLstmHybrid:
         # Get the last window for LSTM
         last_window = dict()
         for col in self.feature_columns:
-            # Handle possible NaNs in context
-            last_window[col] = df[col].ffill().bfill().values[-self.window_size:]
+            # Handle missing/all-NaN columns robustly during inference.
+            if col in df.columns:
+                series = pd.to_numeric(df[col], errors="coerce")
+            else:
+                series = pd.Series(np.nan, index=df.index, dtype=float)
+
+            series = series.ffill().bfill()
+            if series.isna().all():
+                values = np.zeros(self.window_size, dtype=float)
+            else:
+                values = series.fillna(0.0).values
+                if len(values) >= self.window_size:
+                    values = values[-self.window_size:]
+                else:
+                    pad = np.full(self.window_size - len(values), values[0], dtype=float)
+                    values = np.concatenate([pad, values])
+            last_window[col] = values
             
         X_test_np = np.column_stack([last_window[c] for c in self.feature_columns])
         X_test = torch.tensor(X_test_np, dtype=torch.float32).unsqueeze(0).to(self.device)

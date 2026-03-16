@@ -179,6 +179,18 @@ def main():
         logger.error(f"Failed to load data: {e}")
         sys.exit(1)
 
+    if getattr(loader, "last_macro_quality_report", None):
+        macro_report_path = os.path.join(args.output_dir, "macro_feature_validation.json")
+        os.makedirs(args.output_dir, exist_ok=True)
+        with open(macro_report_path, "w") as f:
+            json.dump(loader.last_macro_quality_report, f, indent=2)
+        excluded = getattr(loader, "last_macro_excluded_features", [])
+        logger.info(
+            "Macro quality report saved to %s. Excluded by coverage gate: %s",
+            macro_report_path,
+            excluded,
+        )
+
     # 2. Validate Data
     logger.info(f"Loaded {len(df)} rows. Validating...")
     validate_data(df)

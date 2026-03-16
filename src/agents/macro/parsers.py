@@ -205,7 +205,10 @@ class CPIParser(MOSPIParser):
         for item in raw_data.get("data", []):
             try:
                 val = float(item["value"])
-                dt = datetime.fromisoformat(item["date"]).replace(tzinfo=UTC)
+                date_token = item.get("date") or item.get("observation_date")
+                if not date_token:
+                    raise ValueError("Missing date/observation_date")
+                dt = datetime.fromisoformat(str(date_token)).replace(tzinfo=UTC)
                 results.append(self._create_record(val, dt, now))
             except (KeyError, ValueError, TypeError) as e:
                 logger.error("Failed to parse CPI item %s: %s", item, e)
@@ -221,7 +224,10 @@ class WPIParser(MOSPIParser):
         for item in raw_data.get("data", []):
             try:
                 val = float(item["value"])
-                dt = datetime.fromisoformat(item["date"]).replace(tzinfo=UTC)
+                date_token = item.get("date") or item.get("observation_date")
+                if not date_token:
+                    raise ValueError("Missing date/observation_date")
+                dt = datetime.fromisoformat(str(date_token)).replace(tzinfo=UTC)
                 results.append(self._create_record(val, dt, now))
             except (KeyError, ValueError, TypeError) as e:
                 logger.error("Failed to parse WPI item %s: %s", item, e)
@@ -237,7 +243,10 @@ class IIPParser(MOSPIParser):
         for item in raw_data.get("data", []):
             try:
                 val = float(item["value"])
-                dt = datetime.fromisoformat(item["date"]).replace(tzinfo=UTC)
+                date_token = item.get("date") or item.get("observation_date")
+                if not date_token:
+                    raise ValueError("Missing date/observation_date")
+                dt = datetime.fromisoformat(str(date_token)).replace(tzinfo=UTC)
                 results.append(self._create_record(val, dt, now))
             except (KeyError, ValueError, TypeError) as e:
                 logger.error("Failed to parse IIP item %s: %s", item, e)
@@ -341,6 +350,14 @@ class FIIDIIParser(BaseParser):
         results = []
         now = datetime.now(UTC)
         
+        items = raw_data.get("data")
+        if isinstance(items, list):
+            results: list[MacroIndicator] = []
+            for item in items:
+                if isinstance(item, dict):
+                    results.extend(self.parse(item))
+            return results
+
         try:
             dt_str = raw_data.get("date")
             if not dt_str:
@@ -416,6 +433,14 @@ class FXReservesParser(BaseParser):
             "value": 680.5
         }
         """
+        items = raw_data.get("data")
+        if isinstance(items, list):
+            results: list[MacroIndicator] = []
+            for item in items:
+                if isinstance(item, dict):
+                    results.extend(self.parse(item))
+            return results
+
         results = []
         now = datetime.now(UTC)
         
@@ -460,6 +485,14 @@ class BondSpreadParser(BaseParser):
             "us_10y_percent": 4.25
         }
         """
+        items = raw_data.get("data")
+        if isinstance(items, list):
+            results: list[MacroIndicator] = []
+            for item in items:
+                if isinstance(item, dict):
+                    results.extend(self.parse(item))
+            return results
+
         results = []
         now = datetime.now(UTC)
         

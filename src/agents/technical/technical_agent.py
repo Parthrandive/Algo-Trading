@@ -97,7 +97,11 @@ class TechnicalAgent:
 
             # Ignore unrelated/all-NaN columns from upstream payloads (e.g., optional DB columns).
             # ARIMA feature columns may drift across model versions and are handled as best-effort at inference.
-            arima_present_cols = {col for col in self.arima_features if col in df_feat.columns}
+            arima_present_cols = {
+                col
+                for col in self.arima_features
+                if col in df_feat.columns and not df_feat[col].isna().all()
+            }
             clean_subset = sorted(required_core_cols | arima_present_cols)
             df_feat = df_feat.dropna(subset=clean_subset).reset_index(drop=True)
             if len(df_feat) < max(self.arima_lstm.window_size, self.cnn.window_size):

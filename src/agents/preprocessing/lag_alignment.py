@@ -39,40 +39,50 @@ class LagAligner:
         
         if not macro_df.empty:
             macro_df = macro_df.copy()
-            macro_df["timestamp"] = pd.to_datetime(macro_df["timestamp"], utc=True).astype("datetime64[ns, UTC]")
+            macro_df["timestamp"] = pd.to_datetime(
+                macro_df["timestamp"], utc=True, errors="coerce"
+            ).astype("datetime64[ns, UTC]")
+            macro_df["value"] = pd.to_numeric(macro_df["value"], errors="coerce")
+            macro_df = macro_df.dropna(subset=["indicator_name", "timestamp", "value"])
 
-            # 1. Pivot Macro dataframe so each indicator is a column
-            pivot_macro = macro_df.pivot_table(
-                index="timestamp", 
-                columns="indicator_name", 
-                values="value", 
-                aggfunc="last"
-            ).reset_index()
-            pivot_macro["timestamp"] = pd.to_datetime(pivot_macro["timestamp"], utc=True).astype("datetime64[ns, UTC]")
+            if "release_date" in macro_df.columns:
+                macro_df["release_date"] = pd.to_datetime(
+                    macro_df["release_date"], utc=True, errors="coerce"
+                ).astype("datetime64[ns, UTC]")
+            else:
+                macro_df["release_date"] = pd.NaT
 
-            # 2. Shift the timestamps forward by their respective publication delays.
-            for col in pivot_macro.columns:
-                if col == "timestamp":
+            for indicator in sorted(macro_df["indicator_name"].astype(str).unique()):
+                delay = self.publication_delays.get(str(indicator), timedelta(0))
+                ind_df = macro_df[macro_df["indicator_name"] == indicator].copy()
+                if ind_df.empty:
                     continue
-                    
-                delay = self.publication_delays.get(col, timedelta(0))
-                
-                # Create a localized dataframe for the indicator shifted forward
-                ind_df = pivot_macro[["timestamp", col]].dropna().copy()
-                ind_df["effective_time"] = (ind_df["timestamp"] + delay).astype("datetime64[ns, UTC]")
-                ind_df = ind_df.sort_values("effective_time")
-                
-                # Merge this indicator into the market frame using standard backward asof
-                market_df = market_df.sort_values("timestamp")
-                market_df = pd.merge_asof(
-                    market_df, 
-                    ind_df[["effective_time", col]], 
-                    left_on="timestamp", 
-                    right_on="effective_time", 
-                    direction="backward"
+
+                ind_df["effective_time"] = ind_df["release_date"]
+                missing_release = ind_df["effective_time"].isna()
+                if missing_release.any():
+                    ind_df.loc[missing_release, "effective_time"] = (
+                        ind_df.loc[missing_release, "timestamp"] + delay
+                    )
+
+                ind_df = (
+                    ind_df[["effective_time", "value"]]
+                    .dropna(subset=["effective_time", "value"])
+                    .sort_values("effective_time")
+                    .drop_duplicates(subset=["effective_time"], keep="last")
                 )
-                # Cleanup intermediate timing column 
-                market_df = market_df.drop(columns=["effective_time"], errors="ignore")
+                if ind_df.empty:
+                    continue
+
+                market_df = market_df.sort_values("timestamp")
+                merged = pd.merge_asof(
+                    market_df,
+                    ind_df,
+                    left_on="timestamp",
+                    right_on="effective_time",
+                    direction="backward",
+                )
+                market_df[indicator] = merged["value"]
 
         # 3. Align Textual Sentiment
         if text_df is not None and not text_df.empty:

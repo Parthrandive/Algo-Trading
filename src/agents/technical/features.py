@@ -108,10 +108,14 @@ def add_macd(df: pd.DataFrame, target_col: str = 'close', fast: int = 12, slow: 
 
 def add_macro_regime_features(df: pd.DataFrame, lookback: int = 120) -> pd.DataFrame:
     """
-    Build a stable macro composite for technical models.
-    Produces no-NaN derived features, with graceful fallback to neutral values.
+    Build a macro composite for technical models without fabricating history.
+
+    - No backward fill before first real observation.
+    - No forced zero for missing raw macro series.
+    - Optional feature gating via `df.attrs["macro_excluded_features"]`.
     """
     result = df.copy()
+    excluded_features = set(result.attrs.get("macro_excluded_features", []))
     macro_weights = {
         "CPI": -0.18,
         "WPI": -0.16,
@@ -134,18 +138,22 @@ def add_macro_regime_features(df: pd.DataFrame, lookback: int = 120) -> pd.DataF
             result[col] = np.nan
 
         raw = pd.to_numeric(result[col], errors="coerce")
-        # Forward/back-fill to create stable context values without dropping rows.
-        stable = raw.ffill().bfill()
+        if col in excluded_features:
+            result[col] = np.nan
+            result[f"{col}_z"] = np.nan
+            continue
+
+        # Forward-fill only. This preserves pre-first-observation missing history.
+        stable = raw.ffill()
         roll_mean = stable.rolling(window=lookback, min_periods=max(12, lookback // 10)).mean()
         roll_std = stable.rolling(window=lookback, min_periods=max(12, lookback // 10)).std().replace(0, np.nan)
-        zscore = ((stable - roll_mean) / roll_std).replace([np.inf, -np.inf], np.nan).fillna(0.0).clip(-5.0, 5.0)
+        zscore = ((stable - roll_mean) / roll_std).replace([np.inf, -np.inf], np.nan).clip(-5.0, 5.0)
 
         presence = raw.notna().astype(float)
-        weighted_sum += zscore * float(weight) * presence
+        weighted_sum += zscore.fillna(0.0) * float(weight) * presence
         available_weight += abs(float(weight)) * presence
         result[f"{col}_z"] = zscore
-        # Keep original macro columns numeric/no-NaN to avoid row drops downstream.
-        result[col] = stable.fillna(0.0)
+        result[col] = raw
 
     result["macro_coverage_ratio"] = (available_weight / max(total_abs_weight, 1e-9)).clip(0.0, 1.0)
     result["macro_regime_index"] = (
