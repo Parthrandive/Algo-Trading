@@ -1218,9 +1218,28 @@ def main() -> None:
 
     all_summaries: list[dict[str, Any]] = []
     failed_symbols: list[dict[str, str]] = []
+    skipped_symbols: list[dict[str, str]] = []
+
+    from src.db.queries import get_market_data_quality
 
     for symbol in args.symbols:
         LOGGER.info("=== Training symbol=%s ===", symbol)
+        quality = get_market_data_quality(symbol, args.interval, dataset_type="historical")
+        if quality is not None and not quality.get("train_ready"):
+            LOGGER.warning(
+                "Skipping %s due to historical quality gate: status=%s details=%s",
+                symbol,
+                quality.get("status"),
+                quality.get("details_json"),
+            )
+            skipped_symbols.append(
+                {
+                    "symbol": symbol,
+                    "reason": "historical_quality_gate",
+                    "details": str(quality.get("details_json")),
+                }
+            )
+            continue
         try:
             summary = run_for_symbol(symbol, args, root_run_dir)
             all_summaries.append(summary)
@@ -1234,6 +1253,7 @@ def main() -> None:
         "run_dir": str(root_run_dir),
         "symbols_requested": args.symbols,
         "symbols_succeeded": [summary["symbol"] for summary in all_summaries],
+        "symbols_skipped": skipped_symbols,
         "symbols_failed": failed_symbols,
         "config": vars(args),
         "summaries": all_summaries,

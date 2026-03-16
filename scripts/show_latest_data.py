@@ -174,6 +174,31 @@ def _count_symbol_rows(base_dir: Path) -> int:
     return total_rows
 
 
+def _get_latest_timestamp(symbol: str):
+    return get_latest_local_timestamp_db(symbol) or get_latest_local_timestamp(symbol)
+
+
+def _build_historical_backfill_service():
+    from src.agents.sentinel.bronze_recorder import BronzeRecorder
+    from src.agents.sentinel.historical_backfill import HistoricalBackfillService
+
+    return HistoricalBackfillService(
+        bronze_recorder=BronzeRecorder(),
+    )
+
+
+def _get_historical_bars(symbol: str, start_date: datetime, end_date: datetime, interval: str) -> pd.DataFrame:
+    from src.db.queries import get_bars
+
+    return get_bars(symbol, start_date, end_date, interval=interval)
+
+
+def _build_live_market_service():
+    from src.agents.sentinel.live_market import LiveMarketIngestionService
+
+    return LiveMarketIngestionService()
+
+
 def show_historical_data(
     symbol_candidates: list[str],
     *,
@@ -203,7 +228,7 @@ def show_historical_data(
     if auto_fetch:
         now_utc = datetime.now(timezone.utc)
         desired_end = end_date or now_utc
-        latest_ts = get_latest_local_timestamp_db(target_symbol) or get_latest_local_timestamp(target_symbol)
+        latest_ts = _get_latest_timestamp(target_symbol)
         if latest_ts is not None and latest_ts.tzinfo is None:
             latest_ts = latest_ts.replace(tzinfo=timezone.utc)
 
@@ -228,26 +253,15 @@ def show_historical_data(
         if fetch_needed:
             print(f"Fetching missing history from {fetch_start.isoformat()} to {desired_end.isoformat()} ({interval})")
             try:
-                from src.agents.sentinel.bronze_recorder import BronzeRecorder
-                from src.agents.sentinel.config import load_default_sentinel_config
-                from src.agents.sentinel.pipeline import SentinelIngestPipeline
-                from src.db.silver_db_recorder import SilverDBRecorder
-
-                config = load_default_sentinel_config()
-                pipeline = SentinelIngestPipeline(
-                    client=_build_failover_client(config),
-                    silver_recorder=SilverDBRecorder(),
-                    bronze_recorder=BronzeRecorder(),
-                    session_rules=config.session_rules,
+                service = _build_historical_backfill_service()
+                service_result = service.backfill_symbol(
+                    symbol=target_symbol,
+                    start_date=fetch_start,
+                    end_date=desired_end,
+                    interval=interval,
                 )
-                pre_fetch_rows = _count_symbol_rows(base_dir)
-                bars = pipeline.ingest_historical(target_symbol, fetch_start, desired_end, interval=interval)
-                saved_symbol_candidates = _dedupe_preserve_order([bar.symbol for bar in bars] + symbol_candidates + [target_symbol])
-                _, base_dir = resolve_historical_dir(saved_symbol_candidates)
-                post_fetch_rows = _count_symbol_rows(base_dir)
-
-                bars_fetched = len(bars)
-                bars_saved = max(0, post_fetch_rows - pre_fetch_rows)
+                bars_fetched = int(service_result.get("bars_fetched", 0))
+                bars_saved = int(service_result.get("bars_added", 0))
                 silver_path = str(base_dir.resolve())
 
                 result["fetched_bars"] = bars_fetched
@@ -259,20 +273,25 @@ def show_historical_data(
                 print(f"  bars_fetched: {bars_fetched}")
                 print(f"  bars_saved: {bars_saved}")
                 print(f"  silver_path: {silver_path}")
+                if service_result.get("quality"):
+                    print(
+                        "  quality: "
+                        f"status={service_result['quality'].get('status')} "
+                        f"train_ready={service_result['quality'].get('train_ready')} "
+                        f"coverage={service_result['quality'].get('coverage_pct')}"
+                    )
             except Exception as exc:
                 result["status"] = "ERROR"
                 result["error"] = f"Failed to fetch historical data dynamically: {exc}"
                 print(result["error"])
     else:
         print("Local-only mode enabled. Reading local data only.")
-
-    from src.db.queries import get_bars
     
     # Let's request the last 30 days from DB if start_date is not specified
     query_end = end_date or datetime.now(timezone.utc)
     query_start = start_date or (query_end - timedelta(days=days))
     
-    df = get_bars(target_symbol, query_start, query_end, interval=interval)
+    df = _get_historical_bars(target_symbol, query_start, query_end, interval)
     
     # We still keep resolve_historical_dir for the "silver_path" output for compatibility
     result["silver_path"] = str(base_dir.resolve())
@@ -356,50 +375,44 @@ def show_live_quote(symbol_candidates: list[str]) -> dict:
         "errors": [],
     }
 
+    service = _build_live_market_service()
     for candidate in symbol_candidates:
         print(f"Trying symbol: {candidate}")
-        for client_name, factory in choose_client_order(candidate):
-            print(f"Fetching via {client_name}...")
-            try:
-                client = factory()
-                tick = client.get_stock_quote(candidate)
-                print("\nSUCCESS: Received Live Tick")
-                print(f"Symbol: {tick.symbol}")
-                print(f"Price:  {tick.price}")
-                print(f"Volume: {tick.volume}")
-                print(f"Source: {tick.source_type}")
-                import pytz
-                ist = pytz.timezone("Asia/Kolkata")
-                tick_time_ist = tick.timestamp
-                if hasattr(tick_time_ist, "astimezone"):
-                    if tick_time_ist.tzinfo is None:
-                        tick_time_ist = tick_time_ist.replace(tzinfo=timezone.utc)
-                    tick_time_ist = tick_time_ist.astimezone(ist)
+        try:
+            live_result = service.poll_symbol(candidate)
+            if live_result["status"] == "FAILED":
+                result["errors"].append(f"{candidate}: {live_result['message']}")
+                continue
 
+            print("\nSUCCESS: Received Live Observation")
+            print(f"Symbol: {live_result['symbol']}")
+            print(f"Price:  {live_result['last_price']}")
+            print(f"Volume: {live_result['volume']}")
+            print(f"Source: {live_result['source_name']}")
+            print(f"Fresh:  {live_result['freshness_status']}")
+            print(f"State:  {live_result['source_status']}")
+            if live_result.get("timestamp"):
+                import pytz
+
+                ist = pytz.timezone("Asia/Kolkata")
+                tick_time_ist = datetime.fromisoformat(live_result["timestamp"].replace("Z", "+00:00")).astimezone(ist)
                 print(f"Time:   {tick_time_ist}")
 
-                # Save tick to database
-                from src.db.silver_db_recorder import SilverDBRecorder
-                try:
-                    db_recorder = SilverDBRecorder()
-                    db_recorder.save_ticks([tick])
-                    print(f"Saved live tick for {tick.symbol} to PostgreSQL db")
-                except Exception as db_exc:
-                    print(f"Warning: Failed to persist live tick to DB: {db_exc}")
-
-                result.update(
-                    {
-                        "status": "SUCCESS",
-                        "symbol": tick.symbol,
-                        "price": tick.price,
-                        "volume": tick.volume,
-                        "source": str(tick.source_type),
-                        "timestamp": tick.timestamp.isoformat() if hasattr(tick.timestamp, "isoformat") else str(tick.timestamp),
-                    }
-                )
-                return result
-            except Exception as exc:
-                result["errors"].append(f"{client_name} ({candidate}): {exc}")
+            result.update(
+                {
+                    "status": live_result["status"],
+                    "symbol": live_result["symbol"],
+                    "price": live_result["last_price"],
+                    "volume": live_result["volume"],
+                    "source": live_result["source_name"],
+                    "timestamp": live_result["timestamp"],
+                    "freshness_status": live_result["freshness_status"],
+                    "source_status": live_result["source_status"],
+                }
+            )
+            return result
+        except Exception as exc:
+            result["errors"].append(f"live_service ({candidate}): {exc}")
 
     print("Failed to fetch live quote for all symbol/provider attempts.")
     for error in result["errors"]:

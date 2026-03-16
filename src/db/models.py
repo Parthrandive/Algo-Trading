@@ -138,6 +138,61 @@ class IngestionLog(Base):
     code_hash = Column(String(64), nullable=True)
 
 
+class LiveMarketObservationDB(Base):
+    __tablename__ = "live_market_observations"
+    timestamp = Column(DateTime(timezone=True), primary_key=True)
+    symbol = Column(String(32), primary_key=True)
+    observation_kind = Column(String(16), primary_key=True, default="quote")
+    interval = Column(String(8), primary_key=True, default="")
+    exchange = Column(String(16), nullable=False, default="NSE")
+    asset_type = Column(String(16), nullable=False, default="equity")
+    last_price = Column(Float, nullable=True)
+    open = Column(Float, nullable=True)
+    high = Column(Float, nullable=True)
+    low = Column(Float, nullable=True)
+    close = Column(Float, nullable=True)
+    volume = Column(BigInteger, nullable=True)
+    bid = Column(Float, nullable=True)
+    ask = Column(Float, nullable=True)
+    bar_timestamp = Column(DateTime(timezone=True), nullable=True)
+    is_final_bar = Column(Boolean, nullable=False, default=False)
+    source_type = Column(String(32), nullable=False)
+    source_name = Column(String(64), nullable=True)
+    source_status = Column(String(16), nullable=False, default="ok")
+    freshness_status = Column(String(16), nullable=False, default="unknown")
+    staleness_seconds = Column(Float, nullable=True)
+    quality_status = Column(String(8), nullable=False, default="pass")
+    ingestion_timestamp_utc = Column(DateTime(timezone=True), nullable=False)
+    ingestion_timestamp_ist = Column(DateTime(timezone=True), nullable=False)
+    schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class MarketDataQualityDB(Base):
+    __tablename__ = "market_data_quality"
+    symbol = Column(String(32), primary_key=True)
+    interval = Column(String(8), primary_key=True)
+    dataset_type = Column(String(16), primary_key=True)
+    exchange = Column(String(16), nullable=False, default="NSE")
+    asset_type = Column(String(16), nullable=False, default="equity")
+    status = Column(String(16), nullable=False, default="partial")
+    train_ready = Column(Boolean, nullable=False, default=False)
+    first_timestamp = Column(DateTime(timezone=True), nullable=True)
+    last_timestamp = Column(DateTime(timezone=True), nullable=True)
+    row_count = Column(Integer, nullable=False, default=0)
+    duplicate_count = Column(Integer, nullable=False, default=0)
+    expected_rows = Column(Integer, nullable=True)
+    missing_intervals = Column(Integer, nullable=True)
+    gap_count = Column(Integer, nullable=True)
+    largest_gap_intervals = Column(Integer, nullable=True)
+    zero_volume_ratio = Column(Float, nullable=True)
+    coverage_pct = Column(Float, nullable=True)
+    history_days = Column(Integer, nullable=True)
+    source_name = Column(String(128), nullable=True)
+    source_type = Column(String(32), nullable=True)
+    details_json = Column(Text, nullable=True)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
 class TechnicalPredictionDB(Base):
     __tablename__ = "technical_predictions"
     __table_args__ = (

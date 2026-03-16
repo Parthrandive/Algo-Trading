@@ -8,6 +8,20 @@
     "cooldown_seconds": 60,
     "recovery_success_threshold": 2
   },
+  "quality_gates": {
+    "historical": {
+      "min_rows_by_interval": {
+        "1h": 1200,
+        "1d": 300
+      },
+      "min_history_days": 180,
+      "min_coverage_pct": 60.0,
+      "max_zero_volume_ratio": 0.35
+    },
+    "live": {
+      "staleness_threshold_seconds": 300
+    }
+  },
   "sources": [
     {
       "name": "official_yfinance",

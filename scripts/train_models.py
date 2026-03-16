@@ -82,6 +82,16 @@ def _latest_market_timestamp(symbol: str, interval: str, db_url: str) -> str | N
     return None if value is None else str(value)
 
 
+def _historical_quality(symbol: str, interval: str):
+    try:
+        from src.db.queries import get_market_data_quality
+
+        return get_market_data_quality(symbol, interval, dataset_type="historical")
+    except Exception as exc:
+        logger.warning("Failed to read historical quality gate for %s: %s", symbol, exc)
+        return None
+
+
 def _run_preprocessing_for_symbol(symbol: str) -> bool:
     try:
         from src.agents.preprocessing.pipeline import PreprocessingPipeline
@@ -170,6 +180,25 @@ def _prepare_data_if_needed(args: argparse.Namespace) -> bool:
         refreshed_rows,
         refreshed_latest,
     )
+
+    quality = _historical_quality(symbol, interval)
+    if quality is not None:
+        logger.info(
+            "Historical quality for %s (%s): status=%s train_ready=%s coverage=%s row_count=%s",
+            symbol,
+            interval,
+            quality.get("status"),
+            quality.get("train_ready"),
+            quality.get("coverage_pct"),
+            quality.get("row_count"),
+        )
+        if not quality.get("train_ready"):
+            logger.error(
+                "Symbol %s is gated out of training by historical quality rules: %s",
+                symbol,
+                quality.get("details_json"),
+            )
+            return False
 
     if refreshed_rows < min_rows:
         msg = (
