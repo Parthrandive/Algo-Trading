@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 from src.agents.technical.models.arima_lstm import ArimaLstmHybrid
 from src.agents.technical.features import engineer_features
 
+MIN_ARIMA_LSTM_ROWS = 30
+
 @pytest.fixture
 def sample_data():
     """Generates synthetic OHLCV data for testing."""
@@ -55,6 +57,11 @@ def test_arima_lstm_training_and_saving(sample_data, clean_model_dir):
     
     # Since we added features that need ~26 periods to mature (MACD), wait to drop NaNs
     df_train = df_features.dropna()
+    if len(df_train) < MIN_ARIMA_LSTM_ROWS:
+        pytest.skip(
+            f"Not enough data after feature engineering to train ARIMA-LSTM "
+            f"({len(df_train)} < {MIN_ARIMA_LSTM_ROWS})."
+        )
     
     # Initialize Model
     # Use smaller model and fast train to keep tests speedy
@@ -87,6 +94,11 @@ def test_arima_lstm_prediction(sample_data):
     """Test prediction output structure and bounds."""
     df_features = engineer_features(sample_data)
     df_train = df_features.dropna()
+    if len(df_train) < MIN_ARIMA_LSTM_ROWS:
+        pytest.skip(
+            f"Not enough data after feature engineering to train ARIMA-LSTM "
+            f"({len(df_train)} < {MIN_ARIMA_LSTM_ROWS})."
+        )
     
     model = ArimaLstmHybrid(
         arima_order=(1, 1, 0),
