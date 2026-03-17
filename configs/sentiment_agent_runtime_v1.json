@@ -1,0 +1,93 @@
+{
+  "version": "sentiment-agent-runtime-v1",
+  "schema_version": "1.0",
+  "base_model": {
+    "provider": "huggingface",
+    "model_id": "ProsusAI/finbert",
+    "enable_hf_pipeline": false,
+    "local_files_only": true,
+    "max_length": 96
+  },
+  "datasets": {
+    "harixn/indian_news_sentiment": {
+      "dataset_id": "harixn/indian_news_sentiment",
+      "split": "train",
+      "text_field": "text",
+      "label_field": "sentiment"
+    },
+    "SEntFiN": {
+      "dataset_id": "SEntFiN",
+      "split": "train",
+      "text_field": "text",
+      "label_field": "label"
+    }
+  },
+  "precision_recall_thresholds": {
+    "positive": {
+      "precision_min": 0.75,
+      "recall_min": 0.72
+    },
+    "neutral": {
+      "precision_min": 0.7,
+      "recall_min": 0.68
+    },
+    "negative": {
+      "precision_min": 0.78,
+      "recall_min": 0.74
+    }
+  },
+  "dual_speed": {
+    "fast_lane": {
+      "model_name": "keyword_rule_v1",
+      "target_latency_ms": 100,
+      "cache_ttl_seconds": 900,
+      "keyword_lexicon": {
+        "positive": [
+          "rally",
+          "surge",
+          "gain",
+          "strong",
+          "upgrade",
+          "beat",
+          "bullish"
+        ],
+        "negative": [
+          "slump",
+          "drop",
+          "weak",
+          "downgrade",
+          "loss",
+          "fraud",
+          "bearish"
+        ]
+      }
+    },
+    "slow_lane": {
+      "model_name": "ProsusAI/finbert",
+      "schedule": "nightly",
+      "cache_ttl_seconds": 21600
+    }
+  },
+  "cache_policy": {
+    "fast_stale_after_seconds": 540,
+    "slow_stale_after_seconds": 12960,
+    "stale_downweight_factor": 0.65
+  },
+  "robustness": {
+    "price_mismatch_threshold": 0.02
+  },
+  "cache_schema": {
+    "backend": "redis",
+    "key_pattern": "sentiment:{lane}:{sha256}",
+    "required_fields": [
+      "score",
+      "label",
+      "generated_at_utc",
+      "confidence",
+      "ttl_seconds",
+      "model_name",
+      "source_id",
+      "schema_version"
+    ]
+  }
+}
