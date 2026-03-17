@@ -214,7 +214,12 @@ def _prepare_data_if_needed(args: argparse.Namespace) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(description="Unified Technical Agent Model Training Entrypoint.")
-    parser.add_argument("--symbol", default="TATASTEEL.NS", help="Stock symbol to train all models on")
+    parser.add_argument("--symbol", default=None, help="Single symbol override for all models")
+    parser.add_argument(
+        "--symbols",
+        default="INFY.NS,RELIANCE.NS,TATASTEEL.NS,TCS.NS",
+        help="Comma-separated symbols to train when --symbol is not provided",
+    )
     parser.add_argument("--limit", type=int, default=None, help="Max rows to fetch from DB")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
 
@@ -239,46 +244,54 @@ def main():
 
     args = parser.parse_args()
 
-    common_args = ["--symbol", args.symbol, "--seed", str(args.seed), "--interval", args.interval]
-    if args.limit is not None:
-        common_args.extend(["--limit", str(args.limit)])
-    if args.use_nse:
-        common_args.append("--use-nse")
+    symbols = [args.symbol] if args.symbol else [s.strip() for s in args.symbols.split(",") if s.strip()]
+    if not symbols:
+        logger.error("No symbols provided.")
+        sys.exit(1)
 
-    logger.info("=== Starting Unified Training for %s at %s interval ===", args.symbol, args.interval)
+    logger.info("=== Starting Unified Training for %s at %s interval ===", symbols, args.interval)
 
-    if args.auto_prepare_data:
-        if not _prepare_data_if_needed(args):
-            sys.exit(1)
+    for symbol in symbols:
+        args.symbol = symbol
+        if args.auto_prepare_data:
+            if not _prepare_data_if_needed(args):
+                sys.exit(1)
 
-    # 1. ARIMA-LSTM
-    if not args.skip_arima_lstm:
-        script_path = os.path.join("scripts", "train_arima_lstm.py")
-        cmd = [sys.executable, script_path] + common_args
-        if not run_command(cmd):
-            sys.exit(1)
+        common_args = ["--symbol", symbol, "--seed", str(args.seed), "--interval", args.interval]
+        if args.limit is not None:
+            common_args.extend(["--limit", str(args.limit)])
+        if args.use_nse:
+            common_args.append("--use-nse")
 
-    # 2. CNN Pattern
-    if not args.skip_cnn_pattern:
-        script_path = os.path.join("scripts", "train_cnn_pattern.py")
-        cmd = [sys.executable, script_path] + common_args
-        if not run_command(cmd):
-            sys.exit(1)
+        logger.info(f"--- Running pipeline for {symbol} ---")
 
-    # 3. GARCH VaR
-    if not args.skip_garch_var:
-        script_path = os.path.join("scripts", "train_garch_var.py")
-        cmd = [sys.executable, script_path] + common_args + ["--run-backtest"]
-        if not run_command(cmd):
-            sys.exit(1)
+        # 1. ARIMA-LSTM
+        if not args.skip_arima_lstm:
+            script_path = os.path.join("scripts", "train_arima_lstm.py")
+            cmd = [sys.executable, script_path] + common_args
+            if not run_command(cmd):
+                sys.exit(1)
 
-    # 4. Backtest & Ablation
-    if not args.skip_backtest:
-        script_path = os.path.join("scripts", "run_backtest.py")
-        cmd = [sys.executable, script_path] + common_args
-        if not run_command(cmd):
-            sys.exit(1)
+        # 2. CNN Pattern
+        if not args.skip_cnn_pattern:
+            script_path = os.path.join("scripts", "train_cnn_pattern.py")
+            cmd = [sys.executable, script_path] + common_args
+            if not run_command(cmd):
+                sys.exit(1)
 
+        # 3. GARCH VaR
+        if not args.skip_garch_var:
+            script_path = os.path.join("scripts", "train_garch_var.py")
+            cmd = [sys.executable, script_path] + common_args + ["--run-backtest"]
+            if not run_command(cmd):
+                sys.exit(1)
+
+        # 4. Backtest & Ablation
+        if not args.skip_backtest:
+            script_path = os.path.join("scripts", "run_backtest.py")
+            cmd = [sys.executable, script_path] + common_args
+            if not run_command(cmd):
+                sys.exit(1)
     # 5. Generate Model Cards
     logger.info("Generating Model Cards...")
     script_path = os.path.join("scripts", "generate_model_cards.py")

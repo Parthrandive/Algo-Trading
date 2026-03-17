@@ -51,7 +51,8 @@ class TechnicalAgent:
             cnn_hp = json.load(f)
         self.cnn = CnnPatternClassifier(
             window_size=cnn_hp["window_size"],
-            neutral_threshold=cnn_hp.get("neutral_threshold", 0.001)
+            neutral_threshold=cnn_hp.get("neutral_threshold", 0.001),
+            confidence_threshold=cnn_hp.get("confidence_threshold", 0.5),
         )
         self.cnn.load(cnn_dir)
         
