@@ -1,0 +1,155 @@
+{
+  "generated_at_utc": "2026-03-16T15:37:41.804559+00:00",
+  "symbol": "INFY.NS",
+  "interval": "1h",
+  "bars": 1500,
+  "coverage_threshold": 0.6,
+  "excluded_features": [
+    "CPI",
+    "DII_FLOW",
+    "FX_RESERVES",
+    "IIP",
+    "INDIA_US_10Y_SPREAD",
+    "WPI"
+  ],
+  "macro_feature_report": {
+    "CPI": {
+      "first_available_date": null,
+      "last_available_date": null,
+      "row_count": 0,
+      "coverage_pct": 0.0,
+      "missing_after_join": 1500,
+      "train_ready": false
+    },
+    "WPI": {
+      "first_available_date": null,
+      "last_available_date": null,
+      "row_count": 0,
+      "coverage_pct": 0.0,
+      "missing_after_join": 1500,
+      "train_ready": false
+    },
+    "IIP": {
+      "first_available_date": null,
+      "last_available_date": null,
+      "row_count": 0,
+      "coverage_pct": 0.0,
+      "missing_after_join": 1500,
+      "train_ready": false
+    },
+    "FII_FLOW": {
+      "first_available_date": "2000-03-31",
+      "last_available_date": "2024-03-31",
+      "row_count": 25,
+      "coverage_pct": 100.0,
+      "missing_after_join": 0,
+      "train_ready": true
+    },
+    "DII_FLOW": {
+      "first_available_date": null,
+      "last_available_date": null,
+      "row_count": 0,
+      "coverage_pct": 0.0,
+      "missing_after_join": 1500,
+      "train_ready": false
+    },
+    "FX_RESERVES": {
+      "first_available_date": null,
+      "last_available_date": null,
+      "row_count": 0,
+      "coverage_pct": 0.0,
+      "missing_after_join": 1500,
+      "train_ready": false
+    },
+    "INDIA_US_10Y_SPREAD": {
+      "first_available_date": null,
+      "last_available_date": null,
+      "row_count": 0,
+      "coverage_pct": 0.0,
+      "missing_after_join": 1500,
+      "train_ready": false
+    },
+    "RBI_BULLETIN": {
+      "first_available_date": "2000-05-19",
+      "last_available_date": "2026-01-21",
+      "row_count": 241,
+      "coverage_pct": 100.0,
+      "missing_after_join": 0,
+      "train_ready": true
+    },
+    "REPO_RATE": {
+      "first_available_date": "2000-08-01",
+      "last_available_date": "2025-08-06",
+      "row_count": 227,
+      "coverage_pct": 100.0,
+      "missing_after_join": 0,
+      "train_ready": true
+    },
+    "US_10Y": {
+      "first_available_date": "2000-01-03",
+      "last_available_date": "2026-01-28",
+      "row_count": 6520,
+      "coverage_pct": 100.0,
+      "missing_after_join": 0,
+      "train_ready": true
+    }
+  },
+  "release_aware_join_samples": {
+    "FII_FLOW": [
+      {
+        "timestamp": "2025-03-17T03:45:00Z",
+        "FII_FLOW": 145950.43
+      },
+      {
+        "timestamp": "2025-03-17T04:45:00Z",
+        "FII_FLOW": 145950.43
+      },
+      {
+        "timestamp": "2025-03-17T05:45:00Z",
+        "FII_FLOW": 145950.43
+      }
+    ],
+    "RBI_BULLETIN": [
+      {
+        "timestamp": "2025-03-17T03:45:00Z",
+        "RBI_BULLETIN": 1.0
+      },
+      {
+        "timestamp": "2025-03-17T04:45:00Z",
+        "RBI_BULLETIN": 1.0
+      },
+      {
+        "timestamp": "2025-03-17T05:45:00Z",
+        "RBI_BULLETIN": 1.0
+      }
+    ],
+    "REPO_RATE": [
+      {
+        "timestamp": "2025-03-17T03:45:00Z",
+        "REPO_RATE": 6.25
+      },
+      {
+        "timestamp": "2025-03-17T04:45:00Z",
+        "REPO_RATE": 6.25
+      },
+      {
+        "timestamp": "2025-03-17T05:45:00Z",
+        "REPO_RATE": 6.25
+      }
+    ],
+    "US_10Y": [
+      {
+        "timestamp": "2025-03-17T03:45:00Z",
+        "US_10Y": 4.31
+      },
+      {
+        "timestamp": "2025-03-17T04:45:00Z",
+        "US_10Y": 4.31
+      },
+      {
+        "timestamp": "2025-03-17T05:45:00Z",
+        "US_10Y": 4.31
+      }
+    ]
+  }
+}
