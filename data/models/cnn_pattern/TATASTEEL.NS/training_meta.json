@@ -1,0 +1,56 @@
+{
+  "timestamp": "2026-03-17T09:46:55.297555+00:00",
+  "symbol": "TATASTEEL.NS",
+  "epochs_requested": 150,
+  "epochs_run": 30,
+  "split_counts": {
+    "train": 75,
+    "val": 18,
+    "test": 18
+  },
+  "class_distribution_pct": {
+    "train": {
+      "up": 17.333333333333336,
+      "neutral": 70.66666666666667,
+      "down": 12.0
+    },
+    "val": {
+      "up": 11.11111111111111,
+      "neutral": 77.77777777777779,
+      "down": 11.11111111111111
+    },
+    "test": {
+      "up": 0.0,
+      "neutral": 100.0,
+      "down": 0.0
+    }
+  },
+  "metrics": {
+    "train_loss": 0.7155253028869629,
+    "val_loss": 0.8724661999278598,
+    "train_accuracy": 0.6133333333333333,
+    "val_accuracy": 0.7777777777777778,
+    "test_accuracy": 0.4444444444444444,
+    "best_val_f1": 0.7851851851851852,
+    "sharpe": 4.839867859361269,
+    "max_drawdown": -0.0016821026802062988,
+    "win_rate": 0.5,
+    "confusion_matrix": [
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        8,
+        10
+      ],
+      [
+        0,
+        0,
+        0
+      ]
+    ]
+  }
+}

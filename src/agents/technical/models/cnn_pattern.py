@@ -1,10 +1,10 @@
-import os
 import json
 import logging
+import os
+from typing import Dict, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from typing import Dict, Any, Tuple
-from datetime import datetime
 
 import torch
 import torch.nn as nn
@@ -70,12 +70,17 @@ class CnnPatternClassifier:
     2. Labels the next bar's close direction as up (0), neutral (1), down (2).
     3. Trains a 2D CNN on this objective.
     """
-    def __init__(self, window_size: int = 20, 
-                 learning_rate: float = 0.001,
-                 neutral_threshold: float = 0.001):
+    def __init__(
+        self,
+        window_size: int = 20,
+        learning_rate: float = 0.001,
+        neutral_threshold: float = 0.001,
+        confidence_threshold: float = 0.5,
+    ):
         self.window_size = window_size
         self.learning_rate = learning_rate
         self.neutral_threshold = neutral_threshold
+        self.confidence_threshold = confidence_threshold
         
         # Standard features for OHLCV
         self.feature_columns = ['open', 'high', 'low', 'close', 'volume']
@@ -177,7 +182,7 @@ class CnnPatternClassifier:
         self.is_trained = True
         logger.info("CNN Training complete.")
 
-    def predict(self, df: pd.DataFrame) -> Tuple[str, Dict[str, float]]:
+    def predict(self, df: pd.DataFrame, confidence_threshold: Optional[float] = None) -> Tuple[str, Dict[str, float]]:
         """
         Predict the class probabilities for the NEXT bar using the most recent `window_size` bars.
         Returns: (predicted_class_name, probabilities_dict)
@@ -199,7 +204,10 @@ class CnnPatternClassifier:
             probs = torch.softmax(outputs, dim=1).cpu().numpy()[0]
             
         class_names = ["up", "neutral", "down"]
-        predicted_idx = np.argmax(probs)
+        predicted_idx = int(np.argmax(probs))
+        threshold = self.confidence_threshold if confidence_threshold is None else confidence_threshold
+        if float(np.max(probs)) < float(threshold):
+            predicted_idx = 1  # neutral on low confidence
         
         prob_dict = {
             class_names[0]: float(probs[0]),
@@ -218,7 +226,8 @@ class CnnPatternClassifier:
             "window_size": self.window_size,
             "learning_rate": self.learning_rate,
             "feature_columns": self.feature_columns,
-            "neutral_threshold": self.neutral_threshold
+            "neutral_threshold": self.neutral_threshold,
+            "confidence_threshold": self.confidence_threshold,
         }
         with open(os.path.join(path, "hyperparams.json"), "w") as f:
             json.dump(hyperparams, f, indent=4)
@@ -235,6 +244,7 @@ class CnnPatternClassifier:
         self.learning_rate = hp["learning_rate"]
         self.feature_columns = hp["feature_columns"]
         self.neutral_threshold = hp["neutral_threshold"]
+        self.confidence_threshold = hp.get("confidence_threshold", 0.5)
         
         weights_path = os.path.join(path, "cnn_weights.pt")
         if os.path.exists(weights_path):
@@ -243,6 +253,6 @@ class CnnPatternClassifier:
                 features=len(self.feature_columns),
                 num_classes=self.num_classes
             ).to(self.device)
-            self.model.load_state_dict(torch.load(weights_path))
+            self.model.load_state_dict(torch.load(weights_path, map_location=self.device))
             self.model.eval()
             self.is_trained = True
