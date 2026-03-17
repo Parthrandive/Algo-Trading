@@ -61,6 +61,8 @@ data/macro_samples/
 # Tool caches
 .pytest_cache/
 .ruff_cache/
+.tmp_pytest/
+pytest-cache-files-*/
 
 # Binary tools
 tools/
