@@ -93,6 +93,22 @@ class FailoverPolicy(BaseModel):
     recovery_success_threshold: int = Field(default=2, ge=1)
 
 
+class HistoricalQualityConfig(BaseModel):
+    min_rows_by_interval: dict[str, int] = Field(default_factory=lambda: {"1h": 1200, "1d": 300})
+    min_history_days: int = Field(default=180, ge=1)
+    min_coverage_pct: float = Field(default=60.0, ge=0.0, le=100.0)
+    max_zero_volume_ratio: float = Field(default=0.35, ge=0.0, le=1.0)
+
+
+class LiveQualityConfig(BaseModel):
+    staleness_threshold_seconds: int = Field(default=300, ge=1)
+
+
+class QualityGateConfig(BaseModel):
+    historical: HistoricalQualityConfig = Field(default_factory=HistoricalQualityConfig)
+    live: LiveQualityConfig = Field(default_factory=LiveQualityConfig)
+
+
 class SentinelConfig(BaseModel):
     version: str = "nse-sentinel-runtime-v1"
     sources: List[DataSourceConfig]
@@ -102,6 +118,7 @@ class SentinelConfig(BaseModel):
     clock_drift_threshold_seconds: float = Field(default=0.5, ge=0)
     monotonicity_scope: str = Field(default="symbol_interval")
     failover: FailoverPolicy = Field(default_factory=FailoverPolicy)
+    quality_gates: QualityGateConfig = Field(default_factory=QualityGateConfig)
 
     @model_validator(mode="after")
     def validate_source_priorities(self):

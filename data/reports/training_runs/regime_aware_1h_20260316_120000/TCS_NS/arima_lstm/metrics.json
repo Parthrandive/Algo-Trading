@@ -1,0 +1,12 @@
+{
+  "best_epoch": 11,
+  "epochs_ran": 36,
+  "best_val_loss_scaled": 2.2413071251045458,
+  "val_rmse_inr": 18.67938812621179,
+  "val_mae_inr": 9.949280238215497,
+  "val_mape": 0.003620136346022449,
+  "val_directional_accuracy": 0.5258855585831063,
+  "train_sequences": 1446,
+  "val_sequences": 367,
+  "train_split_index": 1466
+}

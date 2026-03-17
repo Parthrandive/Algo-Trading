@@ -197,6 +197,48 @@
         }
       ]
     },
+    "REPO_RATE": {
+      "period": "Monthly",
+      "unit": "%",
+      "freshness_window_hours": 720,
+      "release_schedule": "bimonthly_rbi_mpc",
+      "sources": [
+        {
+          "name": "akshare_rbi_rate",
+          "source_type": "official_api",
+          "url_pattern": "akshare://macro_bank_india_interest_rate",
+          "retry": {
+            "max_attempts": 3,
+            "base_backoff_seconds": 2
+          },
+          "rate_limit": {
+            "calls": 6,
+            "period_seconds": 60
+          }
+        }
+      ]
+    },
+    "US_10Y": {
+      "period": "Daily",
+      "unit": "%",
+      "freshness_window_hours": 6,
+      "release_schedule": "daily_market_close_plus_6h",
+      "sources": [
+        {
+          "name": "akshare_us10y_primary",
+          "source_type": "official_api",
+          "url_pattern": "akshare://bond_zh_us_rate?period=10年",
+          "retry": {
+            "max_attempts": 3,
+            "base_backoff_seconds": 2
+          },
+          "rate_limit": {
+            "calls": 6,
+            "period_seconds": 60
+          }
+        }
+      ]
+    },
     "FX_RESERVES": {
       "period": "Weekly",
       "unit": "USD_Bn",

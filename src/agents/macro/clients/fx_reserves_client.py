@@ -24,6 +24,7 @@ from typing import Any, Callable, Sequence
 from zoneinfo import ZoneInfo
 
 from src.agents.macro.client import DateRange
+from src.agents.macro.clients.fred_client import FredSeriesSpec, fetch_series_history
 from src.agents.macro.parsers import FXReservesParser
 from src.schemas.macro_data import (
     MacroIndicator,
@@ -37,6 +38,14 @@ IST = ZoneInfo("Asia/Kolkata")
 
 _SUPPORTED: frozenset[MacroIndicatorType] = frozenset(
     [MacroIndicatorType.FX_RESERVES]
+)
+
+_FX_FRED_FALLBACK = FredSeriesSpec(
+    series_id="TRESEGINM052N",
+    frequency="Monthly",
+    source_label="fred:TRESEGINM052N",
+    # FRED IMF series is in USD million; convert to USD billion for schema unit.
+    unit_scale=0.001,
 )
 
 
@@ -82,35 +91,61 @@ class FXReservesClient:
             name.value,
             date_range,
         )
-        payload = (
-            self._raw_fetcher(date_range)
-            if self._raw_fetcher is not None
-            else self._try_real_then_simulated(date_range)
+        if self._raw_fetcher is not None:
+            payload = self._raw_fetcher(date_range)
+            used_fallback = False
+        else:
+            payload, used_fallback = self._try_real_then_historical_fallback(date_range)
+
+        self._parser.source_type = (
+            SourceType.FALLBACK_SCRAPER if used_fallback else SourceType.OFFICIAL_API
         )
-        return self._parser.parse(payload)
+        records = list(self._parser.parse(payload))
+        if used_fallback:
+            records = [
+                record.model_copy(update={"quality_status": QualityFlag.WARN})
+                for record in records
+            ]
+        return records
 
     @staticmethod
-    def _try_real_then_simulated(date_range: DateRange) -> dict[str, Any]:
-        """Try the real RBI scraper first; fall back to simulated payload."""
+    def _try_real_then_historical_fallback(date_range: DateRange) -> tuple[dict[str, Any], bool]:
+        """Try official RBI latest scrape; fall back to deep FRED historical series."""
         from src.agents.macro.clients.rbi_fx_reserves_scraper import fetch_real_fx_reserves
+
+        rows: list[dict[str, Any]] = []
+        used_fallback = False
 
         try:
             logger.info("Calling real RBI FX Reserves scraper...")
-            return fetch_real_fx_reserves(date_range)
+            latest = fetch_real_fx_reserves(date_range)
+            rows.append(
+                {
+                    "date": latest["date"],
+                    "value": latest["value"],
+                }
+            )
         except Exception as e:
-            logger.error("Real scraper failed (%s), falling back to simulated payload.", e)
-            return FXReservesClient._build_simulated_payload(date_range)
+            logger.warning(
+                "RBI FX Reserves latest scrape failed (%s). Falling back to FRED historical only.",
+                e,
+            )
+            used_fallback = True
 
-    @staticmethod
-    def _build_simulated_payload(date_range: DateRange) -> dict[str, Any]:
-        """
-        Deterministic fallback payload used when no network fetcher is injected.
-        """
-        day_seed = date_range.end.toordinal() % 20
-        return {
-            "date": date_range.end.isoformat(),
-            "value": round(620.0 + day_seed * 1.7, 2),
-        }
+        try:
+            fallback_rows = fetch_series_history(_FX_FRED_FALLBACK, date_range)
+            for row in fallback_rows:
+                rows.append({"date": row["date"], "value": row["value"]})
+            if fallback_rows:
+                used_fallback = True
+        except Exception as exc:
+            logger.error("FX fallback series fetch failed: %s", exc)
+
+        dedup: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            dedup[row["date"]] = row
+        ordered = [dedup[key] for key in sorted(dedup.keys())]
+        return {"data": ordered}, used_fallback
 
     def _make_stub_record(
         self,

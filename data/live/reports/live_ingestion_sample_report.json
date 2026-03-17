@@ -1,0 +1,103 @@
+{
+  "started_at_utc": "2026-03-16T09:45:22.676185+00:00",
+  "finished_at_utc": "2026-03-16T09:45:23.987900+00:00",
+  "interval": "1h",
+  "symbols": [
+    "RELIANCE.NS",
+    "TATASTEEL.NS"
+  ],
+  "summary": {
+    "total_symbols": 2,
+    "success": 2,
+    "partial": 0,
+    "failed": 0
+  },
+  "results": [
+    {
+      "symbol": "RELIANCE.NS",
+      "status": "SUCCESS",
+      "message": "source=nsepython, freshness=fresh",
+      "quality": {
+        "symbol": "RELIANCE.NS",
+        "interval": "1h",
+        "dataset_type": "live",
+        "exchange": "NSE",
+        "asset_type": "equity",
+        "status": "fresh",
+        "train_ready": true,
+        "first_timestamp": null,
+        "last_timestamp": "2026-03-16T09:45:23.229281+00:00",
+        "row_count": 1,
+        "duplicate_count": 0,
+        "expected_rows": null,
+        "missing_intervals": null,
+        "gap_count": null,
+        "largest_gap_intervals": null,
+        "zero_volume_ratio": null,
+        "coverage_pct": null,
+        "history_days": null,
+        "source_name": "nsepython",
+        "source_type": "fallback_scraper",
+        "details_json": {
+          "source_status": "ok",
+          "freshness_status": "fresh",
+          "staleness_seconds": 0.267091,
+          "observation_kind": "quote",
+          "is_final_bar": false,
+          "source_error": null
+        },
+        "updated_at": "2026-03-16 09:45:23.496423+00:00"
+      },
+      "finalized_bar": false,
+      "last_price": 1396.8,
+      "volume": 80349,
+      "source_name": "nsepython",
+      "timestamp": "2026-03-16T09:45:23.229281+00:00",
+      "freshness_status": "fresh",
+      "source_status": "ok"
+    },
+    {
+      "symbol": "TATASTEEL.NS",
+      "status": "SUCCESS",
+      "message": "source=nsepython, freshness=fresh",
+      "quality": {
+        "symbol": "TATASTEEL.NS",
+        "interval": "1h",
+        "dataset_type": "live",
+        "exchange": "NSE",
+        "asset_type": "equity",
+        "status": "fresh",
+        "train_ready": true,
+        "first_timestamp": null,
+        "last_timestamp": "2026-03-16T09:45:23.917208+00:00",
+        "row_count": 1,
+        "duplicate_count": 0,
+        "expected_rows": null,
+        "missing_intervals": null,
+        "gap_count": null,
+        "largest_gap_intervals": null,
+        "zero_volume_ratio": null,
+        "coverage_pct": null,
+        "history_days": null,
+        "source_name": "nsepython",
+        "source_type": "fallback_scraper",
+        "details_json": {
+          "source_status": "ok",
+          "freshness_status": "fresh",
+          "staleness_seconds": 0.064022,
+          "observation_kind": "quote",
+          "is_final_bar": false,
+          "source_error": null
+        },
+        "updated_at": "2026-03-16 09:45:23.981297+00:00"
+      },
+      "finalized_bar": false,
+      "last_price": 187.16,
+      "volume": 122525,
+      "source_name": "nsepython",
+      "timestamp": "2026-03-16T09:45:23.917208+00:00",
+      "freshness_status": "fresh",
+      "source_status": "ok"
+    }
+  ]
+}

@@ -40,6 +40,18 @@ class OnDemandPreprocessor:
         if silver_count == 0:
             logger.info(f"No Silver data found for {symbol}. Triggering auto-backfill.")
             self._trigger_backfill(symbol)
+
+        try:
+            from src.db.queries import get_market_data_quality
+
+            quality = get_market_data_quality(symbol, "1h", dataset_type="historical")
+            if quality is not None and not quality.get("train_ready"):
+                raise ValueError(
+                    f"Symbol {symbol} is not train-ready: {quality.get('details_json')}"
+                )
+        except Exception as exc:
+            logger.error("Historical quality gate rejected %s: %s", symbol, exc)
+            raise
             
         # 3. Clean and Save to Gold
         pipeline = PreprocessingPipeline(config_path=self.config_path)

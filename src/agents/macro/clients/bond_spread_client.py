@@ -27,6 +27,7 @@ from typing import Any, Callable, Sequence
 from zoneinfo import ZoneInfo
 
 from src.agents.macro.client import DateRange
+from src.agents.macro.clients.fred_client import FredSeriesSpec, fetch_series_history
 from src.agents.macro.parsers import BondSpreadParser
 from src.schemas.macro_data import (
     MacroIndicator,
@@ -40,6 +41,18 @@ IST = ZoneInfo("Asia/Kolkata")
 
 _SUPPORTED: frozenset[MacroIndicatorType] = frozenset(
     [MacroIndicatorType.INDIA_US_10Y_SPREAD]
+)
+
+_INDIA_10Y_FALLBACK = FredSeriesSpec(
+    series_id="INDIRLTLT01STM",
+    frequency="Monthly",
+    source_label="fred:INDIRLTLT01STM",
+)
+
+_US_10Y_FALLBACK = FredSeriesSpec(
+    series_id="DGS10",
+    frequency="Daily",
+    source_label="fred:DGS10",
 )
 
 
@@ -88,26 +101,70 @@ class BondSpreadClient:
             name.value,
             date_range,
         )
-        payload = (
-            self._raw_fetcher(date_range)
-            if self._raw_fetcher is not None
-            else self._build_simulated_payload(date_range)
+        if self._raw_fetcher is not None:
+            used_fallback = False
+            payload = self._raw_fetcher(date_range)
+        else:
+            used_fallback = True
+            payload = self._build_historical_payload(date_range)
+        self._parser.source_type = (
+            SourceType.FALLBACK_SCRAPER if used_fallback else SourceType.OFFICIAL_API
         )
-        return self._parser.parse(payload)
+        records = list(self._parser.parse(payload))
+        if used_fallback:
+            records = [
+                record.model_copy(update={"quality_status": QualityFlag.WARN})
+                for record in records
+            ]
+        return records
 
     @staticmethod
-    def _build_simulated_payload(date_range: DateRange) -> dict[str, Any]:
+    def _build_historical_payload(date_range: DateRange) -> dict[str, Any]:
         """
-        Deterministic fallback payload used when no network fetcher is injected.
+        Build spread payload from deep-history fallback legs.
+
+        - India 10Y: monthly observations (FRED-hosted OECD series).
+        - US 10Y: daily observations (FRED DGS10).
         """
-        day_seed = date_range.end.toordinal()
-        india_10y = round(6.8 + (day_seed % 9) * 0.03, 3)
-        us_10y = round(4.0 + (day_seed % 7) * 0.02, 3)
-        return {
-            "date": date_range.end.isoformat(),
-            "india_10y_percent": india_10y,
-            "us_10y_percent": us_10y,
-        }
+        try:
+            india_rows = fetch_series_history(_INDIA_10Y_FALLBACK, date_range)
+            us_rows = fetch_series_history(_US_10Y_FALLBACK, date_range)
+        except Exception as exc:
+            logger.warning(
+                "Bond spread fallback series fetch failed for %s -> %s (%s).",
+                date_range.start,
+                date_range.end,
+                exc,
+            )
+            return {"data": []}
+
+        if not india_rows or not us_rows:
+            return {"data": []}
+
+        us_by_date = {row["date"]: float(row["value"]) for row in us_rows}
+        us_sorted_dates = sorted(us_by_date.keys())
+
+        records: list[dict[str, Any]] = []
+        latest_us = None
+        us_idx = 0
+
+        for india_row in sorted(india_rows, key=lambda r: r["date"]):
+            obs_date = india_row["date"]
+            while us_idx < len(us_sorted_dates) and us_sorted_dates[us_idx] <= obs_date:
+                latest_us = us_by_date[us_sorted_dates[us_idx]]
+                us_idx += 1
+            if latest_us is None:
+                continue
+
+            records.append(
+                {
+                    "date": obs_date,
+                    "india_10y_percent": float(india_row["value"]),
+                    "us_10y_percent": float(latest_us),
+                }
+            )
+
+        return {"data": records}
 
     def _make_stub_record(
         self,

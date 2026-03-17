@@ -25,6 +25,19 @@ from src.agents.technical.models.arima_lstm import ArimaLstmHybrid, LSTMResidual
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
+RAW_MACRO_COLUMNS = {
+    "CPI",
+    "WPI",
+    "IIP",
+    "FII_FLOW",
+    "DII_FLOW",
+    "FX_RESERVES",
+    "INDIA_US_10Y_SPREAD",
+    "RBI_BULLETIN",
+    "REPO_RATE",
+    "US_10Y",
+}
+
 
 def set_seed(seed: int):
     """Set reproducibility seeds."""
@@ -256,6 +269,18 @@ def main():
         logger.error(f"Failed to load data: {e}")
         sys.exit(1)
 
+    if getattr(loader, "last_macro_quality_report", None):
+        macro_report_path = os.path.join(args.output_dir, "macro_feature_validation.json")
+        os.makedirs(args.output_dir, exist_ok=True)
+        with open(macro_report_path, "w") as f:
+            json.dump(loader.last_macro_quality_report, f, indent=2)
+        excluded = getattr(loader, "last_macro_excluded_features", [])
+        logger.info(
+            "Macro quality report saved to %s. Excluded by coverage gate: %s",
+            macro_report_path,
+            excluded,
+        )
+
     # 2. Validate Data
     logger.info(f"Loaded {len(df)} rows. Validating...")
     validate_data(df)
@@ -289,6 +314,7 @@ def main():
         if c not in exclude_cols 
         and pd.api.types.is_numeric_dtype(train_raw[c])
         and not train_raw[c].isna().all()
+        and c not in RAW_MACRO_COLUMNS
     ]
 
     train_df = train_raw.dropna(subset=hybrid.feature_columns + [target_col]).reset_index(drop=True)

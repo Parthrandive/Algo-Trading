@@ -1,14 +1,25 @@
+import json
 import logging
 from typing import List
 from datetime import datetime, timezone
 
 from sqlalchemy.dialects.postgresql import insert
-from src.schemas.market_data import Bar, CorporateAction, Tick
+from src.schemas.market_data import Bar, CorporateAction, LiveMarketObservation, Tick
 from src.schemas.macro_data import MacroIndicator
 from src.schemas.text_data import NewsArticle, SocialPost, EarningsTranscript, TextDataBase
 from src.utils.validation import StreamMonotonicityChecker
 from src.db.connection import get_engine, get_session
-from src.db.models import OHLCVBar, CorporateActionDB, TickData, MacroIndicatorDB, TextItemDB, QuarantineBar, IngestionLog
+from src.db.models import (
+    CorporateActionDB,
+    IngestionLog,
+    LiveMarketObservationDB,
+    MacroIndicatorDB,
+    MarketDataQualityDB,
+    OHLCVBar,
+    QuarantineBar,
+    TextItemDB,
+    TickData,
+)
 
 logger = logging.getLogger(__name__)
 TEXT_ITEM_COLUMNS = {column.name for column in TextItemDB.__table__.columns}
@@ -143,6 +154,62 @@ class SilverDBRecorder:
             except Exception as e:
                 session.rollback()
                 logger.error(f"Failed to save ticks: {e}")
+                raise
+
+    def save_live_observations(self, observations: List[LiveMarketObservation]) -> None:
+        if not observations:
+            return
+
+        with self.Session() as session:
+            try:
+                payload = []
+                for obs in observations:
+                    row = obs.model_dump(by_alias=True)
+                    if row.get("interval") is None:
+                        row["interval"] = ""
+                    payload.append(row)
+                stmt = insert(LiveMarketObservationDB).values(payload)
+                update_dict = {c.name: c for c in stmt.excluded if not c.primary_key}
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["timestamp", "symbol", "observation_kind", "interval"],
+                    set_=update_dict,
+                )
+                session.execute(stmt)
+                session.commit()
+            except Exception as e:
+                session.rollback()
+                logger.error(f"Failed to save live market observations: {e}")
+                raise
+
+    def save_market_data_quality(self, records: List[dict]) -> None:
+        if not records:
+            return
+
+        payload: list[dict] = []
+        for record in records:
+            cleaned = dict(record)
+            details = cleaned.get("details_json")
+            if isinstance(details, (dict, list)):
+                cleaned["details_json"] = json.dumps(details, sort_keys=True)
+            for ts_key in ("first_timestamp", "last_timestamp", "updated_at"):
+                ts_value = cleaned.get(ts_key)
+                if isinstance(ts_value, str):
+                    cleaned[ts_key] = datetime.fromisoformat(ts_value.replace("Z", "+00:00"))
+            payload.append(cleaned)
+
+        with self.Session() as session:
+            try:
+                stmt = insert(MarketDataQualityDB).values(payload)
+                update_dict = {c.name: c for c in stmt.excluded if not c.primary_key}
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["symbol", "interval", "dataset_type"],
+                    set_=update_dict,
+                )
+                session.execute(stmt)
+                session.commit()
+            except Exception as e:
+                session.rollback()
+                logger.error(f"Failed to save market data quality: {e}")
                 raise
 
     def save_macro_indicators(self, indicators: List[MacroIndicator]) -> None:

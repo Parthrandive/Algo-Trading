@@ -14,8 +14,12 @@ Freshness SLA: data available by EOD + 4 hours (daily_eod_plus_4h schedule).
 
 from __future__ import annotations
 
+import csv
 import logging
-from datetime import UTC, datetime
+import os
+import re
+from datetime import UTC, date, datetime
+from pathlib import Path
 from typing import Any, Callable, Sequence
 from zoneinfo import ZoneInfo
 
@@ -38,6 +42,14 @@ _SUPPORTED: frozenset[MacroIndicatorType] = frozenset(
     ]
 )
 
+_FINANCIAL_YEAR_RE = re.compile(r"^\s*(\d{4})\s*-\s*(\d{4})\s*$")
+_FII_TURNOVER_NET_COLUMN = "All India Equity - Net"
+_DEFAULT_FII_TURNOVER_CSV_CANDIDATES = (
+    Path("data/macro/FII Turnover.csv"),
+    Path("data/macro/FII_Turnover.csv"),
+    Path.home() / "Downloads" / "FII Turnover.csv",
+)
+
 
 class NSEDIIFIIClient:
     """
@@ -56,9 +68,13 @@ class NSEDIIFIIClient:
     def __init__(
         self,
         raw_fetcher: Callable[[DateRange], dict[str, Any]] | None = None,
+        fii_turnover_csv_path: str | Path | None = None,
     ) -> None:
         self._raw_fetcher = raw_fetcher
         self._parser = FIIDIIParser()
+        self._fii_turnover_csv_path = (
+            Path(fii_turnover_csv_path).expanduser() if fii_turnover_csv_path else None
+        )
 
     @property
     def supported_indicators(self) -> frozenset[MacroIndicatorType]:
@@ -86,39 +102,144 @@ class NSEDIIFIIClient:
             name.value,
             date_range,
         )
-        
+
+        used_fallback = False
+        parsed: list[MacroIndicator] = []
         if self._raw_fetcher is not None:
             payload = self._raw_fetcher(date_range)
         else:
-            import logging
             from src.agents.macro.clients.nse_fiidii_scraper import fetch_real_fii_dii
-            
             try:
                 logger.info("Calling real NSE FII/DII scraper...")
                 payload = fetch_real_fii_dii(date_range)
-            except Exception as e:
-                logger.error("Real scraper failed (%s), falling back to simulated payload.", e)
-                payload = self._build_simulated_payload(date_range)
+            except Exception as exc:
+                logger.warning(
+                    "NSE FII/DII fetch returned no usable data for range %s (%s).",
+                    date_range,
+                    exc,
+                )
+                payload = None
 
-        parsed = self._parser.parse(payload)
+        if payload is not None:
+            self._parser.source_type = (
+                SourceType.FALLBACK_SCRAPER if used_fallback else SourceType.OFFICIAL_API
+            )
+            parsed = list(self._parser.parse(payload))
+            if used_fallback:
+                parsed = [
+                    record.model_copy(update={"quality_status": QualityFlag.WARN})
+                    for record in parsed
+                ]
+
         records = [record for record in parsed if record.indicator_name == name]
+        if name == MacroIndicatorType.FII_FLOW:
+            annual_records = self._load_annual_fii_records(date_range)
+            if annual_records:
+                by_timestamp = {record.timestamp: record for record in annual_records}
+                for record in records:
+                    # Prefer higher-frequency live record when timestamps collide.
+                    by_timestamp[record.timestamp] = record
+                records = [by_timestamp[k] for k in sorted(by_timestamp.keys())]
+
         if not records:
             logger.warning("No %s records produced from NSE/NSDL payload", name.value)
         return records
 
     @staticmethod
-    def _build_simulated_payload(date_range: DateRange) -> dict[str, Any]:
-        """
-        Deterministic fallback payload used when no network fetcher is injected.
-        """
-        day_seed = date_range.end.toordinal()
-        fii_flow = round(((day_seed % 2000) - 1000) * 2.75, 2)
-        dii_flow = round(-fii_flow * 0.8, 2)
-        return {
-            "date": date_range.end.isoformat(),
-            "fii_flow": fii_flow,
-            "dii_flow": dii_flow,
-        }
+    def _parse_financial_year_end(raw_year: str) -> date | None:
+        match = _FINANCIAL_YEAR_RE.match(str(raw_year or "").strip())
+        if not match:
+            return None
+        start_year = int(match.group(1))
+        end_year = int(match.group(2))
+        if end_year != start_year + 1:
+            return None
+        return date(end_year, 3, 31)
+
+    @staticmethod
+    def _parse_float(raw_value: Any) -> float | None:
+        if raw_value is None:
+            return None
+        token = str(raw_value).strip()
+        if not token or token == "-":
+            return None
+        try:
+            return float(token.replace(",", ""))
+        except ValueError:
+            return None
+
+    def _resolve_fii_turnover_csv_path(self) -> Path | None:
+        if self._fii_turnover_csv_path and self._fii_turnover_csv_path.exists():
+            return self._fii_turnover_csv_path
+
+        env_path = os.getenv("FII_TURNOVER_CSV_PATH")
+        if env_path:
+            candidate = Path(env_path).expanduser()
+            if candidate.exists():
+                return candidate
+
+        for candidate in _DEFAULT_FII_TURNOVER_CSV_CANDIDATES:
+            if candidate.exists():
+                return candidate
+
+        return None
+
+    def _load_annual_fii_records(self, date_range: DateRange) -> list[MacroIndicator]:
+        csv_path = self._resolve_fii_turnover_csv_path()
+        if csv_path is None:
+            return []
+
+        records: list[MacroIndicator] = []
+        now_utc = datetime.now(UTC)
+
+        try:
+            with csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
+                reader = csv.DictReader(handle)
+                for row in reader:
+                    year_token = str(row.get("Year", "")).strip()
+                    observation_date = self._parse_financial_year_end(year_token)
+                    if observation_date is None:
+                        continue
+                    if observation_date < date_range.start or observation_date > date_range.end:
+                        continue
+
+                    value = self._parse_float(row.get(_FII_TURNOVER_NET_COLUMN))
+                    if value is None:
+                        continue
+
+                    records.append(
+                        MacroIndicator(
+                            indicator_name=MacroIndicatorType.FII_FLOW,
+                            value=value,
+                            unit="INR_Cr",
+                            period="Annual",
+                            timestamp=datetime(
+                                observation_date.year,
+                                observation_date.month,
+                                observation_date.day,
+                                tzinfo=UTC,
+                            ),
+                            source_type=SourceType.MANUAL_OVERRIDE,
+                            ingestion_timestamp_utc=now_utc,
+                            ingestion_timestamp_ist=now_utc.astimezone(IST),
+                            schema_version="1.1",
+                            quality_status=QualityFlag.WARN,
+                        )
+                    )
+        except Exception as exc:
+            logger.warning("Failed to parse annual FII turnover CSV at %s (%s).", csv_path, exc)
+            return []
+
+        records.sort(key=lambda item: item.timestamp)
+        if records:
+            logger.info(
+                "Loaded %d annual FII fallback record(s) from %s for %s -> %s",
+                len(records),
+                csv_path,
+                date_range.start,
+                date_range.end,
+            )
+        return records
 
     def _make_stub_record(
         self,

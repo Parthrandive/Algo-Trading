@@ -79,7 +79,7 @@ def _atomic_json_write(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     with tmp_path.open("w", encoding="utf-8") as handle:
-        json.dump(payload, handle, indent=2)
+        json.dump(payload, handle, indent=2, default=str)
     tmp_path.replace(path)
 
 
@@ -196,6 +196,12 @@ def _result_record(
     error_code: str | None = None,
     error_message: str | None = None,
     last_success_end: datetime | None = None,
+    bars_added: int = 0,
+    before_row_count: int | None = None,
+    after_row_count: int | None = None,
+    sources_used: list[str] | None = None,
+    source_errors: list[str] | None = None,
+    quality: dict | None = None,
 ) -> dict:
     return {
         "symbol": symbol,
@@ -204,10 +210,16 @@ def _result_record(
         "requested_end_utc": requested_end.isoformat(),
         "interval": interval,
         "bars_fetched": bars_fetched,
+        "bars_added": bars_added,
+        "before_row_count": before_row_count,
+        "after_row_count": after_row_count,
         "attempt_count": attempt_count,
         "message": message,
         "error_code": error_code,
         "error_message": error_message,
+        "sources_used": sources_used or [],
+        "source_errors": source_errors or [],
+        "quality": quality,
         "last_success_end_utc": last_success_end.isoformat() if last_success_end is not None else None,
         "last_attempt_utc": datetime.now(timezone.utc).isoformat(),
     }
@@ -241,6 +253,9 @@ def _backfill_symbol(
     max_attempts: int,
     base_backoff_seconds: float,
 ) -> dict:
+    from src.agents.sentinel.bronze_recorder import BronzeRecorder
+    from src.agents.sentinel.historical_backfill import HistoricalBackfillService
+
     symbol = normalize_symbol(symbol)
     latest_ts = get_latest_local_timestamp_db(symbol) or get_latest_local_timestamp(symbol)
 
@@ -276,25 +291,36 @@ def _backfill_symbol(
             last_success_end=_to_utc(latest_ts) if latest_ts else None,
         )
 
-    pipeline = _build_pipeline(write_bronze=write_bronze)
-
     last_error: Exception | None = None
     for attempt in range(1, max_attempts + 1):
         # Small jitter per attempt across workers.
         time.sleep(random.uniform(0.1, 0.5))
 
         try:
-            bars = pipeline.ingest_historical(symbol, fetch_start, requested_end, interval=interval)
+            bronze_recorder = BronzeRecorder() if write_bronze else None
+            service = HistoricalBackfillService(bronze_recorder=bronze_recorder)
+            service_result = service.backfill_symbol(
+                symbol=symbol,
+                start_date=fetch_start,
+                end_date=requested_end,
+                interval=interval,
+            )
             return _result_record(
                 symbol=symbol,
-                status="SUCCESS",
+                status=service_result["status"],
                 requested_start=requested_start,
                 requested_end=requested_end,
                 interval=interval,
-                bars_fetched=len(bars),
+                bars_fetched=service_result["bars_fetched"],
+                bars_added=service_result.get("bars_added", 0),
+                before_row_count=service_result.get("before_row_count"),
+                after_row_count=service_result.get("after_row_count"),
                 attempt_count=attempt,
-                message=f"Fetched {len(bars)} bars.",
-                last_success_end=requested_end,
+                message=service_result["message"],
+                sources_used=service_result.get("sources_used", []),
+                source_errors=service_result.get("source_errors", []),
+                quality=service_result.get("quality"),
+                last_success_end=requested_end if service_result["status"] in {"SUCCESS", "PARTIAL"} else None,
             )
         except Exception as exc:
             last_error = exc
@@ -547,6 +573,7 @@ def _build_report(
         "total_symbols": len(symbols),
         "processed": len(results),
         "success": sum(1 for row in results if row["status"] == "SUCCESS"),
+        "partial": sum(1 for row in results if row["status"] == "PARTIAL"),
         "failed": sum(1 for row in results if row["status"] == "FAILED"),
         "skipped": sum(1 for row in results if row["status"] == "SKIPPED"),
         "interrupted": interrupted,
@@ -614,7 +641,7 @@ def run(argv: list[str]) -> int:
     print(
         "Backfill summary: "
         f"processed={summary['processed']}/{summary['total_symbols']}, "
-        f"success={summary['success']}, failed={summary['failed']}, skipped={summary['skipped']}, "
+        f"success={summary['success']}, partial={summary['partial']}, failed={summary['failed']}, skipped={summary['skipped']}, "
         f"interrupted={summary['interrupted']}"
     )
     print(f"Checkpoint: {checkpoint_path}")
@@ -622,7 +649,7 @@ def run(argv: list[str]) -> int:
 
     if interrupted:
         return EXIT_INTERRUPTED
-    if summary["failed"] > 0:
+    if summary["failed"] > 0 or summary["partial"] > 0:
         return EXIT_PARTIAL_FAILURE
     return EXIT_SUCCESS
 

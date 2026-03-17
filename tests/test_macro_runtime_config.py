@@ -38,6 +38,8 @@ def test_macro_runtime_config_contract_freeze_day1_cp1():
         "IIP": {"period": "Monthly", "freshness_window_hours": 48, "unit": "%"},
         "FII_FLOW": {"period": "Daily", "freshness_window_hours": 4, "unit": "INR_Cr"},
         "DII_FLOW": {"period": "Daily", "freshness_window_hours": 4, "unit": "INR_Cr"},
+        "REPO_RATE": {"period": "Monthly", "freshness_window_hours": 720, "unit": "%"},
+        "US_10Y": {"period": "Daily", "freshness_window_hours": 6, "unit": "%"},
         "FX_RESERVES": {"period": "Weekly", "freshness_window_hours": 24, "unit": "USD_Bn"},
         "RBI_BULLETIN": {"period": "Irregular", "freshness_window_hours": 24, "unit": "count"},
         "INDIA_US_10Y_SPREAD": {"period": "Daily", "freshness_window_hours": 6, "unit": "bps"},
