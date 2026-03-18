@@ -7,6 +7,7 @@ The Textual Data Agent collects and processes textual data from approved sources
 This agent ingests text from:
 - NSE News (RSS feeds)
 - Economic Times (news feeds)
+- NewsAPI market/finance feed (official API)
 - RBI Reports (official RSS/XML and DBIE downloads)
 - Earnings Transcripts (PDF extraction)
 - X Posts (social media with keyword filters)
@@ -110,6 +111,8 @@ Edit `configs/textual_data_agent_runtime_v1.json` for:
 - Source URLs and keywords
 - Compliance rules
 - Emergency flags (e.g., RBI fallback)
+
+Set `NEWS_API_KEY` in your environment (or `.env`) to enable the NewsAPI market/finance adapter.
 
 ## Monitoring
 
