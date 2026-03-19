@@ -25,6 +25,11 @@ from sklearn.utils.class_weight import compute_class_weight
 from torch.utils.data import DataLoader as TorchDataLoader
 from torch.utils.data import TensorDataset
 
+try:
+    from pmdarima import auto_arima as pmd_auto_arima
+except Exception:  # pragma: no cover - optional runtime dependency
+    pmd_auto_arima = None
+
 os.environ.setdefault("MPLCONFIGDIR", os.path.join(tempfile.gettempdir(), "matplotlib"))
 
 try:
@@ -45,6 +50,8 @@ from src.agents.technical.features import engineer_features
 REQUIRED_OHLCV = {"open", "high", "low", "close", "volume"}
 LOGGER = logging.getLogger("train_regime_aware")
 CLASS_NAMES = {0: "up", 1: "neutral", 2: "down"}
+EQUITY_SYMBOLS = ["INFY.NS", "RELIANCE.NS", "TATASTEEL.NS", "TCS.NS"]
+FOREX_SYMBOLS = ["USDINR=X"]
 DEFAULT_META_COLUMNS = {
     "symbol",
     "timestamp",
@@ -74,10 +81,14 @@ class SequenceDatasetBundle:
     y_train: np.ndarray
     X_val: np.ndarray
     y_val: np.ndarray
+    X_test: np.ndarray
+    y_test: np.ndarray
     train_indices: np.ndarray
     val_indices: np.ndarray
+    test_indices: np.ndarray
     train_timestamps: list[str]
     val_timestamps: list[str]
+    test_timestamps: list[str]
 
 
 @dataclass
@@ -173,8 +184,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--symbols",
         nargs="+",
-        default=["USDINR=X"],
-        help="One or more symbols to train, e.g. USDINR=X POWERGRID.NS LT.NS",
+        default=EQUITY_SYMBOLS,
+        help="One or more equity symbols to train, e.g. INFY.NS RELIANCE.NS TCS.NS",
     )
     parser.add_argument("--data-path", default=None, help="Optional CSV/Parquet file containing the training dataset.")
     parser.add_argument("--database-url", default=os.getenv("DATABASE_URL"), help="Optional override for DATABASE_URL.")
@@ -187,8 +198,8 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--epochs", type=int, default=150, help="Maximum epochs. Recommended 100-200.")
     parser.add_argument("--batch-size", type=int, default=32, help="Batch size.")
-    parser.add_argument("--patience", type=int, default=25, help="Early stopping patience.")
-    parser.add_argument("--scheduler-patience", type=int, default=10, help="ReduceLROnPlateau patience.")
+    parser.add_argument("--patience", type=int, default=15, help="Early stopping patience.")
+    parser.add_argument("--scheduler-patience", type=int, default=7, help="ReduceLROnPlateau patience.")
     parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate.")
     parser.add_argument("--weight-decay", type=float, default=1e-4, help="L2 regularization via AdamW weight decay.")
     parser.add_argument("--dropout", type=float, default=0.25, help="Dropout rate between 0.2 and 0.3.")
@@ -199,8 +210,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--arima-order", default="5,1,0", help="ARIMA order as p,d,q.")
     parser.add_argument("--lstm-hidden-size", type=int, default=64, help="LSTM hidden size.")
     parser.add_argument("--lstm-layers", type=int, default=2, help="Number of LSTM layers.")
-    parser.add_argument("--train-split", type=float, default=0.8, help="Chronological train ratio.")
     parser.add_argument("--min-rows", type=int, default=300, help="Minimum usable rows after cleaning.")
+    parser.add_argument(
+        "--fx-context-symbol",
+        default=FOREX_SYMBOLS[0],
+        help="Forex context symbol merged as external feature for equity targets.",
+    )
     return parser.parse_args()
 
 
@@ -317,7 +332,53 @@ def plot_confusion(confusion: np.ndarray, path: Path) -> None:
     plt.close()
 
 
-def load_symbol_frame(symbol: str, args: argparse.Namespace) -> tuple[pd.DataFrame, str]:
+def check_nulls(df: pd.DataFrame, symbol: str, stage: str) -> None:
+    nulls = df.isnull().sum()
+    nulls = nulls[nulls > 0]
+    LOGGER.info("[%s] %s — %s rows, nulls: %s", symbol, stage, len(df), nulls.to_dict())
+
+
+def _load_raw_bars(symbol: str, args: argparse.Namespace) -> pd.DataFrame:
+    raw_loader = DataLoader(args.database_url or os.getenv("DATABASE_URL", "postgresql://sentinel:sentinel@localhost:5432/sentinel_db"))
+    return raw_loader.load_historical_bars(
+        symbol=symbol,
+        limit=args.limit,
+        use_nse_fallback=False,
+        interval=args.interval,
+        include_macro=True,
+    )
+
+
+def _load_fx_context_frame(args: argparse.Namespace) -> pd.DataFrame:
+    fx_symbol = str(args.fx_context_symbol).strip()
+    if not fx_symbol:
+        return pd.DataFrame(columns=["timestamp", "usdinr_close"])
+
+    frame = pd.DataFrame()
+    try:
+        gold_loader = RegimeDataLoader(database_url=args.database_url, gold_dir=args.gold_dir)
+        frame = gold_loader.load_features(symbol=fx_symbol, limit=args.limit)
+    except Exception as exc:
+        LOGGER.warning("Failed loading FX context from gold for %s: %s", fx_symbol, exc)
+
+    if frame.empty or "timestamp" not in frame.columns or "close" not in frame.columns:
+        try:
+            frame = _load_raw_bars(fx_symbol, args)
+        except Exception as exc:
+            LOGGER.warning("Failed loading FX context from OHLCV for %s: %s", fx_symbol, exc)
+            return pd.DataFrame(columns=["timestamp", "usdinr_close"])
+
+    frame = frame.copy()
+    frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True, errors="coerce")
+    frame["close"] = pd.to_numeric(frame["close"], errors="coerce")
+    frame = frame.dropna(subset=["timestamp", "close"]).sort_values("timestamp").drop_duplicates(subset=["timestamp"], keep="last")
+    if frame.empty:
+        return pd.DataFrame(columns=["timestamp", "usdinr_close"])
+
+    return frame[["timestamp", "close"]].rename(columns={"close": "usdinr_close"}).reset_index(drop=True)
+
+
+def load_symbol_frame(symbol: str, args: argparse.Namespace) -> tuple[pd.DataFrame, str, dict[str, int]]:
     if args.data_path:
         source_path = Path(args.data_path)
         if not source_path.exists():
@@ -331,22 +392,26 @@ def load_symbol_frame(symbol: str, args: argparse.Namespace) -> tuple[pd.DataFra
         source_name = f"file:{source_path}"
     else:
         gold_loader = RegimeDataLoader(database_url=args.database_url, gold_dir=args.gold_dir)
-        frame = gold_loader.load_features(symbol=symbol, limit=args.limit)
-        source_name = "gold_features"
+        gold_frame = gold_loader.load_features(symbol=symbol, limit=args.limit)
+        raw_frame = pd.DataFrame()
+        try:
+            raw_frame = _load_raw_bars(symbol, args)
+        except Exception as exc:
+            LOGGER.warning("Failed loading raw OHLCV bars for %s: %s", symbol, exc)
 
+        frame = gold_frame
+        source_name = "gold_features"
         if frame.empty or not REQUIRED_OHLCV.issubset(frame.columns):
-            raw_loader = DataLoader(args.database_url or os.getenv("DATABASE_URL", "postgresql://sentinel:sentinel@localhost:5432/sentinel_db"))
-            frame = raw_loader.load_historical_bars(
-                symbol=symbol,
-                limit=args.limit,
-                use_nse_fallback=False,
-                interval=args.interval,
-                include_macro=True,
-            )
+            frame = raw_frame
             source_name = "ohlcv_bars"
+        elif symbol.endswith(".NS") and not raw_frame.empty:
+            if len(raw_frame) >= max(400, int(len(frame) * 1.10)):
+                frame = raw_frame
+                source_name = "ohlcv_bars"
 
     if frame.empty:
         raise ValueError(f"No data found for {symbol}.")
+    raw_rows_loaded = int(len(frame))
 
     frame = frame.copy()
     if "timestamp" not in frame.columns:
@@ -362,11 +427,37 @@ def load_symbol_frame(symbol: str, args: argparse.Namespace) -> tuple[pd.DataFra
 
     for column in REQUIRED_OHLCV:
         frame[column] = pd.to_numeric(frame[column], errors="coerce")
-
-    frame = frame.dropna(subset=["open", "high", "low", "close"]).reset_index(drop=True)
+    frame = frame.dropna(subset=["open", "high", "low", "close"])
     if "volume" not in frame.columns:
         frame["volume"] = 0.0
     frame["volume"] = pd.to_numeric(frame["volume"], errors="coerce").fillna(0.0)
+
+    check_nulls(frame, symbol, "after load")
+    all_null_columns = [column for column in frame.columns if frame[column].isna().all()]
+    if all_null_columns:
+        frame = frame.drop(columns=all_null_columns)
+    frame = frame.set_index("timestamp").sort_index()
+    frame = frame.ffill()
+    essential_columns = [column for column in ["open", "high", "low", "close", "volume"] if column in frame.columns]
+    if essential_columns:
+        frame = frame.dropna(subset=essential_columns)
+    frame = frame.reset_index()
+    check_nulls(frame, symbol, "after ffill_keep_sparse")
+    rows_after_ffill = int(len(frame))
+
+    rolling_window = max(3, min(20, max(len(frame) // 5, 3)))
+    frame["rolling_mean"] = frame["close"].rolling(rolling_window, min_periods=1).mean()
+
+    if symbol.endswith(".NS"):
+        fx_frame = _load_fx_context_frame(args)
+        if not fx_frame.empty:
+            frame = pd.merge_asof(
+                frame.sort_values("timestamp"),
+                fx_frame.sort_values("timestamp"),
+                on="timestamp",
+                direction="backward",
+            )
+            frame["usdinr_close"] = pd.to_numeric(frame["usdinr_close"], errors="coerce").ffill()
 
     if len(frame) < args.min_rows:
         raise ValueError(f"Only {len(frame)} rows available for {symbol}; need at least {args.min_rows}.")
@@ -374,9 +465,26 @@ def load_symbol_frame(symbol: str, args: argparse.Namespace) -> tuple[pd.DataFra
     is_forex = symbol.endswith("=X")
     frame = engineer_features(frame, is_forex=is_forex)
     frame["symbol"] = symbol
+    frame["log_return"] = np.log(frame["close"] / frame["close"].shift(1))
     frame["daily_return"] = frame["close"].pct_change()
     frame["log_close"] = np.log(frame["close"].clip(lower=1e-8))
-    return frame.reset_index(drop=True), source_name
+    check_nulls(frame, symbol, "after features")
+
+    post_feature_all_null = [column for column in frame.columns if frame[column].isna().all()]
+    if post_feature_all_null:
+        frame = frame.drop(columns=post_feature_all_null)
+    frame = frame.sort_values("timestamp").ffill()
+    post_feature_required = [column for column in ["open", "high", "low", "close", "volume", "log_return"] if column in frame.columns]
+    if post_feature_required:
+        frame = frame.dropna(subset=post_feature_required)
+    frame = frame.reset_index(drop=True)
+    check_nulls(frame, symbol, "after feature ffill_keep_sparse")
+    diagnostics = {
+        "raw_rows_loaded": raw_rows_loaded,
+        "rows_after_ffill_dropna": rows_after_ffill,
+        "rows_after_feature_engineering": int(len(frame)),
+    }
+    return frame, source_name, diagnostics
 
 
 def build_feature_table(frame: pd.DataFrame) -> pd.DataFrame:
@@ -484,26 +592,55 @@ def select_cnn_columns(feature_table: pd.DataFrame) -> list[str]:
     return sorted(dict.fromkeys(selected))
 
 
-def impute_and_scale_features(feature_frame: pd.DataFrame, split_idx: int) -> tuple[np.ndarray, StandardScaler, dict[str, float]]:
-    train_features = feature_frame.iloc[:split_idx].copy()
+def impute_and_scale_features(feature_frame: pd.DataFrame, train_end: int) -> tuple[np.ndarray, StandardScaler, dict[str, float]]:
+    train_features = feature_frame.iloc[:train_end].copy()
     medians = train_features.median(numeric_only=True)
     medians = medians.replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
     filled = feature_frame.fillna(medians).replace([np.inf, -np.inf], np.nan).fillna(medians).fillna(0.0)
     scaler = StandardScaler()
-    scaler.fit(filled.iloc[:split_idx].values)
+    scaler.fit(filled.iloc[:train_end].values)
     scaled = scaler.transform(filled.values).astype(np.float32)
     return scaled, scaler, {column: float(value) for column, value in medians.items()}
 
 
 def compute_arima_predictions(
-    log_close: pd.Series,
-    split_idx: int,
+    symbol: str,
+    log_return: pd.Series,
+    train_end: int,
     arima_order: tuple[int, int, int],
-) -> tuple[Any, np.ndarray]:
-    train_series = log_close.iloc[:split_idx].astype(float).values
+) -> tuple[Any, np.ndarray, tuple[int, int, int]]:
+    train_series = log_return.iloc[:train_end].astype(float).values
     if len(train_series) < 30:
         raise ValueError("Need at least 30 training points to fit ARIMA.")
+
+    baseline = np.full(len(log_return), np.nan, dtype=np.float64)
+
+    if pmd_auto_arima is not None:
+        try:
+            auto_model = pmd_auto_arima(
+                train_series,
+                seasonal=False,
+                stepwise=True,
+                suppress_warnings=True,
+                error_action="ignore",
+                information_criterion="aic",
+            )
+            selected_order = tuple(int(part) for part in auto_model.order)
+            LOGGER.info("[%s] Best ARIMA order: %s", symbol, selected_order)
+            train_pred = np.asarray(auto_model.predict_in_sample(), dtype=np.float64).reshape(-1)
+            baseline[: len(train_pred)] = train_pred
+
+            rolling_model = auto_model
+            for idx in range(train_end, len(log_return)):
+                forecast = np.asarray(rolling_model.predict(n_periods=1), dtype=np.float64).reshape(-1)
+                baseline[idx] = float(forecast[0])
+                rolling_model.update(float(log_return.iloc[idx]))
+            return auto_model, baseline, selected_order
+        except Exception as exc:
+            LOGGER.warning("[%s] auto_arima failed; falling back to statsmodels ARIMA(%s): %s", symbol, arima_order, exc)
+    else:
+        LOGGER.info("[%s] pmdarima not available; using statsmodels ARIMA(%s).", symbol, arima_order)
 
     model = sm.tsa.ARIMA(
         train_series,
@@ -512,20 +649,20 @@ def compute_arima_predictions(
         enforce_invertibility=False,
     )
     result = model.fit()
+    LOGGER.info("[%s] Using fallback statsmodels order=%s", symbol, arima_order)
 
-    baseline = np.full(len(log_close), np.nan, dtype=np.float64)
-    train_pred = np.asarray(result.predict(start=0, end=split_idx - 1), dtype=np.float64)
-    baseline[:split_idx] = train_pred
+    train_pred = np.asarray(result.predict(start=0, end=train_end - 1), dtype=np.float64).reshape(-1)
+    baseline[:train_end] = train_pred
 
     rolling_result = result
-    for idx in range(split_idx, len(log_close)):
+    for idx in range(train_end, len(log_return)):
         forecast = np.asarray(rolling_result.forecast(steps=1), dtype=np.float64).reshape(-1)
         baseline[idx] = float(forecast[0])
-        next_value = float(log_close.iloc[idx])
+        next_value = float(log_return.iloc[idx])
         try:
             rolling_result = rolling_result.append([next_value], refit=False)
         except Exception:
-            history = log_close.iloc[: idx + 1].astype(float).values
+            history = log_return.iloc[: idx + 1].astype(float).values
             rolling_result = sm.tsa.ARIMA(
                 history,
                 order=arima_order,
@@ -533,7 +670,7 @@ def compute_arima_predictions(
                 enforce_invertibility=False,
             ).fit()
 
-    return result, baseline
+    return result, baseline, arima_order
 
 
 def build_regression_sequences(
@@ -542,17 +679,22 @@ def build_regression_sequences(
     timestamps: pd.Series,
     close_values: np.ndarray,
     arima_baseline: np.ndarray,
-    split_idx: int,
+    train_end: int,
+    val_end: int,
     window_size: int,
 ) -> SequenceDatasetBundle:
     train_X: list[np.ndarray] = []
     train_y: list[float] = []
     val_X: list[np.ndarray] = []
     val_y: list[float] = []
+    test_X: list[np.ndarray] = []
+    test_y: list[float] = []
     train_indices: list[int] = []
     val_indices: list[int] = []
+    test_indices: list[int] = []
     train_timestamps: list[str] = []
     val_timestamps: list[str] = []
+    test_timestamps: list[str] = []
 
     for target_idx in range(window_size, len(scaled_features)):
         window = scaled_features[target_idx - window_size : target_idx]
@@ -566,29 +708,38 @@ def build_regression_sequences(
             continue
 
         timestamp = timestamps.iloc[target_idx].isoformat()
-        if target_idx < split_idx:
+        if target_idx < train_end:
             train_X.append(window)
             train_y.append(float(residual_target[target_idx]))
             train_indices.append(target_idx)
             train_timestamps.append(timestamp)
-        else:
+        elif target_idx < val_end:
             val_X.append(window)
             val_y.append(float(residual_target[target_idx]))
             val_indices.append(target_idx)
             val_timestamps.append(timestamp)
+        else:
+            test_X.append(window)
+            test_y.append(float(residual_target[target_idx]))
+            test_indices.append(target_idx)
+            test_timestamps.append(timestamp)
 
-    if not train_X or not val_X:
-        raise ValueError("Unable to build non-empty train/val regression sequence sets.")
+    if not train_X or not val_X or not test_X:
+        raise ValueError("Unable to build non-empty train/val/test regression sequence sets.")
 
     return SequenceDatasetBundle(
         X_train=np.asarray(train_X, dtype=np.float32),
         y_train=np.asarray(train_y, dtype=np.float32),
         X_val=np.asarray(val_X, dtype=np.float32),
         y_val=np.asarray(val_y, dtype=np.float32),
+        X_test=np.asarray(test_X, dtype=np.float32),
+        y_test=np.asarray(test_y, dtype=np.float32),
         train_indices=np.asarray(train_indices, dtype=np.int64),
         val_indices=np.asarray(val_indices, dtype=np.int64),
+        test_indices=np.asarray(test_indices, dtype=np.int64),
         train_timestamps=train_timestamps,
         val_timestamps=val_timestamps,
+        test_timestamps=test_timestamps,
     )
 
 
@@ -596,7 +747,8 @@ def build_cnn_sequences(
     feature_values: np.ndarray,
     close_values: np.ndarray,
     timestamps: pd.Series,
-    split_idx: int,
+    train_end: int,
+    val_end: int,
     window_size: int,
     neutral_threshold: float,
 ) -> SequenceDatasetBundle:
@@ -604,10 +756,14 @@ def build_cnn_sequences(
     train_y: list[int] = []
     val_X: list[np.ndarray] = []
     val_y: list[int] = []
+    test_X: list[np.ndarray] = []
+    test_y: list[int] = []
     train_indices: list[int] = []
     val_indices: list[int] = []
+    test_indices: list[int] = []
     train_timestamps: list[str] = []
     val_timestamps: list[str] = []
+    test_timestamps: list[str] = []
 
     for target_idx in range(window_size, len(feature_values)):
         window = feature_values[target_idx - window_size : target_idx].copy()
@@ -633,29 +789,38 @@ def build_cnn_sequences(
 
         timestamp = timestamps.iloc[target_idx].isoformat()
         window = np.expand_dims(window.astype(np.float32), axis=0)
-        if target_idx < split_idx:
+        if target_idx < train_end:
             train_X.append(window)
             train_y.append(label)
             train_indices.append(target_idx)
             train_timestamps.append(timestamp)
-        else:
+        elif target_idx < val_end:
             val_X.append(window)
             val_y.append(label)
             val_indices.append(target_idx)
             val_timestamps.append(timestamp)
+        else:
+            test_X.append(window)
+            test_y.append(label)
+            test_indices.append(target_idx)
+            test_timestamps.append(timestamp)
 
-    if not train_X or not val_X:
-        raise ValueError("Unable to build non-empty train/val CNN sequence sets.")
+    if not train_X or not val_X or not test_X:
+        raise ValueError("Unable to build non-empty train/val/test CNN sequence sets.")
 
     return SequenceDatasetBundle(
         X_train=np.asarray(train_X, dtype=np.float32),
         y_train=np.asarray(train_y, dtype=np.int64),
         X_val=np.asarray(val_X, dtype=np.float32),
         y_val=np.asarray(val_y, dtype=np.int64),
+        X_test=np.asarray(test_X, dtype=np.float32),
+        y_test=np.asarray(test_y, dtype=np.int64),
         train_indices=np.asarray(train_indices, dtype=np.int64),
         val_indices=np.asarray(val_indices, dtype=np.int64),
+        test_indices=np.asarray(test_indices, dtype=np.int64),
         train_timestamps=train_timestamps,
         val_timestamps=val_timestamps,
+        test_timestamps=test_timestamps,
     )
 
 
@@ -688,28 +853,76 @@ def tensor_predict(model: nn.Module, loader: TorchDataLoader, device: torch.devi
     return np.concatenate(preds), np.empty((0, 0), dtype=np.float32)
 
 
+def compute_trading_metrics(predicted_return: np.ndarray, actual_return: np.ndarray) -> dict[str, float]:
+    signal = np.sign(predicted_return)
+    strategy_return = signal * actual_return
+    trades_mask = signal != 0
+    trades = strategy_return[trades_mask]
+
+    total_trades = int(trades.size)
+    win_rate = float(np.mean(trades > 0)) if total_trades else 0.0
+    positive_sum = float(trades[trades > 0].sum()) if total_trades else 0.0
+    negative_sum = float(np.abs(trades[trades < 0].sum())) if total_trades else 0.0
+    if negative_sum == 0.0:
+        profit_factor = float("inf") if positive_sum > 0 else 0.0
+    else:
+        profit_factor = positive_sum / negative_sum
+
+    avg_trade_return = float(trades.mean()) if total_trades else 0.0
+    std = float(strategy_return.std(ddof=0))
+    annualization = math.sqrt(252.0 * 6.5)
+    sharpe = float(strategy_return.mean() / std * annualization) if std > 1e-12 else 0.0
+
+    equity_curve = np.cumprod(1.0 + strategy_return)
+    if equity_curve.size:
+        running_peak = np.maximum.accumulate(equity_curve)
+        drawdown = 1.0 - (equity_curve / np.clip(running_peak, 1e-12, None))
+        max_drawdown = float(np.max(drawdown))
+    else:
+        max_drawdown = 0.0
+
+    return {
+        "sharpe": sharpe,
+        "max_drawdown": max_drawdown,
+        "win_rate": win_rate,
+        "profit_factor": float(profit_factor),
+        "average_trade_return": avg_trade_return,
+        "total_trades": total_trades,
+    }
+
+
+def class_distribution_percentages(y: np.ndarray) -> dict[str, float]:
+    if len(y) == 0:
+        return {CLASS_NAMES[idx]: 0.0 for idx in sorted(CLASS_NAMES)}
+    total = float(len(y))
+    return {CLASS_NAMES[idx]: float((y == idx).sum() / total) for idx in sorted(CLASS_NAMES)}
+
+
 def train_regression_model(
     bundle: SequenceDatasetBundle,
     baseline_predictions: np.ndarray,
-    close_values: np.ndarray,
-    log_close_values: np.ndarray,
+    log_return_values: np.ndarray,
     feature_columns: list[str],
     timestamps: pd.Series,
-    split_idx: int,
+    train_end: int,
+    val_end: int,
     args: argparse.Namespace,
     model_dir: Path,
     imputation_medians: dict[str, float],
     feature_scaler: StandardScaler,
     arima_result: Any,
+    selected_arima_order: tuple[int, int, int],
 ) -> RegressionArtifacts:
     device = torch.device(args.device)
 
     target_scaler = StandardScaler()
     y_train_scaled = target_scaler.fit_transform(bundle.y_train.reshape(-1, 1)).astype(np.float32).ravel()
     y_val_scaled = target_scaler.transform(bundle.y_val.reshape(-1, 1)).astype(np.float32).ravel()
+    y_test_scaled = target_scaler.transform(bundle.y_test.reshape(-1, 1)).astype(np.float32).ravel()
 
     train_loader = make_loader(bundle.X_train, y_train_scaled, args.batch_size)
     val_loader = make_loader(bundle.X_val, y_val_scaled, args.batch_size)
+    test_loader = make_loader(bundle.X_test, y_test_scaled, args.batch_size)
 
     model = ResidualLSTMRegressor(
         input_size=bundle.X_train.shape[-1],
@@ -812,37 +1025,42 @@ def train_regression_model(
     model.load_state_dict(checkpoint["model_state_dict"])
 
     val_pred_scaled, _ = tensor_predict(model, val_loader, device)
+    test_pred_scaled, _ = tensor_predict(model, test_loader, device)
     val_pred_residual = target_scaler.inverse_transform(val_pred_scaled.reshape(-1, 1)).ravel()
-    actual_residual = bundle.y_val
+    test_pred_residual = target_scaler.inverse_transform(test_pred_scaled.reshape(-1, 1)).ravel()
+    actual_residual = np.concatenate([bundle.y_val, bundle.y_test])
 
     val_baseline = baseline_predictions[bundle.val_indices]
-    predicted_log_close = val_baseline + val_pred_residual
-    actual_log_close = log_close_values[bundle.val_indices]
-    predicted_close = np.exp(predicted_log_close)
-    actual_close = close_values[bundle.val_indices]
-    reference_close = close_values[bundle.val_indices - 1]
+    test_baseline = baseline_predictions[bundle.test_indices]
+    predicted_val_return = val_baseline + val_pred_residual
+    predicted_test_return = test_baseline + test_pred_residual
+    actual_val_return = log_return_values[bundle.val_indices]
+    actual_test_return = log_return_values[bundle.test_indices]
 
-    rmse = float(np.sqrt(np.mean((predicted_close - actual_close) ** 2)))
-    mae = float(np.mean(np.abs(predicted_close - actual_close)))
-    mape = float(np.mean(np.abs((predicted_close - actual_close) / np.clip(actual_close, 1e-8, None))))
-    predicted_direction = np.sign((predicted_close / np.clip(reference_close, 1e-8, None)) - 1.0)
-    actual_direction = np.sign((actual_close / np.clip(reference_close, 1e-8, None)) - 1.0)
+    rmse_val = float(np.sqrt(np.mean((predicted_val_return - actual_val_return) ** 2)))
+    mae_val = float(np.mean(np.abs(predicted_val_return - actual_val_return)))
+    rmse_test = float(np.sqrt(np.mean((predicted_test_return - actual_test_return) ** 2)))
+    mae_test = float(np.mean(np.abs(predicted_test_return - actual_test_return)))
+    predicted_direction = np.sign(predicted_val_return)
+    actual_direction = np.sign(actual_val_return)
     directional_accuracy = float(np.mean(predicted_direction == actual_direction))
+    test_trading_metrics = compute_trading_metrics(predicted_test_return, actual_test_return)
 
     prediction_frame = pd.DataFrame(
         {
-            "timestamp": bundle.val_timestamps,
-            "actual_close_inr": actual_close,
-            "predicted_close_inr": predicted_close,
-            "arima_only_close_inr": np.exp(val_baseline),
-            "actual_log_close": actual_log_close,
-            "predicted_log_close": predicted_log_close,
+            "timestamp": [*bundle.val_timestamps, *bundle.test_timestamps],
+            "dataset_split": ["val"] * len(bundle.val_timestamps) + ["test"] * len(bundle.test_timestamps),
+            "actual_return": np.concatenate([actual_val_return, actual_test_return]),
+            "predicted_return": np.concatenate([predicted_val_return, predicted_test_return]),
+            "arima_only_return": np.concatenate([val_baseline, test_baseline]),
             "actual_residual": actual_residual,
-            "predicted_residual": val_pred_residual,
-            "reference_close_inr": reference_close,
-            "actual_return": (actual_close / np.clip(reference_close, 1e-8, None)) - 1.0,
-            "predicted_return": (predicted_close / np.clip(reference_close, 1e-8, None)) - 1.0,
-            "absolute_error_inr": np.abs(predicted_close - actual_close),
+            "predicted_residual": np.concatenate([val_pred_residual, test_pred_residual]),
+            "absolute_error": np.concatenate(
+                [
+                    np.abs(predicted_val_return - actual_val_return),
+                    np.abs(predicted_test_return - actual_test_return),
+                ]
+            ),
         }
     )
 
@@ -860,13 +1078,26 @@ def train_regression_model(
         "best_epoch": best_epoch,
         "epochs_ran": len(history),
         "best_val_loss_scaled": best_val_loss,
-        "val_rmse_inr": rmse,
-        "val_mae_inr": mae,
-        "val_mape": mape,
+        "val_rmse_returns": rmse_val,
+        "val_mae_returns": mae_val,
+        "test_rmse_returns": rmse_test,
+        "test_mae_returns": mae_test,
         "val_directional_accuracy": directional_accuracy,
+        "arima_order": [int(part) for part in selected_arima_order],
         "train_sequences": int(len(bundle.X_train)),
         "val_sequences": int(len(bundle.X_val)),
-        "train_split_index": int(split_idx),
+        "test_sequences": int(len(bundle.X_test)),
+        "train_split_index": int(train_end),
+        "val_split_index": int(val_end),
+        "final_train_loss": float(history[-1]["train_loss"]) if history else None,
+        "final_val_loss": float(history[-1]["val_loss"]) if history else None,
+        "early_stopped": bool(best_epoch < args.epochs),
+        "test_sharpe": test_trading_metrics["sharpe"],
+        "test_max_drawdown": test_trading_metrics["max_drawdown"],
+        "test_win_rate": test_trading_metrics["win_rate"],
+        "test_profit_factor": test_trading_metrics["profit_factor"],
+        "test_average_trade_return": test_trading_metrics["average_trade_return"],
+        "test_total_trades": test_trading_metrics["total_trades"],
     }
     LOGGER.info("[ARIMA-LSTM] best_epoch=%s metrics=%s", best_epoch, metrics)
     save_json(model_dir / "metrics.json", metrics)
@@ -875,7 +1106,7 @@ def train_regression_model(
         {
             "feature_columns": feature_columns,
             "window_size": args.reg_window,
-            "arima_order": list(map(int, args.arima_order.split(","))),
+            "arima_order": [int(part) for part in selected_arima_order],
             "hidden_size": args.lstm_hidden_size,
             "lstm_layers": args.lstm_layers,
             "dropout": args.dropout,
@@ -923,6 +1154,7 @@ def train_cnn_model(
 
     train_loader = make_loader(bundle.X_train, bundle.y_train, args.batch_size)
     val_loader = make_loader(bundle.X_val, bundle.y_val, args.batch_size)
+    test_loader = make_loader(bundle.X_test, bundle.y_test, args.batch_size)
 
     model = DirectionCNNClassifier(
         time_steps=bundle.X_train.shape[-2],
@@ -940,6 +1172,7 @@ def train_cnn_model(
 
     history: list[dict[str, float]] = []
     best_val_loss = math.inf
+    best_val_bal_acc = -math.inf
     best_epoch = 0
     stale_epochs = 0
     checkpoint_path = model_dir / "best_cnn_checkpoint.pt"
@@ -1021,8 +1254,11 @@ def train_cnn_model(
             current_lr,
         )
 
-        if val_loss < best_val_loss - 1e-6:
+        improved_bal_acc = val_bal_acc > best_val_bal_acc + 1e-6
+        tie_bal_acc_better_loss = abs(val_bal_acc - best_val_bal_acc) <= 1e-6 and val_loss < best_val_loss - 1e-6
+        if improved_bal_acc or tie_bal_acc_better_loss:
             best_val_loss = val_loss
+            best_val_bal_acc = val_bal_acc
             best_epoch = epoch
             stale_epochs = 0
             torch.save(
@@ -1046,17 +1282,31 @@ def train_cnn_model(
     model.load_state_dict(checkpoint["model_state_dict"])
 
     val_pred, val_prob = tensor_predict(model, val_loader, device)
+    test_pred, test_prob = tensor_predict(model, test_loader, device)
     confusion = confusion_matrix(bundle.y_val, val_pred, labels=[0, 1, 2])
+    test_confusion = confusion_matrix(bundle.y_test, test_pred, labels=[0, 1, 2])
     class_acc = per_class_accuracy(confusion)
+    test_class_acc = per_class_accuracy(test_confusion)
+    val_pred_distribution = np.bincount(val_pred.astype(int), minlength=3).tolist()
+    val_actual_distribution = np.bincount(bundle.y_val.astype(int), minlength=3).tolist()
+    LOGGER.info("[%s] Predicted distribution: %s", model_dir.parent.name, val_pred_distribution)
+    LOGGER.info("[%s] Actual distribution:    %s", model_dir.parent.name, val_actual_distribution)
+    LOGGER.info(
+        "[%s] Val Accuracy: %.4f | Val Balanced Accuracy: %.4f",
+        model_dir.parent.name,
+        accuracy_score(bundle.y_val, val_pred),
+        balanced_accuracy_score(bundle.y_val, val_pred),
+    )
 
     prediction_frame = pd.DataFrame(
         {
-            "timestamp": bundle.val_timestamps,
-            "true_label": [CLASS_NAMES[int(value)] for value in bundle.y_val],
-            "predicted_label": [CLASS_NAMES[int(value)] for value in val_pred],
-            "up_prob": val_prob[:, 0],
-            "neutral_prob": val_prob[:, 1],
-            "down_prob": val_prob[:, 2],
+            "timestamp": [*bundle.val_timestamps, *bundle.test_timestamps],
+            "dataset_split": ["val"] * len(bundle.val_timestamps) + ["test"] * len(bundle.test_timestamps),
+            "true_label": [CLASS_NAMES[int(value)] for value in np.concatenate([bundle.y_val, bundle.y_test])],
+            "predicted_label": [CLASS_NAMES[int(value)] for value in np.concatenate([val_pred, test_pred])],
+            "up_prob": np.concatenate([val_prob[:, 0], test_prob[:, 0]]),
+            "neutral_prob": np.concatenate([val_prob[:, 1], test_prob[:, 1]]),
+            "down_prob": np.concatenate([val_prob[:, 2], test_prob[:, 2]]),
         }
     )
 
@@ -1066,6 +1316,11 @@ def train_cnn_model(
     pd.DataFrame(confusion, index=[CLASS_NAMES[i] for i in range(3)], columns=[CLASS_NAMES[i] for i in range(3)]).to_csv(
         model_dir / "confusion_matrix.csv"
     )
+    pd.DataFrame(
+        test_confusion,
+        index=[CLASS_NAMES[i] for i in range(3)],
+        columns=[CLASS_NAMES[i] for i in range(3)],
+    ).to_csv(model_dir / "test_confusion_matrix.csv")
     plot_history(
         history,
         ["train_loss", "val_loss", "train_accuracy", "val_accuracy", "val_balanced_accuracy"],
@@ -1078,16 +1333,35 @@ def train_cnn_model(
         "best_epoch": best_epoch,
         "epochs_ran": len(history),
         "best_val_loss": best_val_loss,
+        "best_val_balanced_accuracy": best_val_bal_acc,
         "val_accuracy": float(accuracy_score(bundle.y_val, val_pred)),
         "val_balanced_accuracy": float(balanced_accuracy_score(bundle.y_val, val_pred)),
+        "test_accuracy": float(accuracy_score(bundle.y_test, test_pred)),
+        "test_balanced_accuracy": float(balanced_accuracy_score(bundle.y_test, test_pred)),
         "train_windows": int(len(bundle.X_train)),
         "val_windows": int(len(bundle.X_val)),
+        "test_windows": int(len(bundle.X_test)),
         "neutral_threshold": args.neutral_threshold,
         "class_distribution_train": class_distribution(bundle.y_train),
         "class_distribution_val": class_distribution(bundle.y_val),
+        "class_distribution_test": class_distribution(bundle.y_test),
+        "class_distribution_train_pct": class_distribution_percentages(bundle.y_train),
+        "class_distribution_val_pct": class_distribution_percentages(bundle.y_val),
+        "class_distribution_test_pct": class_distribution_percentages(bundle.y_test),
+        "predicted_distribution_val": {CLASS_NAMES[idx]: int(val_pred_distribution[idx]) for idx in range(3)},
+        "actual_distribution_val": {CLASS_NAMES[idx]: int(val_actual_distribution[idx]) for idx in range(3)},
         "class_weight_balanced": {CLASS_NAMES[idx]: float(class_weights[idx]) for idx in range(3)},
         "per_class_accuracy": class_acc,
+        "per_class_accuracy_test": test_class_acc,
+        "final_train_loss": float(history[-1]["train_loss"]) if history else None,
+        "final_val_loss": float(history[-1]["val_loss"]) if history else None,
+        "early_stopped": bool(best_epoch < args.epochs),
     }
+    if metrics["val_balanced_accuracy"] <= 0.34:
+        LOGGER.warning(
+            "[CNN] val_balanced_accuracy=%.4f is near random baseline; check class collapse and feature quality.",
+            metrics["val_balanced_accuracy"],
+        )
     LOGGER.info("[CNN] best_epoch=%s metrics=%s", best_epoch, metrics)
     save_json(model_dir / "metrics.json", metrics)
     save_json(
@@ -1105,18 +1379,72 @@ def train_cnn_model(
     return ClassificationArtifacts(metrics=metrics, history=history, prediction_frame=prediction_frame, confusion=confusion)
 
 
+def add_volatility_regime_features(frame: pd.DataFrame, train_end: int) -> tuple[pd.DataFrame, int]:
+    frame = frame.copy()
+    window = max(3, min(20, max(train_end // 5, 3)))
+
+    rolling_vol = frame["close"].rolling(window).std()
+    vol_regime = pd.Series(1.0, index=frame.index, dtype=float)
+    valid_vol = rolling_vol.dropna()
+    if valid_vol.nunique() >= 3:
+        try:
+            buckets = pd.qcut(valid_vol, 3, labels=[0, 1, 2], duplicates="drop").astype(float)
+            vol_regime.loc[buckets.index] = buckets.values
+        except ValueError:
+            LOGGER.warning("Failed to compute qcut volatility regime; falling back to neutral regime.")
+    frame["vol_regime"] = vol_regime.ffill().fillna(1.0)
+
+    ret_mean = frame["log_return"].rolling(window).mean()
+    ret_std = frame["log_return"].rolling(window).std().replace(0.0, np.nan)
+    frame["return_zscore"] = ((frame["log_return"] - ret_mean) / ret_std).replace([np.inf, -np.inf], np.nan)
+    frame["return_zscore"] = frame["return_zscore"].ffill().fillna(0.0)
+
+    volume_mean = frame["volume"].rolling(window).mean()
+    volume_std = frame["volume"].rolling(window).std().replace(0.0, np.nan)
+    frame["volume_zscore"] = ((frame["volume"] - volume_mean) / volume_std).replace([np.inf, -np.inf], np.nan)
+    frame["volume_zscore"] = frame["volume_zscore"].ffill().fillna(0.0)
+
+    frame["rolling_mean"] = frame["close"].rolling(window, min_periods=1).mean()
+    return frame, window
+
+
 def run_for_symbol(symbol: str, args: argparse.Namespace, root_run_dir: Path) -> dict[str, Any]:
     symbol_dir = root_run_dir / sanitize_symbol(symbol)
     symbol_dir.mkdir(parents=True, exist_ok=True)
 
-    frame, source_name = load_symbol_frame(symbol, args)
+    frame, source_name, diagnostics = load_symbol_frame(symbol, args)
     LOGGER.info("Loaded %s rows for %s from %s", len(frame), symbol, source_name)
+    LOGGER.info("[%s] Raw rows loaded: %s", symbol, diagnostics["raw_rows_loaded"])
+    LOGGER.info("[%s] Rows after ffill + dropna: %s", symbol, diagnostics["rows_after_ffill_dropna"])
 
-    split_idx = int(len(frame) * args.train_split)
-    if split_idx <= max(args.reg_window, args.cnn_window):
+    assert len(frame) > 400, (
+        f"{symbol} only has {len(frame)} rows after preprocessing. "
+        f"Check ffill and feature engineering nulls."
+    )
+
+    pre_feature_train_end = int(len(frame) * 0.70)
+    frame, regime_window = add_volatility_regime_features(frame, pre_feature_train_end)
+    check_nulls(frame, symbol, f"after regime features (window={regime_window})")
+    frame = frame.replace([np.inf, -np.inf], np.nan).ffill()
+    required_after_regime = [column for column in ["open", "high", "low", "close", "volume", "log_return"] if column in frame.columns]
+    if required_after_regime:
+        frame = frame.dropna(subset=required_after_regime)
+    frame = frame.reset_index(drop=True)
+
+    assert len(frame) > 400, (
+        f"{symbol} only has {len(frame)} rows after regime feature cleanup. "
+        f"Check ffill and feature engineering nulls."
+    )
+
+    n_rows = len(frame)
+    train_end = int(n_rows * 0.70)
+    val_end = int(n_rows * 0.85)
+    if train_end <= max(args.reg_window, args.cnn_window):
         raise ValueError("Training split leaves too little history for the requested windows.")
-    if len(frame) - split_idx <= 20:
-        raise ValueError("Validation split is too small after chronological split.")
+    if val_end <= train_end:
+        raise ValueError("Validation split is invalid; val_end must be greater than train_end.")
+    if n_rows - val_end <= max(20, args.cnn_window):
+        raise ValueError("Test split is too small after chronological split.")
 
     feature_table = build_feature_table(frame)
     regression_columns = select_regression_columns(feature_table)
@@ -1129,12 +1457,17 @@ def run_for_symbol(symbol: str, args: argparse.Namespace, root_run_dir: Path) ->
     reg_feature_frame = feature_table[regression_columns].copy()
     cnn_feature_frame = feature_table[cnn_columns].copy()
 
-    reg_scaled, reg_scaler, reg_medians = impute_and_scale_features(reg_feature_frame, split_idx)
-    cnn_scaled, _, _ = impute_and_scale_features(cnn_feature_frame, split_idx)
+    reg_scaled, reg_scaler, reg_medians = impute_and_scale_features(reg_feature_frame, train_end)
+    cnn_scaled, _, _ = impute_and_scale_features(cnn_feature_frame, train_end)
 
     arima_order = tuple(int(part.strip()) for part in args.arima_order.split(","))
-    arima_result, arima_baseline = compute_arima_predictions(frame["log_close"], split_idx, arima_order)
-    residual_target = frame["log_close"].values - arima_baseline
+    arima_result, arima_baseline, selected_arima_order = compute_arima_predictions(
+        symbol=symbol,
+        log_return=frame["log_return"],
+        train_end=train_end,
+        arima_order=arima_order,
+    )
+    residual_target = frame["log_return"].values.astype(float) - arima_baseline
 
     reg_bundle = build_regression_sequences(
         scaled_features=reg_scaled,
@@ -1142,14 +1475,16 @@ def run_for_symbol(symbol: str, args: argparse.Namespace, root_run_dir: Path) ->
         timestamps=frame["timestamp"],
         close_values=frame["close"].values.astype(float),
         arima_baseline=arima_baseline,
-        split_idx=split_idx,
+        train_end=train_end,
+        val_end=val_end,
         window_size=args.reg_window,
     )
     cnn_bundle = build_cnn_sequences(
         feature_values=cnn_scaled,
         close_values=frame["close"].values.astype(float),
         timestamps=frame["timestamp"],
-        split_idx=split_idx,
+        train_end=train_end,
+        val_end=val_end,
         window_size=args.cnn_window,
         neutral_threshold=args.neutral_threshold,
     )
@@ -1157,14 +1492,33 @@ def run_for_symbol(symbol: str, args: argparse.Namespace, root_run_dir: Path) ->
     LOGGER.info("Regression features=%s", regression_columns)
     LOGGER.info("CNN features=%s", cnn_columns)
     LOGGER.info(
-        "Prepared sequences for %s: reg_train=%s reg_val=%s cnn_train=%s cnn_val=%s",
+        "[%s] Train/Val/Test rows: %s / %s / %s",
+        symbol,
+        train_end,
+        val_end - train_end,
+        len(frame) - val_end,
+    )
+    LOGGER.info(
+        "Prepared sequences for %s: reg_train=%s reg_val=%s reg_test=%s cnn_train=%s cnn_val=%s cnn_test=%s",
         symbol,
         len(reg_bundle.X_train),
         len(reg_bundle.X_val),
+        len(reg_bundle.X_test),
         len(cnn_bundle.X_train),
         len(cnn_bundle.X_val),
+        len(cnn_bundle.X_test),
     )
-    LOGGER.info("CNN class distribution overall=%s", class_distribution(np.concatenate([cnn_bundle.y_train, cnn_bundle.y_val])))
+    LOGGER.info(
+        "[%s] CNN class %% train=%s val=%s test=%s",
+        symbol,
+        class_distribution_percentages(cnn_bundle.y_train),
+        class_distribution_percentages(cnn_bundle.y_val),
+        class_distribution_percentages(cnn_bundle.y_test),
+    )
+    LOGGER.info(
+        "CNN class distribution overall=%s",
+        class_distribution(np.concatenate([cnn_bundle.y_train, cnn_bundle.y_val, cnn_bundle.y_test])),
+    )
 
     regression_dir = symbol_dir / "arima_lstm"
     classification_dir = symbol_dir / "cnn_pattern"
@@ -1174,16 +1528,17 @@ def run_for_symbol(symbol: str, args: argparse.Namespace, root_run_dir: Path) ->
     regression_artifacts = train_regression_model(
         bundle=reg_bundle,
         baseline_predictions=arima_baseline,
-        close_values=frame["close"].values.astype(float),
-        log_close_values=frame["log_close"].values.astype(float),
+        log_return_values=frame["log_return"].values.astype(float),
         feature_columns=regression_columns,
         timestamps=frame["timestamp"],
-        split_idx=split_idx,
+        train_end=train_end,
+        val_end=val_end,
         args=args,
         model_dir=regression_dir,
         imputation_medians=reg_medians,
         feature_scaler=reg_scaler,
         arima_result=arima_result,
+        selected_arima_order=selected_arima_order,
     )
     classification_artifacts = train_cnn_model(
         bundle=cnn_bundle,
@@ -1192,12 +1547,50 @@ def run_for_symbol(symbol: str, args: argparse.Namespace, root_run_dir: Path) ->
         model_dir=classification_dir,
     )
 
+    LOGGER.info(
+        "[%s] ARIMA-LSTM RMSE: %.4f | MAE: %.4f | order=%s",
+        symbol,
+        regression_artifacts.metrics["val_rmse_returns"],
+        regression_artifacts.metrics["val_mae_returns"],
+        regression_artifacts.metrics["arima_order"],
+    )
+    LOGGER.info(
+        "[%s] CNN Val Accuracy: %.4f | Val Balanced Accuracy: %.4f",
+        symbol,
+        classification_artifacts.metrics["val_accuracy"],
+        classification_artifacts.metrics["val_balanced_accuracy"],
+    )
+    LOGGER.info(
+        "[%s] Epochs trained: reg=%s cnn=%s | reg train/val loss=%.6f/%.6f | cnn train/val loss=%.6f/%.6f",
+        symbol,
+        regression_artifacts.metrics["epochs_ran"],
+        classification_artifacts.metrics["epochs_ran"],
+        regression_artifacts.metrics["final_train_loss"] or 0.0,
+        regression_artifacts.metrics["final_val_loss"] or 0.0,
+        classification_artifacts.metrics["final_train_loss"] or 0.0,
+        classification_artifacts.metrics["final_val_loss"] or 0.0,
+    )
+    LOGGER.info(
+        "[%s] Test trading metrics: sharpe=%.4f max_drawdown=%.4f win_rate=%.4f",
+        symbol,
+        regression_artifacts.metrics["test_sharpe"],
+        regression_artifacts.metrics["test_max_drawdown"],
+        regression_artifacts.metrics["test_win_rate"],
+    )
+
     summary = {
         "symbol": symbol,
         "source": source_name,
         "rows": int(len(frame)),
-        "train_rows": int(split_idx),
-        "val_rows": int(len(frame) - split_idx),
+        "raw_rows_loaded": diagnostics["raw_rows_loaded"],
+        "rows_after_ffill_dropna": diagnostics["rows_after_ffill_dropna"],
+        "rows_after_feature_engineering": diagnostics["rows_after_feature_engineering"],
+        "train_rows": int(train_end),
+        "val_rows": int(val_end - train_end),
+        "test_rows": int(len(frame) - val_end),
+        "class_distribution_train_pct": class_distribution_percentages(cnn_bundle.y_train),
+        "class_distribution_val_pct": class_distribution_percentages(cnn_bundle.y_val),
+        "class_distribution_test_pct": class_distribution_percentages(cnn_bundle.y_test),
         "regression_metrics": regression_artifacts.metrics,
         "classification_metrics": classification_artifacts.metrics,
     }
@@ -1224,6 +1617,19 @@ def main() -> None:
 
     for symbol in args.symbols:
         LOGGER.info("=== Training symbol=%s ===", symbol)
+        if symbol in FOREX_SYMBOLS or symbol.endswith("=X"):
+            LOGGER.warning(
+                "Skipping %s as a direct training target; forex symbols are context features only.",
+                symbol,
+            )
+            skipped_symbols.append(
+                {
+                    "symbol": symbol,
+                    "reason": "forex_context_only",
+                    "details": f"Configured via --fx-context-symbol={args.fx_context_symbol}",
+                }
+            )
+            continue
         quality = get_market_data_quality(symbol, args.interval, dataset_type="historical")
         if quality is not None and not quality.get("train_ready"):
             LOGGER.warning(
