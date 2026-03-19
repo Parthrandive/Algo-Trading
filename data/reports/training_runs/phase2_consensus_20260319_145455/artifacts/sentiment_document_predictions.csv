@@ -1,0 +1,21 @@
+source_id,timestamp,symbol,headline,content,sentiment_label,sentiment_score,sentiment_confidence,freshness_state,quality_status,manipulation_risk_score,aligned_market_timestamp,next_return,volatility_rolling_20,realized_label_int,sentiment_label_int
+nse_news_eb77ac94137a2ade,2026-03-05 18:47:44.687768+00:00,,Midwest Limited,Analysts/Institutional Investor Meet/Con. Call Updates,neutral,0.0,0.5,miss,pass,0.0,,,,,0
+nse_news_f0302eec0366bec2,2026-03-05 18:47:44.687768+00:00,,Solex Energy Limited,Analysts/Institutional Investor Meet/Con. Call Updates,neutral,0.0,0.5,miss,pass,0.0,,,,,0
+nse_news_787f7ec7cb7feb71,2026-03-05 18:47:44.687768+00:00,,Fractal Analytics Limited,Press Release,neutral,0.0,0.5,miss,pass,0.0,,,,,0
+nse_news_e7e6c68a4220076a,2026-03-05 18:47:44.687768+00:00,TATASTEEL.NS,Tata Steel Limited,Analysts/Institutional Investor Meet/Con. Call Updates,neutral,0.0,0.5,fresh,pass,0.0,,,,,0
+nse_news_2e269d4f9b34fa5f,2026-03-05 18:47:44.687768+00:00,TATASTEEL.NS,Tata Steel Limited,Analysts/Institutional Investor Meet/Con. Call Updates,neutral,0.0,0.5,miss,pass,0.0,,,,,0
+nse_news_92fbed6a3221d877,2026-03-05 18:47:44.687768+00:00,,Wipro Limited,Updates,neutral,0.0,0.5,miss,pass,0.0,,,,,0
+nse_news_f15b3e69f48be100,2026-03-05 18:47:44.687768+00:00,,JINDAL STEEL LIMITED,Analysts/Institutional Investor Meet/Con. Call Updates,neutral,0.0,0.5,miss,pass,0.0,,,,,0
+nse_news_d334407e1516da16,2026-03-05 18:47:44.687768+00:00,,Cyient Limited,Updates,neutral,0.0,0.5,miss,pass,0.0,,,,,0
+nse_news_525bbddc9ff4b505,2026-03-05 18:47:44.687768+00:00,,Goa Carbon Limited,Change in Management,neutral,0.0,0.5,miss,pass,0.0,,,,,0
+nse_news_98096bbc5713386b,2026-03-05 18:47:44.687768+00:00,,Onesource Specialty Pharma Limited,Credit Rating- Others,neutral,0.0,0.5,miss,pass,0.0,,,,,0
+nse_news_0de5e2749aa10dea,2026-03-05 18:47:44.687768+00:00,,Fractal Analytics Limited,Investor Presentation,neutral,0.0,0.5,miss,pass,0.0,,,,,0
+nse_news_9184456fe70b661e,2026-03-05 18:47:44.687768+00:00,,Ugro Capital Limited,Agreements,neutral,0.0,0.5,miss,pass,0.0,,,,,0
+nse_news_404b2d86ca30310d,2026-03-05 18:47:44.687768+00:00,RELIANCE.NS,Reliance Power Limited,Sale or disposal,neutral,0.0,0.5,miss,pass,0.0,,,,,0
+nse_news_272473817149126e,2026-03-05 18:47:44.687768+00:00,,RHI MAGNESITA INDIA LIMITED,Shareholders meeting,neutral,0.0,0.5,miss,pass,0.0,,,,,0
+nse_news_374825b94e040621,2026-03-05 18:47:44.687768+00:00,,Suryoday Small Finance Bank Limited,Analysts/Institutional Investor Meet/Con. Call Updates,neutral,0.0,0.5,miss,pass,0.0,,,,,0
+nse_news_4fcf03bf260e289f,2026-03-05 18:47:44.687768+00:00,,Uravi Defence and Technology Limited,Diversification/Disinvestment,neutral,0.0,0.5,miss,pass,0.0,,,,,0
+nse_news_371613b00c41fbc4,2026-03-05 18:47:44.687768+00:00,,Vedant Fashions Limited,Analysts/Institutional Investor Meet/Con. Call Updates,neutral,0.0,0.5,miss,pass,0.0,,,,,0
+nse_news_614c8e13cdd5359c,2026-03-05 18:47:44.687768+00:00,,Arcotech Limited,Action(s) taken or orders passed,neutral,0.0,0.5,miss,pass,0.0,,,,,0
+nse_news_a172a9717550e429,2026-03-05 18:47:44.687768+00:00,,Lumax Auto Technologies Limited,Change in Management,neutral,0.0,0.5,miss,pass,0.0,,,,,0
+nse_news_ed705e70b655bf79,2026-03-05 18:47:44.687768+00:00,,Lumax Auto Technologies Limited,Appointment,neutral,0.0,0.5,miss,pass,0.0,,,,,0
