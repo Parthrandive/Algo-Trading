@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
-from src.agents.textual.adapters import EconomicTimesAdapter, NSENewsAdapter, RBIReportsAdapter
+from src.agents.textual.adapters import EconomicTimesAdapter, NSENewsAdapter, NewsAPIMarketAdapter, RBIReportsAdapter
 from src.schemas.text_sidecar import SourceRouteDetail
 
 
@@ -182,3 +182,47 @@ def test_nse_adapter_uses_et_fallback_when_nse_unavailable():
     assert record.source_name == "nse_news"
     assert record.source_route_detail == SourceRouteDetail.FALLBACK_SCRAPER
     assert record.payload["quality_status"] == "warn"
+
+
+def test_newsapi_market_adapter_parses_market_article():
+    api_response = """
+{
+  "status": "ok",
+  "totalResults": 1,
+  "articles": [
+    {
+      "source": {"id": "test-source", "name": "Test Finance"},
+      "author": "Reporter",
+      "title": "NIFTY rises as banks lead gains",
+      "description": "Indian market closes higher on strong banking stocks.",
+      "url": "https://example.com/finance/nifty-rally",
+      "publishedAt": "2026-03-05T10:00:00Z"
+    }
+  ]
+}
+"""
+
+    captured_headers: dict[str, str] = {}
+
+    def _getter(url: str, headers: dict[str, str] | None = None) -> str:
+        _ = url
+        captured_headers.update(headers or {})
+        return api_response
+
+    adapter = NewsAPIMarketAdapter(
+        max_items=5,
+        api_key="test-news-api-key",
+        http_get=_getter,
+        cache_root=_workspace_tmp_dir() / "cache",
+    )
+    records = adapter.fetch(as_of_utc=datetime(2026, 3, 5, 23, 59, tzinfo=UTC))
+
+    assert len(records) == 1
+    record = records[0]
+    assert record.source_name == "newsapi_market"
+    assert record.source_route_detail == SourceRouteDetail.PRIMARY_API
+    assert record.payload["headline"] == "NIFTY rises as banks lead gains"
+    assert record.payload["publisher"] == "Test Finance"
+    assert record.payload["url"] == "https://example.com/finance/nifty-rally"
+    assert "market_finance" in record.payload["quality_flags"]
+    assert captured_headers.get("X-Api-Key") == "test-news-api-key"

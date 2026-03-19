@@ -1,0 +1,151 @@
+{
+  "symbol": "RELIANCE.NS",
+  "source": "gold_features",
+  "rows": 1841,
+  "raw_rows_loaded": 1842,
+  "rows_after_ffill_dropna": 1842,
+  "rows_after_feature_engineering": 1841,
+  "train_rows": 1288,
+  "val_rows": 276,
+  "test_rows": 277,
+  "class_distribution_train_pct": {
+    "up": 0.09379968203497616,
+    "neutral": 0.8235294117647058,
+    "down": 0.08267090620031796
+  },
+  "class_distribution_val_pct": {
+    "up": 0.08695652173913043,
+    "neutral": 0.8260869565217391,
+    "down": 0.08695652173913043
+  },
+  "class_distribution_test_pct": {
+    "up": 0.06859205776173286,
+    "neutral": 0.8339350180505415,
+    "down": 0.09747292418772563
+  },
+  "regression_metrics": {
+    "best_epoch": 11,
+    "epochs_ran": 26,
+    "best_val_loss_scaled": 0.9571607778037804,
+    "val_rmse_returns": 0.004880955151671995,
+    "val_mae_returns": 0.003028444765153349,
+    "test_rmse_returns": 0.004896370138435939,
+    "test_mae_returns": 0.003180298464700469,
+    "val_directional_accuracy": 0.5289855072463768,
+    "arima_order": [
+      5,
+      1,
+      0
+    ],
+    "train_sequences": 1268,
+    "val_sequences": 276,
+    "test_sequences": 277,
+    "train_split_index": 1288,
+    "val_split_index": 1564,
+    "final_train_loss": 0.7435751589784863,
+    "final_val_loss": 1.0510634032712467,
+    "early_stopped": true,
+    "test_sharpe": -0.48939879740635117,
+    "test_max_drawdown": 0.08311524111797075,
+    "test_win_rate": 0.516245487364621,
+    "test_profit_factor": 0.9604808205547855,
+    "test_average_trade_return": -5.4693916722003314e-05,
+    "test_total_trades": 277
+  },
+  "classification_metrics": {
+    "best_epoch": 4,
+    "epochs_ran": 19,
+    "best_val_loss": 1.0485511793606523,
+    "best_val_balanced_accuracy": 0.47953216374269,
+    "val_accuracy": 0.4492753623188406,
+    "val_balanced_accuracy": 0.47953216374269,
+    "test_accuracy": 0.2779783393501805,
+    "test_balanced_accuracy": 0.2731323257639047,
+    "train_windows": 1258,
+    "val_windows": 276,
+    "test_windows": 277,
+    "neutral_threshold": 0.0045,
+    "class_distribution_train": {
+      "up": 118,
+      "neutral": 1036,
+      "down": 104
+    },
+    "class_distribution_val": {
+      "up": 24,
+      "neutral": 228,
+      "down": 24
+    },
+    "class_distribution_test": {
+      "up": 19,
+      "neutral": 231,
+      "down": 27
+    },
+    "class_distribution_train_pct": {
+      "up": 0.09379968203497616,
+      "neutral": 0.8235294117647058,
+      "down": 0.08267090620031796
+    },
+    "class_distribution_val_pct": {
+      "up": 0.08695652173913043,
+      "neutral": 0.8260869565217391,
+      "down": 0.08695652173913043
+    },
+    "class_distribution_test_pct": {
+      "up": 0.06859205776173286,
+      "neutral": 0.8339350180505415,
+      "down": 0.09747292418772563
+    },
+    "predicted_distribution_val": {
+      "up": 92,
+      "neutral": 110,
+      "down": 74
+    },
+    "actual_distribution_val": {
+      "up": 24,
+      "neutral": 228,
+      "down": 24
+    },
+    "class_weight_balanced": {
+      "up": 3.5536723136901855,
+      "neutral": 0.4047619104385376,
+      "down": 4.032051086425781
+    },
+    "per_class_accuracy": {
+      "up": {
+        "correct": 13,
+        "total": 24,
+        "accuracy": 0.5416666666666666
+      },
+      "neutral": {
+        "correct": 100,
+        "total": 228,
+        "accuracy": 0.43859649122807015
+      },
+      "down": {
+        "correct": 11,
+        "total": 24,
+        "accuracy": 0.4583333333333333
+      }
+    },
+    "per_class_accuracy_test": {
+      "up": {
+        "correct": 6,
+        "total": 19,
+        "accuracy": 0.3157894736842105
+      },
+      "neutral": {
+        "correct": 65,
+        "total": 231,
+        "accuracy": 0.2813852813852814
+      },
+      "down": {
+        "correct": 6,
+        "total": 27,
+        "accuracy": 0.2222222222222222
+      }
+    },
+    "final_train_loss": 0.49023381532991633,
+    "final_val_loss": 1.9089571928632432,
+    "early_stopped": true
+  }
+}

@@ -14,6 +14,7 @@ from src.agents.textual.adapters import (
     EconomicTimesAdapter,
     EarningsTranscriptAdapter,
     NSENewsAdapter,
+    NewsAPIMarketAdapter,
     RBIReportsAdapter,
     RawTextRecord,
     TextSourceAdapter,
@@ -73,6 +74,7 @@ class TextualDataAgent:
             adapters=[
                 NSENewsAdapter(),
                 EconomicTimesAdapter(),
+                NewsAPIMarketAdapter(),
                 RBIReportsAdapter(
                     allow_emergency_fallback=rbi_emergency_fallback_active,
                     pdf_paths=rbi_pdf_paths,
