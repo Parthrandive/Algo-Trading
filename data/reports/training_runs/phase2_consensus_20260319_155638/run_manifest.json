@@ -1,0 +1,30 @@
+{
+  "run_dir": "data\\reports\\training_runs\\phase2_consensus_20260319_155638",
+  "report_path": "data\\reports\\training_runs\\phase2_consensus_20260319_155638\\phase2_consensus_report.md",
+  "metrics_path": "data\\reports\\training_runs\\phase2_consensus_20260319_155638\\metrics.json",
+  "recommendation": {
+    "recommended_model": "challenger_lstar_estar_bayesian",
+    "reason": "Challenger shows clear out-of-sample uplift with no major instability on high-vol slices."
+  },
+  "data_overview": {
+    "symbols": {
+      "RELIANCE.NS": {
+        "rows": 37,
+        "start_utc": "2026-02-23 08:45:00+00:00",
+        "end_utc": "2026-03-02 09:45:00+00:00"
+      },
+      "TATASTEEL.NS": {
+        "rows": 140,
+        "start_utc": "2026-01-27 03:45:00+00:00",
+        "end_utc": "2026-02-24 09:45:00+00:00"
+      },
+      "USDINR=X": {
+        "rows": 140,
+        "start_utc": "2026-01-27 04:00:00+00:00",
+        "end_utc": "2026-02-24 10:00:00+00:00"
+      }
+    },
+    "macro_rows": 12,
+    "doc_rows": 20
+  }
+}
