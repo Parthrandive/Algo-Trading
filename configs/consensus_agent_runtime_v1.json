@@ -1,0 +1,37 @@
+{
+  "version": "consensus-agent-runtime-v1",
+  "schema_version": "1.0",
+  "transition": {
+    "volatility_switch_threshold": 0.35,
+    "lstar_logistic_gain": 4.0
+  },
+  "routing": {
+    "max_crisis_weight": 0.7,
+    "safety_bias_boost": 0.1
+  },
+  "risk_modes": {
+    "divergence_warn_threshold": 0.45,
+    "divergence_protective_threshold": 0.75,
+    "reduced_mode_scale": 0.5
+  },
+  "weights": {
+    "technical_base": 0.42,
+    "regime_base": 0.35,
+    "sentiment_base": 0.23
+  },
+  "phase2_contract": {
+    "required_signals": [
+      "technical",
+      "regime",
+      "sentiment"
+    ],
+    "required_context": [
+      "volatility",
+      "macro_differential",
+      "rbi_signal",
+      "sentiment_quantile",
+      "crisis_probability",
+      "generated_at_utc"
+    ]
+  }
+}
