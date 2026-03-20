@@ -40,6 +40,15 @@ def validate_data(df: pd.DataFrame, config: WalkForwardConfig) -> None:
         raise ValueError(f"Missing columns: {missing}")
 
 
+def _is_intraday_interval(interval: str) -> bool:
+    value = str(interval).strip().lower()
+    if not value:
+        return False
+    if value.endswith("d") or value.endswith("w") or value.endswith("wk") or value.endswith("mo"):
+        return False
+    return value.endswith("m") or value.endswith("h")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run Day 5 walk-forward backtest and ablation.")
     parser.add_argument("--symbol", default="TATASTEEL.NS", help="Stock symbol to run against")
@@ -68,13 +77,19 @@ def main():
         logger.error(f"Failed to load data: {e}")
         sys.exit(1)
 
-    # Auto-adjust for small datasets (like the 252 rows one from NSE or ~3600 from yfinance)
+    # Auto-adjust for smaller intraday datasets only.
+    # Daily/weekly data should keep month-based windows to retain enough context for ARIMA/CNN/GARCH.
     if len(df) < 4000 and args.train_days is None and args.train_months == 6:
-        logger.info("Small dataset detected. Auto-adjusting to 15-day training / 3-day testing windows.")
-        args.train_days = 15
-        args.test_days = 3
-        args.step_days = 3
-        args.start_date = df['timestamp'].min().strftime('%Y-%m-%d') if 'timestamp' in df.columns else args.start_date
+        if _is_intraday_interval(args.interval):
+            logger.info("Small intraday dataset detected. Auto-adjusting to 120-day training / 20-day testing windows.")
+            args.train_days = 120
+            args.test_days = 20
+            args.step_days = 20
+            args.start_date = df['timestamp'].min().strftime('%Y-%m-%d') if 'timestamp' in df.columns else args.start_date
+        else:
+            logger.info(
+                "Small non-intraday dataset detected. Keeping month-based windows to preserve model context."
+            )
 
     # 2. Validate Data
     logger.info(f"Loaded {len(df)} rows. Validating...")

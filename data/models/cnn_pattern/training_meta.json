@@ -1,29 +1,29 @@
 {
-    "timestamp": "2026-03-15T12:03:04.644881+00:00",
-    "symbol": "USDINR=X",
-    "input_rows": 3581,
-    "engineered_rows": 3581,
-    "total_windows": 3561,
-    "train_windows": 2848,
-    "val_windows": 713,
+    "timestamp": "2026-03-20T18:07:32.714595+00:00",
+    "symbol": "HDFCBANK.NS",
+    "input_rows": 2034,
+    "engineered_rows": 2034,
+    "total_windows": 2014,
+    "train_windows": 1611,
+    "val_windows": 403,
     "class_distribution": {
-        "0": 1185,
-        "1": 1248,
-        "2": 1128
+        "0": 952,
+        "1": 146,
+        "2": 916
     },
     "hyperparameters": {
         "window_size": 20,
         "learning_rate": 0.001,
-        "epochs_run": 13,
+        "epochs_run": 6,
         "batch_size": 32,
         "patience": 5,
-        "neutral_threshold": 0.0002,
+        "neutral_threshold": 0.001,
         "normalize": true,
         "seed": 42
     },
     "metrics": {
-        "final_train_loss": 1.0540959145245927,
-        "best_val_loss": 1.064739712491778,
-        "best_val_acc": 0.39691444600280507
+        "final_train_loss": 0.8492084593968241,
+        "best_val_loss": 0.953412243953118,
+        "best_val_acc": 0.4466501240694789
     }
 }

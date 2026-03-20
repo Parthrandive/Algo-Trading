@@ -25,6 +25,30 @@ Each skill file is a self-contained instruction set for a specific agent or laye
 
 ---
 
+## TRIGGER ALIASES (Paraphrased Request Routing)
+
+Use this section to match non-obvious user requests to the correct skill.
+
+### data-orchestration
+> data feed, ingestion, scraper, backfill, macro data, "numbers aren't updating", "data is missing", "coverage is low", pipeline broken, preprocessing, feature engineering, NSE feed, "no data for this symbol", NaN columns, macro indicators, FRED, akshare, "RBI data isn't coming", CSV import, data quality, staleness
+
+### analyst-board
+> model training, retrain, "accuracy is bad", "model isn't learning", pattern recognizer, regime detection, "predictions are wrong", CNN, ARIMA, GARCH, LSTM, sentiment model, FinBERT, walk-forward, ablation, "val_loss is high", overfitting, confusion matrix, "model card", consensus signal, baseline comparison
+
+### execution-fastloop
+> order placement, Fast Loop, latency, "too slow", p99, student policy, teacher-student, "orders aren't going through", execution speed, order-book imbalance, slippage, market impact, "degrade mode", bypass mode, dual-loop
+
+### risk-overseer
+> kill switch, drawdown, "stop trading", risk limit, "too much exposure", volatility budget, "crash protection", position sizing, stress test, "portfolio risk is too high", OOD detection, crisis mode, risk cap, PnL attribution, SHAP
+
+### mlops-governance
+> model promotion, shadow testing, rollback, "deploy this model", CI gate, champion-challenger, "model version", reproducibility, "approve for production", change request, post-deploy review, research throughput, Tier 1/2/3
+
+### compliance-universe
+> order submission, universe filter, "is this symbol allowed", audit log, SEBI, pre-trade check, margin, circuit breaker, lot size, "broker rejected", IP whitelist, regulatory, compliance violation, "order was rejected"
+
+---
+
 ## CROSS-SKILL DEPENDENCIES
 
 ```

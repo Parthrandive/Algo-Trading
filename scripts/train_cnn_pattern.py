@@ -105,7 +105,7 @@ def sanitize_symbol(symbol: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", symbol)
 
 
-def validate_data(df: pd.DataFrame, symbol: str, min_rows: int = 180) -> None:
+def validate_data(df: pd.DataFrame, symbol: str = "UNKNOWN", min_rows: int = 40) -> None:
     if len(df) < min_rows:
         raise ValueError(f"{symbol}: Need at least {min_rows} rows for stable split/windows. Got {len(df)}.")
     missing = REQUIRED_COLS - set(df.columns)
