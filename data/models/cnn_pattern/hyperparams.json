@@ -12,6 +12,6 @@
         "macro_coverage_ratio",
         "macro_directional_flag"
     ],
-    "neutral_threshold": 0.0002,
+    "neutral_threshold": 0.001,
     "normalize": true
 }
