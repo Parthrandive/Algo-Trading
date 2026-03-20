@@ -1,0 +1,25 @@
+{
+  "run": {
+    "timestamp_utc": "2026-03-20T17:18:57.054026+00:00",
+    "symbol": "HDFCBANK.NS",
+    "interval": "1d",
+    "epochs": 150,
+    "model_dir": "models/multi_symbol_cnn_updated_1d_hdfcbank_20260320_224816"
+  },
+  "results": {
+    "threshold": 0.0032,
+    "gamma": 2.0,
+    "architecture": "full",
+    "epochs_trained": 39,
+    "neutral_pct": 0.20288362512873326,
+    "cv_mean": 0.36104071535213667,
+    "cv_std": 0.034170106890116174,
+    "val_bal_acc": 0.3287670736239135,
+    "test_bal_acc": 0.3088994020632105,
+    "val_test_gap": 0.019867671560703015,
+    "neutral_precision_val": 0.2983425414364641,
+    "neutral_recall_val": 0.8307692307692308,
+    "neutral_f1_val": 0.43902439024390244,
+    "down_recall_val": 0.057971014492753624
+  }
+}
