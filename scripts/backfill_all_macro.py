@@ -346,6 +346,9 @@ def run(argv: list[str] | None = None) -> int:
     failed = [n for n, i in results.items() if i["status"] in ("FETCH_FAILED", "SAVE_FAILED")]
     if failed:
         logger.warning("FAILED: %s", failed)
+        if args.dry_run:
+            logger.warning("Dry-run mode: returning success despite fetch/save failures.")
+            return 0
         return 1
     return 0
 
