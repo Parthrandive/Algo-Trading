@@ -1,0 +1,29 @@
+{
+    "timestamp": "2026-03-20T15:09:13.745240+00:00",
+    "symbol": "RELIANCE.NS",
+    "input_rows": 1834,
+    "engineered_rows": 1834,
+    "total_windows": 1814,
+    "train_windows": 1451,
+    "val_windows": 363,
+    "class_distribution": {
+        "0": 617,
+        "1": 586,
+        "2": 611
+    },
+    "hyperparameters": {
+        "window_size": 20,
+        "learning_rate": 0.001,
+        "epochs_run": 150,
+        "batch_size": 32,
+        "patience": 150,
+        "neutral_threshold": 0.001,
+        "normalize": true,
+        "seed": 42
+    },
+    "metrics": {
+        "final_train_loss": 0.8121639388458717,
+        "best_val_loss": 1.0989468941675402,
+        "best_val_acc": 0.3526170798898072
+    }
+}
