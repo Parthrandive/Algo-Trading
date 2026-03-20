@@ -1,0 +1,17 @@
+{
+  "up": {
+    "correct": 21,
+    "total": 25,
+    "accuracy": 0.84
+  },
+  "neutral": {
+    "correct": 0,
+    "total": 226,
+    "accuracy": 0.0
+  },
+  "down": {
+    "correct": 5,
+    "total": 24,
+    "accuracy": 0.20833333333333334
+  }
+}

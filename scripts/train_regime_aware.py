@@ -19,7 +19,9 @@ import pandas as pd
 import statsmodels.api as sm
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, confusion_matrix
+from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils.class_weight import compute_class_weight
 from torch.utils.data import DataLoader as TorchDataLoader
@@ -206,7 +208,30 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--reg-window", type=int, default=20, help="Sequence length for ARIMA-LSTM residual model.")
     parser.add_argument("--cnn-window", type=int, default=30, help="Sequence length for CNN classifier.")
-    parser.add_argument("--neutral-threshold", type=float, default=0.0045, help="Neutral band threshold in decimal returns.")
+    parser.add_argument(
+        "--neutral-threshold",
+        type=float,
+        default=None,
+        help="Optional fixed neutral threshold override. Default derives threshold from each symbol's training returns.",
+    )
+    parser.add_argument("--threshold-target-min", type=float, default=0.20, help="Target minimum neutral class ratio.")
+    parser.add_argument("--threshold-target-max", type=float, default=0.25, help="Target maximum neutral class ratio.")
+    parser.add_argument("--threshold-target-neutral", type=float, default=0.22, help="Fallback neutral ratio target.")
+    parser.add_argument(
+        "--focal-gamma",
+        type=float,
+        default=None,
+        help="Optional fixed focal gamma override. Default derives gamma from each symbol's class imbalance.",
+    )
+    parser.add_argument("--focal-alpha", type=float, default=0.25, help="Alpha coefficient for focal loss.")
+    parser.add_argument("--cv-max-splits", type=int, default=5, help="Maximum walk-forward folds for per-symbol CV.")
+    parser.add_argument("--cv-min-train", type=int, default=200, help="Minimum train samples per CV split.")
+    parser.add_argument("--cv-min-val", type=int, default=50, help="Minimum validation samples per CV split.")
+    parser.add_argument(
+        "--disable-cnn-cv",
+        action="store_true",
+        help="Disable CNN walk-forward CV (enabled by default).",
+    )
     parser.add_argument("--arima-order", default="5,1,0", help="ARIMA order as p,d,q.")
     parser.add_argument("--lstm-hidden-size", type=int, default=64, help="LSTM hidden size.")
     parser.add_argument("--lstm-layers", type=int, default=2, help="Number of LSTM layers.")
@@ -750,7 +775,9 @@ def build_cnn_sequences(
     train_end: int,
     val_end: int,
     window_size: int,
-    neutral_threshold: float,
+    neutral_threshold: float | None = None,
+    next_log_returns: np.ndarray | None = None,
+    label_threshold: float | None = None,
 ) -> SequenceDatasetBundle:
     train_X: list[np.ndarray] = []
     train_y: list[int] = []
@@ -769,23 +796,32 @@ def build_cnn_sequences(
         window = feature_values[target_idx - window_size : target_idx].copy()
         if not np.isfinite(window).all():
             continue
-        reference_close = float(close_values[target_idx - 1])
-        target_close = float(close_values[target_idx])
-        if not np.isfinite(reference_close) or not np.isfinite(target_close) or reference_close == 0.0:
-            continue
-
         window_mean = window.mean(axis=0, keepdims=True)
         window_std = window.std(axis=0, keepdims=True)
         window_std[window_std < 1e-6] = 1.0
         window = (window - window_mean) / window_std
 
-        next_return = (target_close / reference_close) - 1.0
-        if next_return > neutral_threshold:
-            label = 0
-        elif next_return < -neutral_threshold:
-            label = 2
+        if next_log_returns is not None:
+            if target_idx >= len(next_log_returns):
+                continue
+            next_return = float(next_log_returns[target_idx])
+            if not np.isfinite(next_return):
+                continue
+            threshold = float(label_threshold if label_threshold is not None else (neutral_threshold or 0.0))
+            label = int(apply_labels(np.asarray([next_return], dtype=np.float64), threshold)[0])
         else:
-            label = 1
+            reference_close = float(close_values[target_idx - 1])
+            target_close = float(close_values[target_idx])
+            if not np.isfinite(reference_close) or not np.isfinite(target_close) or reference_close == 0.0:
+                continue
+            local_threshold = float(neutral_threshold if neutral_threshold is not None else 0.0)
+            next_return = (target_close / reference_close) - 1.0
+            if next_return > local_threshold:
+                label = 0
+            elif next_return < -local_threshold:
+                label = 2
+            else:
+                label = 1
 
         timestamp = timestamps.iloc[target_idx].isoformat()
         window = np.expand_dims(window.astype(np.float32), axis=0)
@@ -896,6 +932,271 @@ def class_distribution_percentages(y: np.ndarray) -> dict[str, float]:
         return {CLASS_NAMES[idx]: 0.0 for idx in sorted(CLASS_NAMES)}
     total = float(len(y))
     return {CLASS_NAMES[idx]: float((y == idx).sum() / total) for idx in sorted(CLASS_NAMES)}
+
+
+def apply_labels(log_returns: np.ndarray, threshold: float) -> np.ndarray:
+    returns = np.asarray(log_returns, dtype=np.float64)
+    labels = np.where(returns > threshold, 0, np.where(returns < -threshold, 2, 1))
+    return labels.astype(np.int64)
+
+
+def find_threshold(train_log_returns: np.ndarray, symbol: str, args: argparse.Namespace) -> tuple[float, float]:
+    values = np.asarray(train_log_returns, dtype=np.float64)
+    values = values[np.isfinite(values)]
+    if values.size == 0:
+        raise ValueError(f"[{symbol}] no finite training log returns available for threshold tuning.")
+
+    if args.neutral_threshold is not None:
+        override = float(args.neutral_threshold)
+        neutral_pct = float((apply_labels(values, override) == 1).mean())
+        LOGGER.info("[%s] Using fixed threshold override %.6f -> neutral=%.1f%%", symbol, override, neutral_pct * 100.0)
+        return override, neutral_pct
+
+    abs_returns = np.abs(values)
+    target_min = float(np.clip(args.threshold_target_min, 0.0, 1.0))
+    target_max = float(np.clip(args.threshold_target_max, target_min, 1.0))
+    target_center = float(np.clip(args.threshold_target_neutral, target_min, target_max))
+
+    quantile_count = int(np.clip(abs_returns.size // 10, 21, 201))
+    quantile_grid = np.linspace(target_min, target_max, num=quantile_count, dtype=np.float64)
+    candidate_thresholds = np.unique(np.quantile(abs_returns, quantile_grid))
+
+    best_threshold = float(np.quantile(abs_returns, target_center))
+    best_diff = float("inf")
+    for candidate in candidate_thresholds:
+        candidate = float(candidate)
+        neutral_pct = float((abs_returns <= candidate).mean())
+        if target_min <= neutral_pct <= target_max:
+            LOGGER.info("[%s] Threshold %.6f -> neutral=%.1f%% ✓", symbol, candidate, neutral_pct * 100.0)
+            return candidate, neutral_pct
+        diff = abs(neutral_pct - target_center)
+        if diff < best_diff:
+            best_diff = diff
+            best_threshold = candidate
+
+    fallback_neutral_pct = float((abs_returns <= best_threshold).mean())
+    LOGGER.info(
+        "[%s] Fallback threshold %.6f (neutral=%.1f%%, no perfect match found)",
+        symbol,
+        best_threshold,
+        fallback_neutral_pct * 100.0,
+    )
+    return best_threshold, fallback_neutral_pct
+
+
+def compute_gamma(y_train: np.ndarray, symbol: str, args: argparse.Namespace) -> tuple[float, np.ndarray, float]:
+    counts = np.bincount(y_train.astype(np.int64), minlength=3).astype(np.int64)
+    dominant = float(counts.max()) if counts.size else 1.0
+    positive_counts = counts[counts > 0]
+    minority = float(positive_counts.min()) if positive_counts.size else 1.0
+    imbalance = dominant / (minority + 1e-6)
+    if args.focal_gamma is not None:
+        gamma = float(args.focal_gamma)
+    else:
+        if counts.sum() == 0:
+            gamma = 1.0
+        else:
+            probs = counts.astype(np.float64) / float(counts.sum())
+            probs = probs[probs > 0]
+            entropy = float(-(probs * np.log(probs)).sum()) if probs.size else 0.0
+            max_entropy = float(np.log(max(len(counts), 2)))
+            entropy_gap = max(0.0, 1.0 - (entropy / max_entropy))
+            gamma_raw = float(np.log1p(imbalance) * (1.0 + entropy_gap))
+            gamma_cap = float(np.log1p(max(dominant, 1.0)))
+            gamma = min(gamma_raw, gamma_cap)
+
+    LOGGER.info(
+        "[%s] Class counts=%s | imbalance=%.2f | focal_gamma=%.2f",
+        symbol,
+        counts.tolist(),
+        imbalance,
+        gamma,
+    )
+    return gamma, counts, float(imbalance)
+
+
+class FocalLoss(nn.Module):
+    def __init__(self, gamma: float, alpha: float, class_weights: np.ndarray | None = None) -> None:
+        super().__init__()
+        self.gamma = float(gamma)
+        self.alpha = float(alpha)
+        if class_weights is not None:
+            self.register_buffer("class_weights", torch.tensor(class_weights, dtype=torch.float32))
+        else:
+            self.class_weights = None
+
+    def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        ce_loss = F.cross_entropy(logits, targets, reduction="none", weight=self.class_weights)
+        pt = torch.exp(-ce_loss)
+        focal_weight = self.alpha * torch.pow(1.0 - pt, self.gamma)
+        return (focal_weight * ce_loss).mean()
+
+
+def get_n_splits(n_samples: int, symbol: str, args: argparse.Namespace) -> int:
+    max_candidate = max(2, int(args.cv_max_splits))
+    candidates = list(range(max_candidate, 1, -1))
+    for n_splits in candidates:
+        fold_size = n_samples // (n_splits + 1)
+        if fold_size >= args.cv_min_val and (n_samples - fold_size) >= args.cv_min_train:
+            LOGGER.info("[%s] Using %s-fold CV (n_samples=%s)", symbol, n_splits, n_samples)
+            return n_splits
+    LOGGER.warning("[%s] too few samples for multi-fold CV (%s). Falling back to single split.", symbol, n_samples)
+    return 1
+
+
+def build_cnn_full_sequences(
+    feature_values: np.ndarray,
+    next_log_returns: np.ndarray,
+    window_size: int,
+    label_threshold: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    all_X: list[np.ndarray] = []
+    all_y: list[int] = []
+    for target_idx in range(window_size, len(feature_values)):
+        window = feature_values[target_idx - window_size : target_idx].copy()
+        if not np.isfinite(window).all():
+            continue
+        if target_idx >= len(next_log_returns):
+            continue
+        next_return = float(next_log_returns[target_idx])
+        if not np.isfinite(next_return):
+            continue
+
+        window_mean = window.mean(axis=0, keepdims=True)
+        window_std = window.std(axis=0, keepdims=True)
+        window_std[window_std < 1e-6] = 1.0
+        window = (window - window_mean) / window_std
+
+        label = int(apply_labels(np.asarray([next_return], dtype=np.float64), label_threshold)[0])
+        all_X.append(np.expand_dims(window.astype(np.float32), axis=0))
+        all_y.append(label)
+
+    if not all_X:
+        raise ValueError("Unable to build non-empty full CNN sequence set.")
+    return np.asarray(all_X, dtype=np.float32), np.asarray(all_y, dtype=np.int64)
+
+
+def run_cnn_walk_forward_cv(
+    symbol: str,
+    X_full: np.ndarray,
+    y_full: np.ndarray,
+    args: argparse.Namespace,
+) -> tuple[float, float, int]:
+    n_splits = get_n_splits(len(X_full), symbol, args)
+    device = torch.device(args.device)
+    fold_scores: list[float] = []
+    fold_total = 0
+    if n_splits == 1:
+        split_point = max(int(args.cv_min_train), len(X_full) - int(args.cv_min_val))
+        if split_point >= len(X_full):
+            raise ValueError(f"[{symbol}] unable to build single CV split for n_samples={len(X_full)}.")
+        split_iter: Iterable[tuple[np.ndarray, np.ndarray]] = [
+            (
+                np.arange(0, split_point, dtype=np.int64),
+                np.arange(split_point, len(X_full), dtype=np.int64),
+            )
+        ]
+    else:
+        split_iter = TimeSeriesSplit(n_splits=n_splits).split(X_full)
+
+    for fold_idx, (train_idx, val_idx) in enumerate(split_iter, start=1):
+        X_tr_raw = X_full[train_idx]
+        X_v_raw = X_full[val_idx]
+        y_tr = y_full[train_idx]
+        y_v = y_full[val_idx]
+
+        if len(y_tr) < args.cv_min_train or len(y_v) < args.cv_min_val:
+            continue
+        if len(np.unique(y_tr)) < 2 or len(np.unique(y_v)) < 2:
+            continue
+
+        scaler = StandardScaler()
+        X_tr_shape = X_tr_raw.shape
+        X_v_shape = X_v_raw.shape
+        X_tr = scaler.fit_transform(X_tr_raw.reshape(len(X_tr_raw), -1)).reshape(X_tr_shape).astype(np.float32)
+        X_v = scaler.transform(X_v_raw.reshape(len(X_v_raw), -1)).reshape(X_v_shape).astype(np.float32)
+
+        class_weights = build_class_weight_vector(y_tr)
+        gamma_fold, _, _ = compute_gamma(y_tr, symbol, args)
+        criterion = FocalLoss(gamma=gamma_fold, alpha=args.focal_alpha, class_weights=class_weights).to(device)
+
+        train_loader = make_loader(X_tr, y_tr, args.batch_size)
+        val_loader = make_loader(X_v, y_v, args.batch_size)
+
+        model = DirectionCNNClassifier(
+            time_steps=X_tr.shape[-2],
+            num_features=X_tr.shape[-1],
+            dropout=args.dropout,
+        ).to(device)
+        optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode="min",
+            factor=0.5,
+            patience=args.scheduler_patience,
+        )
+
+        best_val_loss = math.inf
+        best_state: dict[str, torch.Tensor] | None = None
+        stale_epochs = 0
+
+        for _epoch in range(1, args.epochs + 1):
+            model.train()
+            for X_batch, y_batch in train_loader:
+                X_batch = X_batch.to(device)
+                y_batch = y_batch.to(device)
+                optimizer.zero_grad()
+                logits = model(X_batch)
+                loss = criterion(logits, y_batch)
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                optimizer.step()
+
+            model.eval()
+            val_loss_sum = 0.0
+            val_count = 0
+            with torch.no_grad():
+                for X_batch, y_batch in val_loader:
+                    X_batch = X_batch.to(device)
+                    y_batch = y_batch.to(device)
+                    logits = model(X_batch)
+                    loss = criterion(logits, y_batch)
+                    batch_size = X_batch.size(0)
+                    val_loss_sum += float(loss.item()) * batch_size
+                    val_count += batch_size
+
+            val_loss = val_loss_sum / max(val_count, 1)
+            scheduler.step(val_loss)
+            if val_loss < best_val_loss - 1e-6:
+                best_val_loss = val_loss
+                stale_epochs = 0
+                best_state = {key: value.detach().cpu().clone() for key, value in model.state_dict().items()}
+            else:
+                stale_epochs += 1
+                if stale_epochs >= args.patience:
+                    break
+
+        if best_state:
+            model.load_state_dict(best_state)
+            model.to(device)
+
+        preds, _ = tensor_predict(model, val_loader, device)
+        bal_acc = float(balanced_accuracy_score(y_v, preds))
+        fold_total += 1
+        fold_scores.append(bal_acc)
+        LOGGER.info("[%s] Fold %s Balanced Accuracy: %.4f", symbol, fold_idx, bal_acc)
+
+    if not fold_scores:
+        raise ValueError(f"[{symbol}] walk-forward CV produced no valid folds.")
+
+    cv_mean = float(np.mean(fold_scores))
+    cv_std = float(np.std(fold_scores))
+    LOGGER.info("[%s] CV Mean: %.4f ± %.4f", symbol, cv_mean, cv_std)
+    if cv_std > 0.05:
+        LOGGER.warning("[%s] high CV variance (%.4f) — consider stronger regularization.", symbol, cv_std)
+    if cv_mean < 0.38:
+        LOGGER.warning("[%s] low CV mean (%.4f) — check threshold and focal settings.", symbol, cv_mean)
+    return cv_mean, cv_std, fold_total
 
 
 def train_regression_model(
@@ -1143,6 +1444,8 @@ def per_class_accuracy(confusion: np.ndarray) -> dict[str, dict[str, float]]:
 def train_cnn_model(
     bundle: SequenceDatasetBundle,
     feature_columns: list[str],
+    focal_gamma: float,
+    label_threshold: float,
     args: argparse.Namespace,
     model_dir: Path,
 ) -> ClassificationArtifacts:
@@ -1161,7 +1464,11 @@ def train_cnn_model(
         num_features=bundle.X_train.shape[-1],
         dropout=args.dropout,
     ).to(device)
-    criterion = nn.CrossEntropyLoss(weight=torch.tensor(class_weights, dtype=torch.float32, device=device))
+    criterion = FocalLoss(
+        gamma=focal_gamma,
+        alpha=args.focal_alpha,
+        class_weights=class_weights,
+    ).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
@@ -1267,7 +1574,8 @@ def train_cnn_model(
                     "feature_columns": feature_columns,
                     "window_size": args.cnn_window,
                     "dropout": args.dropout,
-                    "neutral_threshold": args.neutral_threshold,
+                    "neutral_threshold": label_threshold,
+                    "focal_gamma": focal_gamma,
                     "class_weights": class_weights.tolist(),
                 },
                 checkpoint_path,
@@ -1341,7 +1649,8 @@ def train_cnn_model(
         "train_windows": int(len(bundle.X_train)),
         "val_windows": int(len(bundle.X_val)),
         "test_windows": int(len(bundle.X_test)),
-        "neutral_threshold": args.neutral_threshold,
+        "neutral_threshold": label_threshold,
+        "focal_gamma": focal_gamma,
         "class_distribution_train": class_distribution(bundle.y_train),
         "class_distribution_val": class_distribution(bundle.y_val),
         "class_distribution_test": class_distribution(bundle.y_test),
@@ -1372,7 +1681,8 @@ def train_cnn_model(
             "dropout": args.dropout,
             "learning_rate": args.lr,
             "weight_decay": args.weight_decay,
-            "neutral_threshold": args.neutral_threshold,
+            "neutral_threshold": label_threshold,
+            "focal_gamma": focal_gamma,
         },
     )
     save_json(model_dir / "per_class_accuracy.json", class_acc)
@@ -1460,6 +1770,42 @@ def run_for_symbol(symbol: str, args: argparse.Namespace, root_run_dir: Path) ->
     reg_scaled, reg_scaler, reg_medians = impute_and_scale_features(reg_feature_frame, train_end)
     cnn_scaled, _, _ = impute_and_scale_features(cnn_feature_frame, train_end)
 
+    train_log_returns = frame["log_return"].iloc[:train_end].dropna().values
+    dynamic_threshold, neutral_pct = find_threshold(train_log_returns, symbol, args)
+    next_log_returns = frame["log_return"].shift(-1).astype(float).values
+
+    split_label_inputs = {
+        "train": next_log_returns[:train_end],
+        "val": next_log_returns[train_end:val_end],
+        "test": next_log_returns[val_end:],
+    }
+    split_label_stats: dict[str, dict[str, float]] = {}
+    for split_name, split_returns in split_label_inputs.items():
+        finite_returns = split_returns[np.isfinite(split_returns)]
+        if finite_returns.size == 0:
+            continue
+        split_labels = apply_labels(finite_returns, dynamic_threshold)
+        up_pct = float((split_labels == 0).mean())
+        neutral_pct_split = float((split_labels == 1).mean())
+        down_pct = float((split_labels == 2).mean())
+        split_label_stats[split_name] = {
+            "up": up_pct,
+            "neutral": neutral_pct_split,
+            "down": down_pct,
+        }
+        LOGGER.info(
+            "[%s] %s labels: up=%.1f%% neutral=%.1f%% down=%.1f%%",
+            symbol,
+            split_name,
+            up_pct * 100.0,
+            neutral_pct_split * 100.0,
+            down_pct * 100.0,
+        )
+        if neutral_pct_split > 0.40:
+            LOGGER.warning("[%s] neutral class still high in %s (%.1f%%)", symbol, split_name, neutral_pct_split * 100.0)
+        if up_pct < 0.25 or down_pct < 0.25:
+            LOGGER.warning("[%s] up/down class is small in %s (up=%.1f%% down=%.1f%%)", symbol, split_name, up_pct * 100.0, down_pct * 100.0)
+
     arima_order = tuple(int(part.strip()) for part in args.arima_order.split(","))
     arima_result, arima_baseline, selected_arima_order = compute_arima_predictions(
         symbol=symbol,
@@ -1486,8 +1832,30 @@ def run_for_symbol(symbol: str, args: argparse.Namespace, root_run_dir: Path) ->
         train_end=train_end,
         val_end=val_end,
         window_size=args.cnn_window,
-        neutral_threshold=args.neutral_threshold,
+        neutral_threshold=None,
+        next_log_returns=next_log_returns,
+        label_threshold=dynamic_threshold,
     )
+
+    focal_gamma, class_counts, imbalance_ratio = compute_gamma(cnn_bundle.y_train, symbol, args)
+
+    if args.disable_cnn_cv:
+        cv_mean = float("nan")
+        cv_std = float("nan")
+        cv_folds = 0
+    else:
+        X_full_cnn, y_full_cnn = build_cnn_full_sequences(
+            feature_values=cnn_scaled,
+            next_log_returns=next_log_returns,
+            window_size=args.cnn_window,
+            label_threshold=dynamic_threshold,
+        )
+        cv_mean, cv_std, cv_folds = run_cnn_walk_forward_cv(
+            symbol=symbol,
+            X_full=X_full_cnn,
+            y_full=y_full_cnn,
+            args=args,
+        )
 
     LOGGER.info("Regression features=%s", regression_columns)
     LOGGER.info("CNN features=%s", cnn_columns)
@@ -1543,6 +1911,8 @@ def run_for_symbol(symbol: str, args: argparse.Namespace, root_run_dir: Path) ->
     classification_artifacts = train_cnn_model(
         bundle=cnn_bundle,
         feature_columns=cnn_columns,
+        focal_gamma=focal_gamma,
+        label_threshold=dynamic_threshold,
         args=args,
         model_dir=classification_dir,
     )
@@ -1578,6 +1948,22 @@ def run_for_symbol(symbol: str, args: argparse.Namespace, root_run_dir: Path) ->
         regression_artifacts.metrics["test_win_rate"],
     )
 
+    test_balanced_accuracy = float(classification_artifacts.metrics["test_balanced_accuracy"])
+    symbol_config = {
+        "threshold": float(dynamic_threshold),
+        "neutral_pct": float(neutral_pct),
+        "gamma": float(focal_gamma),
+        "class_counts": class_counts.tolist(),
+        "imbalance_ratio": float(imbalance_ratio),
+        "label_split_distribution": split_label_stats,
+        "cv_folds": int(cv_folds),
+    }
+    symbol_results = {
+        "cv_mean": float(cv_mean),
+        "cv_std": float(cv_std),
+        "test_bal_acc": test_balanced_accuracy,
+    }
+
     summary = {
         "symbol": symbol,
         "source": source_name,
@@ -1591,6 +1977,16 @@ def run_for_symbol(symbol: str, args: argparse.Namespace, root_run_dir: Path) ->
         "class_distribution_train_pct": class_distribution_percentages(cnn_bundle.y_train),
         "class_distribution_val_pct": class_distribution_percentages(cnn_bundle.y_val),
         "class_distribution_test_pct": class_distribution_percentages(cnn_bundle.y_test),
+        "symbol_config": symbol_config,
+        "symbol_results": symbol_results,
+        "model_paths": {
+            "arima_lstm": str(regression_dir / "best_lstm_checkpoint.pt"),
+            "cnn_pattern": str(classification_dir / "best_cnn_checkpoint.pt"),
+        },
+        "scaler_paths": {
+            "feature_scaler": str(regression_dir / "feature_scaler.pkl"),
+            "target_scaler": str(regression_dir / "target_scaler.pkl"),
+        },
         "regression_metrics": regression_artifacts.metrics,
         "classification_metrics": classification_artifacts.metrics,
     }
@@ -1612,11 +2008,17 @@ def main() -> None:
     all_summaries: list[dict[str, Any]] = []
     failed_symbols: list[dict[str, str]] = []
     skipped_symbols: list[dict[str, str]] = []
+    SYMBOL_CONFIGS: dict[str, dict[str, Any]] = {}
+    SYMBOL_MODELS: dict[str, dict[str, str]] = {}
+    SYMBOL_SCALERS: dict[str, dict[str, str]] = {}
+    SYMBOL_RESULTS: dict[str, dict[str, float]] = {}
 
     from src.db.queries import get_market_data_quality
 
     for symbol in args.symbols:
-        LOGGER.info("=== Training symbol=%s ===", symbol)
+        LOGGER.info("\n%s", "=" * 60)
+        LOGGER.info("Processing: %s", symbol)
+        LOGGER.info("%s", "=" * 60)
         if symbol in FOREX_SYMBOLS or symbol.endswith("=X"):
             LOGGER.warning(
                 "Skipping %s as a direct training target; forex symbols are context features only.",
@@ -1649,6 +2051,10 @@ def main() -> None:
         try:
             summary = run_for_symbol(symbol, args, root_run_dir)
             all_summaries.append(summary)
+            SYMBOL_CONFIGS[symbol] = summary.get("symbol_config", {})
+            SYMBOL_MODELS[symbol] = summary.get("model_paths", {})
+            SYMBOL_SCALERS[symbol] = summary.get("scaler_paths", {})
+            SYMBOL_RESULTS[symbol] = summary.get("symbol_results", {})
             LOGGER.info("Completed symbol=%s summary=%s", symbol, summary)
         except Exception as exc:
             LOGGER.exception("Training failed for %s: %s", symbol, exc)
@@ -1661,10 +2067,53 @@ def main() -> None:
         "symbols_succeeded": [summary["symbol"] for summary in all_summaries],
         "symbols_skipped": skipped_symbols,
         "symbols_failed": failed_symbols,
+        "symbol_configs": SYMBOL_CONFIGS,
+        "symbol_models": SYMBOL_MODELS,
+        "symbol_scalers": SYMBOL_SCALERS,
+        "symbol_results": SYMBOL_RESULTS,
         "config": vars(args),
         "summaries": all_summaries,
     }
     save_json(root_run_dir / "run_manifest.json", manifest)
+
+    LOGGER.info("%s", "=" * 80)
+    LOGGER.info("CROSS-SYMBOL SUMMARY")
+    LOGGER.info("%s", "=" * 80)
+    LOGGER.info(
+        "%-15s %7s %6s %9s %8s %7s %13s %8s",
+        "Symbol",
+        "Thresh",
+        "Gamma",
+        "Neutral%",
+        "CV Mean",
+        "CV Std",
+        "Test Bal Acc",
+        "Status",
+    )
+    LOGGER.info("%s", "-" * 80)
+    for symbol in args.symbols:
+        if symbol in FOREX_SYMBOLS or symbol.endswith("=X"):
+            continue
+        cfg = SYMBOL_CONFIGS.get(symbol)
+        res = SYMBOL_RESULTS.get(symbol)
+        if not cfg or not res:
+            LOGGER.info("%-15s %7s %6s %9s %8s %7s %13s %8s", symbol, "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "WARN")
+            continue
+        cv_mean = float(res.get("cv_mean", float("nan")))
+        cv_std = float(res.get("cv_std", float("nan")))
+        test_bal = float(res.get("test_bal_acc", float("nan")))
+        status = "OK" if np.isfinite(cv_mean) and np.isfinite(cv_std) and (cv_mean >= 0.38 and cv_std <= 0.05) else "WARN"
+        LOGGER.info(
+            "%-15s %7.3f %6.2f %8.1f%% %8.4f %7.4f %13.4f %8s",
+            symbol,
+            float(cfg.get("threshold", float("nan"))),
+            float(cfg.get("gamma", float("nan"))),
+            float(cfg.get("neutral_pct", 0.0)) * 100.0,
+            cv_mean,
+            cv_std,
+            test_bal,
+            status,
+        )
 
     if failed_symbols:
         raise SystemExit(1)

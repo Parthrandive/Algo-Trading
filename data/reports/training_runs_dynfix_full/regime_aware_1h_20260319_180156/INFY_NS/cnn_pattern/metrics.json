@@ -1,0 +1,97 @@
+{
+  "best_epoch": 11,
+  "epochs_ran": 26,
+  "best_val_loss": 0.1413255245035345,
+  "best_val_balanced_accuracy": 0.3972222222222222,
+  "val_accuracy": 0.10545454545454545,
+  "val_balanced_accuracy": 0.3972222222222222,
+  "test_accuracy": 0.12363636363636364,
+  "test_balanced_accuracy": 0.393939393939394,
+  "train_windows": 1253,
+  "val_windows": 275,
+  "test_windows": 275,
+  "neutral_threshold": 0.005,
+  "focal_gamma": 3.0,
+  "class_distribution_train": {
+    "up": 123,
+    "neutral": 1007,
+    "down": 123
+  },
+  "class_distribution_val": {
+    "up": 25,
+    "neutral": 226,
+    "down": 24
+  },
+  "class_distribution_test": {
+    "up": 22,
+    "neutral": 220,
+    "down": 33
+  },
+  "class_distribution_train_pct": {
+    "up": 0.09816440542697526,
+    "neutral": 0.8036711891460495,
+    "down": 0.09816440542697526
+  },
+  "class_distribution_val_pct": {
+    "up": 0.09090909090909091,
+    "neutral": 0.8218181818181818,
+    "down": 0.08727272727272728
+  },
+  "class_distribution_test_pct": {
+    "up": 0.08,
+    "neutral": 0.8,
+    "down": 0.12
+  },
+  "predicted_distribution_val": {
+    "up": 72,
+    "neutral": 0,
+    "down": 203
+  },
+  "actual_distribution_val": {
+    "up": 25,
+    "neutral": 226,
+    "down": 24
+  },
+  "class_weight_balanced": {
+    "up": 3.3956639766693115,
+    "neutral": 0.41476333141326904,
+    "down": 3.3956639766693115
+  },
+  "per_class_accuracy": {
+    "up": {
+      "correct": 10,
+      "total": 25,
+      "accuracy": 0.4
+    },
+    "neutral": {
+      "correct": 0,
+      "total": 226,
+      "accuracy": 0.0
+    },
+    "down": {
+      "correct": 19,
+      "total": 24,
+      "accuracy": 0.7916666666666666
+    }
+  },
+  "per_class_accuracy_test": {
+    "up": {
+      "correct": 10,
+      "total": 22,
+      "accuracy": 0.45454545454545453
+    },
+    "neutral": {
+      "correct": 0,
+      "total": 220,
+      "accuracy": 0.0
+    },
+    "down": {
+      "correct": 24,
+      "total": 33,
+      "accuracy": 0.7272727272727273
+    }
+  },
+  "final_train_loss": 0.05999161743284675,
+  "final_val_loss": 0.18277347803115845,
+  "early_stopped": true
+}

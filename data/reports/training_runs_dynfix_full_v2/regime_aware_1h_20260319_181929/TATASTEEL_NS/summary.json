@@ -1,0 +1,194 @@
+{
+  "symbol": "TATASTEEL.NS",
+  "source": "ohlcv_bars",
+  "rows": 1832,
+  "raw_rows_loaded": 1833,
+  "rows_after_ffill_dropna": 1833,
+  "rows_after_feature_engineering": 1832,
+  "train_rows": 1282,
+  "val_rows": 275,
+  "test_rows": 275,
+  "class_distribution_train_pct": {
+    "up": 0.384185303514377,
+    "neutral": 0.19728434504792333,
+    "down": 0.4185303514376997
+  },
+  "class_distribution_val_pct": {
+    "up": 0.44363636363636366,
+    "neutral": 0.1709090909090909,
+    "down": 0.38545454545454544
+  },
+  "class_distribution_test_pct": {
+    "up": 0.38321167883211676,
+    "neutral": 0.22992700729927007,
+    "down": 0.38686131386861317
+  },
+  "symbol_config": {
+    "threshold": 0.0006569761470854664,
+    "neutral_pct": 0.20046801872074882,
+    "gamma": 1.1863063773265745,
+    "class_counts": [
+      481,
+      247,
+      524
+    ],
+    "imbalance_ratio": 2.121457481289646,
+    "label_split_distribution": {
+      "train": {
+        "up": 0.38533541341653665,
+        "neutral": 0.20046801872074882,
+        "down": 0.4141965678627145
+      },
+      "val": {
+        "up": 0.44363636363636366,
+        "neutral": 0.1709090909090909,
+        "down": 0.38545454545454544
+      },
+      "test": {
+        "up": 0.38321167883211676,
+        "neutral": 0.22992700729927007,
+        "down": 0.38686131386861317
+      }
+    },
+    "cv_folds": 5
+  },
+  "symbol_results": {
+    "cv_mean": 0.35144672531769305,
+    "cv_std": 0.02598150733206376,
+    "test_bal_acc": 0.38709194369571737
+  },
+  "model_paths": {
+    "arima_lstm": "data/reports/training_runs_dynfix_full_v2/regime_aware_1h_20260319_181929/TATASTEEL_NS/arima_lstm/best_lstm_checkpoint.pt",
+    "cnn_pattern": "data/reports/training_runs_dynfix_full_v2/regime_aware_1h_20260319_181929/TATASTEEL_NS/cnn_pattern/best_cnn_checkpoint.pt"
+  },
+  "scaler_paths": {
+    "feature_scaler": "data/reports/training_runs_dynfix_full_v2/regime_aware_1h_20260319_181929/TATASTEEL_NS/arima_lstm/feature_scaler.pkl",
+    "target_scaler": "data/reports/training_runs_dynfix_full_v2/regime_aware_1h_20260319_181929/TATASTEEL_NS/arima_lstm/target_scaler.pkl"
+  },
+  "regression_metrics": {
+    "best_epoch": 5,
+    "epochs_ran": 20,
+    "best_val_loss_scaled": 0.9640243668989702,
+    "val_rmse_returns": 0.006840710889056643,
+    "val_mae_returns": 0.0043777216736954495,
+    "test_rmse_returns": 0.0073369426333516445,
+    "test_mae_returns": 0.004290517661888627,
+    "val_directional_accuracy": 0.49454545454545457,
+    "arima_order": [
+      5,
+      1,
+      0
+    ],
+    "train_sequences": 1262,
+    "val_sequences": 275,
+    "test_sequences": 275,
+    "train_split_index": 1282,
+    "val_split_index": 1557,
+    "final_train_loss": 0.7887137929204905,
+    "final_val_loss": 1.1391762456026944,
+    "early_stopped": true,
+    "test_sharpe": 2.0730009791857382,
+    "test_max_drawdown": 0.06672316990440741,
+    "test_win_rate": 0.5272727272727272,
+    "test_profit_factor": 1.2167404146551897,
+    "test_average_trade_return": 0.0003505729926352891,
+    "test_total_trades": 275
+  },
+  "classification_metrics": {
+    "best_epoch": 20,
+    "epochs_ran": 35,
+    "best_val_loss": 0.178078763701699,
+    "best_val_balanced_accuracy": 0.45928731411222484,
+    "val_accuracy": 0.3927272727272727,
+    "val_balanced_accuracy": 0.45928731411222484,
+    "test_accuracy": 0.35766423357664234,
+    "test_balanced_accuracy": 0.38709194369571737,
+    "train_windows": 1252,
+    "val_windows": 275,
+    "test_windows": 274,
+    "neutral_threshold": 0.0006569761470854664,
+    "focal_gamma": 1.1863063773265745,
+    "class_distribution_train": {
+      "up": 481,
+      "neutral": 247,
+      "down": 524
+    },
+    "class_distribution_val": {
+      "up": 122,
+      "neutral": 47,
+      "down": 106
+    },
+    "class_distribution_test": {
+      "up": 105,
+      "neutral": 63,
+      "down": 106
+    },
+    "class_distribution_train_pct": {
+      "up": 0.384185303514377,
+      "neutral": 0.19728434504792333,
+      "down": 0.4185303514376997
+    },
+    "class_distribution_val_pct": {
+      "up": 0.44363636363636366,
+      "neutral": 0.1709090909090909,
+      "down": 0.38545454545454544
+    },
+    "class_distribution_test_pct": {
+      "up": 0.38321167883211676,
+      "neutral": 0.22992700729927007,
+      "down": 0.38686131386861317
+    },
+    "predicted_distribution_val": {
+      "up": 129,
+      "neutral": 132,
+      "down": 14
+    },
+    "actual_distribution_val": {
+      "up": 122,
+      "neutral": 47,
+      "down": 106
+    },
+    "class_weight_balanced": {
+      "up": 0.8676368594169617,
+      "neutral": 1.6896086931228638,
+      "down": 0.796437680721283
+    },
+    "per_class_accuracy": {
+      "up": {
+        "correct": 64,
+        "total": 122,
+        "accuracy": 0.5245901639344263
+      },
+      "neutral": {
+        "correct": 37,
+        "total": 47,
+        "accuracy": 0.7872340425531915
+      },
+      "down": {
+        "correct": 7,
+        "total": 106,
+        "accuracy": 0.0660377358490566
+      }
+    },
+    "per_class_accuracy_test": {
+      "up": {
+        "correct": 55,
+        "total": 105,
+        "accuracy": 0.5238095238095238
+      },
+      "neutral": {
+        "correct": 36,
+        "total": 63,
+        "accuracy": 0.5714285714285714
+      },
+      "down": {
+        "correct": 7,
+        "total": 106,
+        "accuracy": 0.0660377358490566
+      }
+    },
+    "final_train_loss": 0.10104774348080729,
+    "final_val_loss": 0.2085742829062722,
+    "early_stopped": true
+  }
+}
