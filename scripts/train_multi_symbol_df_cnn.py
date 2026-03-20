@@ -10,7 +10,7 @@ from sklearn.metrics import balanced_accuracy_score, classification_report
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils.class_weight import compute_class_weight
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
+from tensorflow.keras.callbacks import Callback, EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 from tensorflow.keras.layers import BatchNormalization, Conv1D, Dense, Dropout, Flatten, Input, MaxPooling1D
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
@@ -28,6 +28,9 @@ FOREX_SYMBOLS = ["USDINR=X"]
 
 TRAIN_END = "2022-12-31"
 VAL_END = "2023-12-31"
+FOCAL_ALPHA = [0.25, 0.50, 0.25]  # [down, neutral, up]
+DEFAULT_LEARNING_RATE = 3e-4
+DEFAULT_BATCH_SIZE = 128
 
 
 def _to_datetime_index(df: pd.DataFrame, name: str, require_volume: bool) -> pd.DataFrame:
@@ -87,8 +90,17 @@ def prepare_usdinr_features(df_usdinr: pd.DataFrame) -> pd.DataFrame:
 
 
 def merge_usdinr_features(df: pd.DataFrame, df_usdinr_feat: pd.DataFrame, symbol: str) -> pd.DataFrame:
-    df = df.merge(df_usdinr_feat, left_index=True, right_index=True, how="left")
-    for col in ["usdinr_close", "usdinr_return", "usdinr_zscore", "usdinr_trend", "usdinr_vol"]:
+    usd_cols = ["usdinr_close", "usdinr_return", "usdinr_zscore", "usdinr_trend", "usdinr_vol"]
+    # Align forex context to equity timestamps using historical forward-fill semantics.
+    aligned = (
+        df_usdinr_feat[usd_cols]
+        .reindex(df.index.union(df_usdinr_feat.index))
+        .sort_index()
+        .ffill()
+        .reindex(df.index)
+    )
+    df = df.join(aligned, how="left")
+    for col in usd_cols:
         df[col] = df[col].ffill()
     print(f"  [{symbol}] Rows after USDINR merge: {len(df)}")
     return df
@@ -223,14 +235,17 @@ def compute_gamma(y_train: np.ndarray, symbol: str) -> float:
     return gamma
 
 
-def focal_loss(gamma: float = 2.0, alpha: float = 0.25):
+def focal_loss(gamma: float = 2.0, alpha: list[float] | tuple[float, float, float] = FOCAL_ALPHA):
+    alpha_vec = tf.constant(alpha, dtype=tf.float32)
+
     def loss_fn(y_true, y_pred):
         y_true = tf.cast(y_true, tf.int32)
         y_true_oh = tf.one_hot(y_true, depth=3)
         y_pred_clip = tf.clip_by_value(y_pred, 1e-7, 1 - 1e-7)
         ce = -tf.reduce_sum(y_true_oh * tf.math.log(y_pred_clip), axis=-1)
         pt = tf.reduce_sum(y_true_oh * y_pred_clip, axis=-1)
-        focal_w = alpha * tf.pow(1.0 - pt, gamma)
+        alpha_t = tf.reduce_sum(y_true_oh * alpha_vec, axis=-1)
+        focal_w = alpha_t * tf.pow(1.0 - pt, gamma)
         return tf.reduce_mean(focal_w * ce)
 
     return loss_fn
@@ -239,11 +254,43 @@ def focal_loss(gamma: float = 2.0, alpha: float = 0.25):
 def _compute_class_weight_dict(y: np.ndarray) -> dict[int, float]:
     classes = np.unique(y)
     cw = compute_class_weight("balanced", classes=classes, y=y)
-    return {int(cls): float(weight) for cls, weight in zip(classes, cw)}
+    weights = {int(cls): float(weight) for cls, weight in zip(classes, cw)}
+    # Asymmetric penalty: amplify missed down moves.
+    weights[0] = float(weights.get(0, 1.0) * 2.0)
+    return weights
+
+
+class NeutralFloorMonitor(Callback):
+    def __init__(
+        self,
+        symbol: str,
+        X_val: np.ndarray,
+        check_every: int = 10,
+        neutral_floor: float = 0.03,
+    ) -> None:
+        super().__init__()
+        self.symbol = symbol
+        self.X_val = X_val
+        self.check_every = int(check_every)
+        self.neutral_floor = float(neutral_floor)
+
+    def on_epoch_end(self, epoch: int, logs=None) -> None:
+        epoch_num = int(epoch) + 1
+        if epoch_num % self.check_every != 0:
+            return
+        preds = np.argmax(self.model.predict(self.X_val, verbose=0), axis=1)
+        if len(preds) == 0:
+            return
+        neutral_rate = float((preds == 1).mean())
+        if neutral_rate < self.neutral_floor:
+            print(
+                f"WARNING: [{self.symbol}] Epoch {epoch_num}: neutral collapsed "
+                f"({neutral_rate:.2%}) - focal loss alpha may need adjustment"
+            )
 
 
 class BalancedBatchGenerator(Sequence):
-    def __init__(self, X: np.ndarray, y: np.ndarray, batch_size: int = 64):
+    def __init__(self, X: np.ndarray, y: np.ndarray, batch_size: int = DEFAULT_BATCH_SIZE):
         self.X = X
         self.y = y
         self.batch_size = batch_size
@@ -321,7 +368,11 @@ def build_cnn(input_shape: tuple[int, int], gamma: float = 2.0, shallow: bool = 
             ]
         )
 
-    model.compile(optimizer=Adam(learning_rate=1e-3), loss=focal_loss(gamma=gamma, alpha=0.25), metrics=["accuracy"])
+    model.compile(
+        optimizer=Adam(learning_rate=DEFAULT_LEARNING_RATE),
+        loss=focal_loss(gamma=gamma, alpha=FOCAL_ALPHA),
+        metrics=["accuracy"],
+    )
     arch = "shallow" if shallow else "full"
     print(f"  [{symbol}] CNN built: {arch} | gamma={gamma}")
     return model
@@ -338,14 +389,17 @@ def check_collapse(preds: np.ndarray, symbol: str, threshold: float = 0.05) -> b
     return len(collapsed) > 0
 
 
-def get_callbacks(symbol: str, model_dir: Path):
+def get_callbacks(symbol: str, model_dir: Path, X_val_seq: np.ndarray | None = None):
     safe = symbol.replace(".", "_").replace("=", "_")
     model_dir.mkdir(parents=True, exist_ok=True)
-    return [
+    callbacks: list[Callback] = [
         EarlyStopping(monitor="val_loss", patience=15, restore_best_weights=True),
         ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=7, min_lr=1e-6),
         ModelCheckpoint(model_dir / f"best_cnn_{safe}.keras", monitor="val_loss", save_best_only=True),
     ]
+    if X_val_seq is not None:
+        callbacks.append(NeutralFloorMonitor(symbol=symbol, X_val=X_val_seq))
+    return callbacks
 
 
 def train_with_retry(
@@ -358,10 +412,10 @@ def train_with_retry(
     class_weight_dict: dict[int, float],
     model_dir: Path,
     seq_len: int = 30,
-    batch_size: int = 64,
+    batch_size: int = DEFAULT_BATCH_SIZE,
     epochs: int = 150,
     verbose: int = 0,
-) -> tuple[Any, np.ndarray, np.ndarray, np.ndarray, np.ndarray, str, float]:
+) -> tuple[Any, np.ndarray, np.ndarray, np.ndarray, np.ndarray, str, float, int]:
     X_tr_s, y_tr_s = make_sequences(X_tr, y_tr, seq_len)
     X_v_s, y_v_s = make_sequences(X_v, y_v, seq_len)
     input_shape = (seq_len, X_tr.shape[1])
@@ -373,7 +427,7 @@ def train_with_retry(
         validation_data=(X_v_s, y_v_s),
         epochs=epochs,
         class_weight=class_weight_dict,
-        callbacks=get_callbacks(symbol, model_dir),
+        callbacks=get_callbacks(symbol, model_dir, X_val_seq=X_v_s),
         verbose=verbose,
     )
     print(f"  [{symbol}] Attempt 1: {len(history.history['loss'])} epochs")
@@ -382,6 +436,7 @@ def train_with_retry(
 
     architecture = "full"
     gamma_final = gamma
+    epochs_trained = len(history.history["loss"])
     if check_collapse(val_preds, symbol):
         gamma_retry = min(gamma + 2.0, 5.0)
         print(f"  [{symbol}] Retrying: shallow=True gamma={gamma_retry}")
@@ -393,14 +448,15 @@ def train_with_retry(
             validation_data=(X_v_s, y_v_s),
             epochs=epochs,
             class_weight=class_weight_dict,
-            callbacks=get_callbacks(symbol, model_dir),
+            callbacks=get_callbacks(symbol, model_dir, X_val_seq=X_v_s),
             verbose=verbose,
         )
         print(f"  [{symbol}] Attempt 2: {len(history.history['loss'])} epochs")
         architecture = "shallow"
         gamma_final = gamma_retry
+        epochs_trained = len(history.history["loss"])
 
-    return model, X_tr_s, y_tr_s, X_v_s, y_v_s, architecture, gamma_final
+    return model, X_tr_s, y_tr_s, X_v_s, y_v_s, architecture, gamma_final, epochs_trained
 
 
 def get_n_splits(n_samples: int, symbol: str, min_train: int = 200, min_val: int = 50) -> int:
@@ -462,7 +518,10 @@ def run_walk_forward_cv(
             validation_data=(X_vf_s, y_vf_s),
             epochs=epochs,
             class_weight=cw_f,
-            callbacks=[EarlyStopping(monitor="val_loss", patience=15, restore_best_weights=True)],
+            callbacks=[
+                EarlyStopping(monitor="val_loss", patience=15, restore_best_weights=True),
+                NeutralFloorMonitor(symbol=f"{symbol}-CV{fold}", X_val=X_vf_s),
+            ],
             verbose=verbose,
         )
 
@@ -500,11 +559,50 @@ def _select_feature_columns(train_df: pd.DataFrame) -> list[str]:
     return cols
 
 
+def print_validation_checklist(
+    symbol: str,
+    symbol_results: dict[str, dict[str, Any]],
+    neutral_precision: float,
+    neutral_recall: float,
+    neutral_f1: float,
+    down_recall: float,
+    epochs_trained: int,
+    val_bal: float,
+    test_bal: float,
+    gap: float,
+    cv_std: float,
+) -> None:
+    forex_in_results = any(sym in FOREX_SYMBOLS or sym.endswith("=X") for sym in symbol_results.keys())
+    checks = [
+        ("USDINR in results table", "Never", "Yes" if forex_in_results else "No", not forex_in_results),
+        (
+            "Neutral P/R/F1 per symbol",
+            "All > 0.0",
+            f"{neutral_precision:.3f}/{neutral_recall:.3f}/{neutral_f1:.3f}",
+            neutral_precision > 0.0 and neutral_recall > 0.0 and neutral_f1 > 0.0,
+        ),
+        ("Down recall per symbol", "> 0.10", f"{down_recall:.3f}", down_recall > 0.10),
+        ("Epochs trained", "< 150", str(epochs_trained), epochs_trained < 150),
+        ("Val Balanced Acc", "> 0.42", f"{val_bal:.4f}", val_bal > 0.42),
+        ("Test Balanced Acc", "> 0.40", f"{test_bal:.4f}", test_bal > 0.40),
+        ("Val->Test gap", "< 0.08", f"{gap:.4f}", gap < 0.08),
+        ("CV Std", "< 0.05", f"{cv_std:.4f}", np.isfinite(cv_std) and cv_std < 0.05),
+    ]
+
+    print(f"\n  [{symbol}] VALIDATION CHECKLIST")
+    print("  Metric                          | Target       | Actual")
+    print("  ---------------------------------------------------------------")
+    for metric, target, actual, ok in checks:
+        print(f"  {metric:<31} | {target:<12} | {actual}")
+        if not ok:
+            print(f"  WARNING: [{symbol}] {metric} outside target")
+
+
 def run_multi_symbol_training(
     equity_frames: dict[str, pd.DataFrame],
     df_usdinr: pd.DataFrame,
     seq_len: int = 30,
-    batch_size: int = 64,
+    batch_size: int = DEFAULT_BATCH_SIZE,
     epochs: int = 150,
     verbose: int = 0,
     model_dir: str = "models/multi_symbol_cnn",
@@ -527,6 +625,12 @@ def run_multi_symbol_training(
     tf.random.set_seed(42)
     np.random.seed(42)
 
+    invalid_equity_symbols = [sym for sym in EQUITY_SYMBOLS if sym in FOREX_SYMBOLS or sym.endswith("=X")]
+    assert not invalid_equity_symbols, (
+        f"EQUITY_SYMBOLS contains forex symbol(s): {invalid_equity_symbols}. "
+        "USDINR must be external feature only."
+    )
+
     df_usdinr_feat = prepare_usdinr_features(df_usdinr)
 
     model_root = Path(model_dir)
@@ -544,6 +648,10 @@ def run_multi_symbol_training(
         df = _to_datetime_index(equity_frames[symbol], symbol, require_volume=True)
 
         df = merge_usdinr_features(df, df_usdinr_feat, symbol)
+        all_null_cols = [col for col in df.columns if df[col].isna().all()]
+        if all_null_cols:
+            print(f"  [{symbol}] Dropping all-null columns before features: {all_null_cols}")
+            df = df.drop(columns=all_null_cols)
         df = engineer_features(df, symbol)
 
         norm_idx = _normalize_dates(df.index)
@@ -586,13 +694,13 @@ def run_multi_symbol_training(
         SYMBOL_SCALERS[symbol] = scaler
 
         class_weight_dict = _compute_class_weight_dict(y_train)
-        print(f"  [{symbol}] Class weights: {class_weight_dict}")
+        print(f"  [{symbol}] Asymmetric class weights (down x2): {class_weight_dict}")
 
         gamma = compute_gamma(y_train, symbol)
         SYMBOL_CONFIGS[symbol]["gamma"] = float(gamma)
 
         symbol_model_dir = model_root / symbol.replace(".", "_").replace("=", "_")
-        model, X_tr_s, y_tr_s, X_v_s, y_v_s, architecture, gamma_final = train_with_retry(
+        model, X_tr_s, y_tr_s, X_v_s, y_v_s, architecture, gamma_final, epochs_trained = train_with_retry(
             symbol=symbol,
             X_tr=X_train,
             y_tr=y_train,
@@ -639,6 +747,14 @@ def run_multi_symbol_training(
         print(f"  Val->Test Gap:     {gap:.4f}")
         print(f"  Val pred  -> up:{v_pred_c[2]} neutral:{v_pred_c[1]} down:{v_pred_c[0]}")
         print(f"  Val actual -> up:{v_true_c[2]} neutral:{v_true_c[1]} down:{v_true_c[0]}")
+        val_report = classification_report(
+            y_v_s,
+            val_preds,
+            labels=[0, 1, 2],
+            target_names=["down", "neutral", "up"],
+            output_dict=True,
+            zero_division=0,
+        )
         print(
             classification_report(
                 y_v_s,
@@ -653,13 +769,32 @@ def run_multi_symbol_training(
             "threshold": float(thresh),
             "gamma": float(gamma_final),
             "architecture": architecture,
+            "epochs_trained": int(epochs_trained),
             "neutral_pct": float((y_train == 1).mean()) if len(y_train) else float("nan"),
             "cv_mean": cv_mean,
             "cv_std": cv_std,
             "val_bal_acc": val_bal,
             "test_bal_acc": test_bal,
             "val_test_gap": gap,
+            "neutral_precision_val": float(val_report["neutral"]["precision"]),
+            "neutral_recall_val": float(val_report["neutral"]["recall"]),
+            "neutral_f1_val": float(val_report["neutral"]["f1-score"]),
+            "down_recall_val": float(val_report["down"]["recall"]),
         }
+
+        print_validation_checklist(
+            symbol=symbol,
+            symbol_results=SYMBOL_RESULTS,
+            neutral_precision=float(val_report["neutral"]["precision"]),
+            neutral_recall=float(val_report["neutral"]["recall"]),
+            neutral_f1=float(val_report["neutral"]["f1-score"]),
+            down_recall=float(val_report["down"]["recall"]),
+            epochs_trained=int(epochs_trained),
+            val_bal=val_bal,
+            test_bal=test_bal,
+            gap=gap,
+            cv_std=cv_std,
+        )
 
     print("\n" + "=" * 90)
     print("CROSS-SYMBOL SUMMARY")
