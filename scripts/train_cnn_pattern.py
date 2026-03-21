@@ -966,7 +966,10 @@ def train_single_symbol(
             "confusion_matrix": cm.tolist(),
         },
     }
-    with open(symbol_dir / "training_meta.json", "w", encoding="utf-8") as f:
+    # Save training_meta.json to persistent lightweight location
+    persistent_meta_dir = Path("data/models/cnn_pattern") / sanitize_symbol(symbol)
+    persistent_meta_dir.mkdir(parents=True, exist_ok=True)
+    with open(persistent_meta_dir / "training_meta.json", "w", encoding="utf-8") as f:
         json.dump(training_meta, f, indent=2)
 
     return SymbolTrainingResult(
@@ -1008,7 +1011,7 @@ def main() -> None:
     parser.add_argument("--min-neutral-ratio", type=float, default=0.15, help="Minimum neutral class ratio target in multiclass mode.")
     parser.add_argument("--arima-order", default="5,1,0", help="ARIMA order for hybrid features, format p,d,q.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
-    parser.add_argument("--output-dir", default="data/models/cnn_pattern/", help="Output root directory.")
+    parser.add_argument("--output-dir", default="/tmp/cnn_pattern/", help="Output root directory (defaults to /tmp to avoid disk bloat).")
     parser.add_argument("--use-nse", action="store_true", help="Use NSE fallback when DB data is sparse.")
     parser.add_argument("--interval", default="1d", help="Candle interval (e.g., 1d, 1h).")
     parser.add_argument(
