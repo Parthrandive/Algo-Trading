@@ -2,6 +2,7 @@ import hashlib
 import html
 import json
 import logging
+import os
 import re
 import tempfile
 import urllib.request
@@ -11,7 +12,7 @@ from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, Sequence
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlencode, urljoin, urlparse
 from zoneinfo import ZoneInfo
 
 try:
@@ -19,9 +20,17 @@ try:
 except ImportError:  # pragma: no cover - exercised in environments without PDF extras.
     pdfplumber = None
 
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - exercised in environments without dotenv installed.
+    load_dotenv = None
+
 from src.agents.textual.services.pdf_service import PDFExtractor
 from src.schemas.text_data import SourceType as TextSourceType
 from src.schemas.text_sidecar import SourceRouteDetail
+
+if load_dotenv is not None:
+    load_dotenv()
 
 logger = logging.getLogger(__name__)
 IST = ZoneInfo("Asia/Kolkata")
@@ -513,6 +522,154 @@ class EconomicTimesAdapter(BaseTextAdapter):
             source_type=self.source_type,
             source_route_detail=self.source_route_detail,
         )
+
+
+class NewsAPIMarketAdapter(BaseTextAdapter):
+    source_name = "newsapi_market"
+    source_type = TextSourceType.OFFICIAL_API
+    source_route_detail = SourceRouteDetail.PRIMARY_API
+    cache_namespace = "newsapi_market"
+
+    _BASE_URL = "https://newsapi.org/v2/everything"
+    _DEFAULT_QUERY = "(market OR finance OR stocks OR equities) AND (india OR nifty OR sensex OR nse OR bse)"
+
+    def __init__(
+        self,
+        *,
+        api_key: str | None = None,
+        api_key_env: str = "NEWS_API_KEY",
+        query: str | None = None,
+        language: str = "en",
+        sort_by: str = "publishedAt",
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        self._api_key = (api_key or os.getenv(api_key_env, "")).strip()
+        self._query = (query or self._DEFAULT_QUERY).strip()
+        self._language = (language or "en").strip() or "en"
+        self._sort_by = (sort_by or "publishedAt").strip() or "publishedAt"
+
+    def _build_request_url(self) -> str:
+        page_size = min(max(int(self.max_items), 1), 100)
+        params = {
+            "q": self._query,
+            "language": self._language,
+            "sortBy": self._sort_by,
+            "pageSize": str(page_size),
+        }
+        return f"{self._BASE_URL}?{urlencode(params)}"
+
+    @staticmethod
+    def _parse_iso_datetime(raw_value: object) -> datetime | None:
+        if not isinstance(raw_value, str) or not raw_value.strip():
+            return None
+        candidate = raw_value.strip()
+        if candidate.endswith("Z"):
+            candidate = f"{candidate[:-1]}+00:00"
+        try:
+            parsed = datetime.fromisoformat(candidate)
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        return parsed.astimezone(UTC)
+
+    def fetch(self, *, as_of_utc: datetime | None = None) -> Sequence[RawTextRecord]:
+        if not self._api_key:
+            return []
+
+        payload = self._fetch_text(
+            url=self._build_request_url(),
+            cache_key=f"market_finance_{self._stable_id('newsapi', self._query)}",
+            headers={
+                "Accept": "application/json, text/plain, */*",
+                "X-Api-Key": self._api_key,
+            },
+        )
+        if not payload.strip():
+            return []
+
+        try:
+            parsed_payload = json.loads(payload)
+        except json.JSONDecodeError:
+            return []
+
+        if not isinstance(parsed_payload, dict):
+            return []
+        if str(parsed_payload.get("status", "")).lower() != "ok":
+            return []
+
+        raw_articles = parsed_payload.get("articles")
+        if not isinstance(raw_articles, list):
+            return []
+
+        now_utc = datetime.now(UTC)
+        records: list[RawTextRecord] = []
+        for article in raw_articles[: self.max_items]:
+            if not isinstance(article, dict):
+                continue
+
+            title = self._normalize_text(str(article.get("title") or ""))
+            description = self._normalize_text(str(article.get("description") or ""))
+            content = self._normalize_text(str(article.get("content") or ""))
+            link = str(article.get("url") or "").strip()
+            if not title or not link:
+                continue
+
+            body = description or content or title
+            if body.strip().lower() == "[removed]":
+                continue
+
+            published_at = self._parse_iso_datetime(article.get("publishedAt")) or now_utc
+            if as_of_utc and published_at > as_of_utc:
+                continue
+
+            source_block = article.get("source")
+            publisher = "NewsAPI"
+            source_token = link
+            if isinstance(source_block, dict):
+                source_name = self._normalize_text(str(source_block.get("name") or ""))
+                source_key = str(source_block.get("id") or "").strip()
+                if source_name:
+                    publisher = source_name
+                if source_key:
+                    source_token = f"{source_key}|{link}"
+
+            source_id = self._stable_id("newsapi_market", source_token)
+            author = self._normalize_text(str(article.get("author") or "")) or "NewsAPI Aggregator"
+
+            records.append(
+                RawTextRecord(
+                    record_type="news_article",
+                    source_name=self.source_name,
+                    source_id=source_id,
+                    timestamp=published_at,
+                    content=body,
+                    payload={
+                        "headline": title,
+                        "publisher": publisher,
+                        "url": link,
+                        "author": author,
+                        "language": self._language,
+                        "source_type": self.source_type.value,
+                        "ingestion_timestamp_utc": now_utc,
+                        "ingestion_timestamp_ist": now_utc.astimezone(IST),
+                        "schema_version": "1.0",
+                        "quality_status": "pass",
+                        "is_published": True,
+                        "is_embargoed": False,
+                        "license_ok": True,
+                        "manipulation_risk_score": 0.12,
+                        "confidence": 0.78,
+                        "quality_flags": ["primary_api", "market_finance", "newsapi"],
+                    },
+                    source_type=self.source_type,
+                    source_route_detail=self.source_route_detail,
+                )
+            )
+
+        return records
+
 
 class RBIReportsAdapter(BaseTextAdapter):
     source_name = "rbi_reports"

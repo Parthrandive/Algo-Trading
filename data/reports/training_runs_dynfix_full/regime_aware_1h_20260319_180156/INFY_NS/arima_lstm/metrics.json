@@ -1,0 +1,29 @@
+{
+  "best_epoch": 15,
+  "epochs_ran": 30,
+  "best_val_loss_scaled": 1.175017401413484,
+  "val_rmse_returns": 0.0068403194811217085,
+  "val_mae_returns": 0.0036252395763881006,
+  "test_rmse_returns": 0.008808654035721569,
+  "test_mae_returns": 0.00552758017878171,
+  "val_directional_accuracy": 0.4909090909090909,
+  "arima_order": [
+    5,
+    1,
+    0
+  ],
+  "train_sequences": 1263,
+  "val_sequences": 275,
+  "test_sequences": 276,
+  "train_split_index": 1283,
+  "val_split_index": 1558,
+  "final_train_loss": 0.6539145191793676,
+  "final_val_loss": 1.2274628125537526,
+  "early_stopped": true,
+  "test_sharpe": -2.3104149634088733,
+  "test_max_drawdown": 0.13714256809407677,
+  "test_win_rate": 0.4927536231884058,
+  "test_profit_factor": 0.7968416178600846,
+  "test_average_trade_return": -0.00044528272447117605,
+  "test_total_trades": 276
+}

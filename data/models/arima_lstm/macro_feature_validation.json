@@ -1,0 +1,82 @@
+{
+  "CPI": {
+    "first_available_date": "2026-03-07",
+    "last_available_date": "2026-03-15",
+    "row_count": 4,
+    "coverage_pct": 0.0,
+    "missing_after_join": 2034,
+    "train_ready": false
+  },
+  "WPI": {
+    "first_available_date": "2026-03-07",
+    "last_available_date": "2026-03-15",
+    "row_count": 4,
+    "coverage_pct": 0.0,
+    "missing_after_join": 2034,
+    "train_ready": false
+  },
+  "IIP": {
+    "first_available_date": "2026-03-07",
+    "last_available_date": "2026-03-15",
+    "row_count": 4,
+    "coverage_pct": 0.0,
+    "missing_after_join": 2034,
+    "train_ready": false
+  },
+  "FII_FLOW": {
+    "first_available_date": "2000-03-31",
+    "last_available_date": "2026-03-16",
+    "row_count": 32,
+    "coverage_pct": 100.0,
+    "missing_after_join": 0,
+    "train_ready": true
+  },
+  "DII_FLOW": {
+    "first_available_date": "2026-03-07",
+    "last_available_date": "2026-03-16",
+    "row_count": 7,
+    "coverage_pct": 0.4916,
+    "missing_after_join": 2024,
+    "train_ready": false
+  },
+  "FX_RESERVES": {
+    "first_available_date": "2026-03-07",
+    "last_available_date": "2026-03-15",
+    "row_count": 6,
+    "coverage_pct": 0.2458,
+    "missing_after_join": 2029,
+    "train_ready": false
+  },
+  "INDIA_US_10Y_SPREAD": {
+    "first_available_date": "2026-03-07",
+    "last_available_date": "2026-03-15",
+    "row_count": 6,
+    "coverage_pct": 0.4916,
+    "missing_after_join": 2024,
+    "train_ready": false
+  },
+  "RBI_BULLETIN": {
+    "first_available_date": "2000-05-19",
+    "last_available_date": "2026-03-15",
+    "row_count": 248,
+    "coverage_pct": 100.0,
+    "missing_after_join": 0,
+    "train_ready": true
+  },
+  "REPO_RATE": {
+    "first_available_date": "2000-08-01",
+    "last_available_date": "2025-08-06",
+    "row_count": 227,
+    "coverage_pct": 100.0,
+    "missing_after_join": 0,
+    "train_ready": true
+  },
+  "US_10Y": {
+    "first_available_date": "2000-01-03",
+    "last_available_date": "2026-03-13",
+    "row_count": 6551,
+    "coverage_pct": 100.0,
+    "missing_after_join": 0,
+    "train_ready": true
+  }
+}

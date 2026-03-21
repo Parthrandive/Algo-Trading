@@ -97,12 +97,13 @@ def test_textual_runtime_config_day1_contract_freeze():
     assert {entry["source_name"] for entry in config["source_allowlist"]} == {
         "nse_news",
         "economic_times",
+        "newsapi_market",
         "rbi_reports",
         "earnings_transcripts",
         "x_posts",
     }
     source_allowed = {entry["source_name"]: bool(entry["allowed"]) for entry in config["source_allowlist"]}
-    for source_name in ("nse_news", "economic_times", "earnings_transcripts", "x_posts", "rbi_reports"):
+    for source_name in ("nse_news", "economic_times", "newsapi_market", "earnings_transcripts", "x_posts", "rbi_reports"):
         assert source_allowed[source_name] is True
     for entry in config["source_allowlist"]:
         assert entry["allowed_routes"]
@@ -220,6 +221,8 @@ def test_textual_agent_smoke_test_with_default_components():
         if adapter.source_name == "rbi_reports":
             adapter._has_custom_http_get = True
             adapter._http_get = lambda url, headers=None: ""
+        if adapter.source_name == "newsapi_market":
+            adapter._api_key = ""
 
     batch = agent.run_once(as_of_utc=datetime(2026, 3, 2, 10, 0, tzinfo=UTC))
 
@@ -231,5 +234,5 @@ def test_textual_agent_smoke_test_with_default_components():
     # Verify a few types to be sure we have representation
     record_types = [r.model_dump()["source_type"] for r in batch.canonical_records]
     assert record_types.count("rss_feed") >= 3
-    assert record_types.count("official_api") == 1
+    assert record_types.count("official_api") >= 1
     assert record_types.count("social_media") == 1

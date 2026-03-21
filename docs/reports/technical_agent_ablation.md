@@ -1,7 +1,7 @@
 # Technical Agent Ablation Report (Day 5)
 
-- Generated: `2026-03-14T07:09:49.678311+00:00`
-- Walk-forward config: `{'train_months': 6, 'test_months': 1, 'step_months': 1, 'train_days': 15, 'test_days': 3, 'step_days': 3, 'start_date': '2024-03-25'}`
+- Generated: `2026-03-20T18:12:26.812915+00:00`
+- Walk-forward config: `{'train_months': 6, 'test_months': 1, 'step_months': 1, 'train_days': None, 'test_days': None, 'step_days': None, 'start_date': '2019-01-01'}`
 
 ## ARIMA-LSTM Feature Group Ablation
 
@@ -11,7 +11,7 @@
 | volume | N/A | N/A | N/A | N/A | 0 | volume |
 | rsi | N/A | N/A | N/A | N/A | 0 | rsi |
 | macd | N/A | N/A | N/A | N/A | 0 | macd, macd_hist, macd_signal |
-| macro | N/A | N/A | N/A | N/A | 0 | None |
+| macro | N/A | N/A | N/A | N/A | 0 | macro_coverage_ratio, macro_directional_flag, macro_regime_index, macro_regime_shock |
 
 ## Notes
 

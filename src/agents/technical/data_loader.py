@@ -80,6 +80,8 @@ class DataLoader:
         normalized = macro_df.copy()
         normalized["indicator_name"] = normalized["indicator_name"].astype(str).str.strip().str.upper()
         normalized["timestamp"] = pd.to_datetime(normalized["timestamp"], utc=True, errors="coerce")
+        # Enforce nanosecond precision to keep merge_asof dtypes aligned.
+        normalized["timestamp"] = normalized["timestamp"].astype("datetime64[ns, UTC]")
         normalized["value"] = pd.to_numeric(normalized["value"], errors="coerce")
         normalized = normalized.dropna(subset=["indicator_name", "timestamp", "value"]).copy()
         if normalized.empty:
@@ -111,6 +113,7 @@ class DataLoader:
                 normalized.loc[unresolved, "release_ts"] = normalized.loc[unresolved, "timestamp"]
 
         normalized["release_ts"] = pd.to_datetime(normalized["release_ts"], utc=True, errors="coerce")
+        normalized["release_ts"] = normalized["release_ts"].astype("datetime64[ns, UTC]")
 
         normalized = (
             normalized.sort_values(["series_name", "release_ts", "timestamp"])
@@ -169,6 +172,8 @@ class DataLoader:
 
         out = df.copy()
         out["timestamp"] = pd.to_datetime(out["timestamp"], utc=True, errors="coerce")
+        # Ensure merge keys have identical timezone-aware ns precision.
+        out["timestamp"] = out["timestamp"].astype("datetime64[ns, UTC]")
         out = out.dropna(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
         if out.empty:
             return self._drop_all_null_vwap(out)

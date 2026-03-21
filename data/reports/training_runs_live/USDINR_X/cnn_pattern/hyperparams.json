@@ -1,0 +1,17 @@
+{
+    "window_size": 20,
+    "learning_rate": 0.001,
+    "feature_columns": [
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "macro_regime_index",
+        "macro_regime_shock",
+        "macro_coverage_ratio",
+        "macro_directional_flag"
+    ],
+    "neutral_threshold": 0.0002,
+    "normalize": true
+}
