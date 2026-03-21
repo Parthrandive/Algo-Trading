@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from config.symbols import FOREX_SYMBOLS, INDEX_SYMBOLS, SENTINEL_CORE_SYMBOLS, is_forex_symbol
 from src.schemas.market_data import SourceType
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
@@ -38,9 +39,9 @@ class DataSourceConfig(BaseModel):
 
 class SymbolUniverseConfig(BaseModel):
     version: str
-    core_symbols: List[str]
-    fx_symbols: List[str] = Field(default_factory=list)
-    index_symbols: List[str] = Field(default_factory=list)
+    core_symbols: List[str] = Field(default_factory=lambda: list(SENTINEL_CORE_SYMBOLS))
+    fx_symbols: List[str] = Field(default_factory=lambda: list(FOREX_SYMBOLS))
+    index_symbols: List[str] = Field(default_factory=lambda: list(INDEX_SYMBOLS))
     review_cadence: str = "quarterly"
 
     @property
@@ -51,6 +52,21 @@ class SymbolUniverseConfig(BaseModel):
             if symbol not in deduped:
                 deduped.append(symbol)
         return deduped
+
+    @model_validator(mode="after")
+    def validate_symbol_buckets(self):
+        invalid_core = [symbol for symbol in self.core_symbols if is_forex_symbol(symbol)]
+        if invalid_core:
+            raise ValueError(f"core_symbols must exclude forex symbols: {invalid_core}")
+
+        invalid_fx = [symbol for symbol in self.fx_symbols if not is_forex_symbol(symbol)]
+        if invalid_fx:
+            raise ValueError(f"fx_symbols must contain forex symbols only: {invalid_fx}")
+
+        overlap = set(self.core_symbols) & set(self.fx_symbols)
+        if overlap:
+            raise ValueError(f"core_symbols and fx_symbols must be disjoint: {sorted(overlap)}")
+        return self
 
 
 class SessionRules(BaseModel):

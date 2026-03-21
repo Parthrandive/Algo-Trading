@@ -4,7 +4,6 @@ import sys
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-import json
 import logging
 
 # Add src to path
@@ -13,6 +12,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from src.agents.sentinel.broker_client import BrokerAPIClient
 from src.agents.sentinel.bronze_recorder import BronzeRecorder
 from src.agents.sentinel.client import NSEClientInterface
+from src.agents.sentinel.config import load_default_sentinel_config
 from src.agents.sentinel.failover_client import FailoverSentinelClient
 from src.agents.sentinel.nsepython_client import NSEPythonClient
 from src.agents.sentinel.pipeline import SentinelIngestPipeline
@@ -107,14 +107,6 @@ class SeededCorporateActionClient(NSEClientInterface):
             seeded_actions = [action for action in seeded_actions if action.action_type in self._action_types]
 
         return seeded_actions
-
-
-def load_config():
-    config_path = os.path.join(os.path.dirname(__file__), "..", "configs", "nse_sentinel_runtime_v1.json")
-    with open(config_path, "r") as f:
-        return json.load(f)
-
-
 def _build_failover_client() -> FailoverSentinelClient:
     primary = YFinanceClient()
     fallbacks = []
@@ -168,11 +160,11 @@ def test_corporate_actions_ingest():
         session_rules=None,
     )
 
-    config = load_config()
     if len(sys.argv) > 1:
         symbols = [normalize_symbol(s) for s in sys.argv[1:]]
     else:
-        symbols = config.get("symbol_universe", {}).get("core_symbols", ["RELIANCE.NS"])
+        symbol_universe = load_default_sentinel_config().symbol_universe
+        symbols = list(symbol_universe.core_symbols)
 
     end_date = datetime.now(UTC)
     start_date = end_date - timedelta(days=365 * 5)

@@ -16,6 +16,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.agents.technical.data_loader import DataLoader
 from src.agents.technical.models.garch_var import GarchVaRModel
+from config.symbols import SymbolValidationResult, discover_training_symbols, is_forex, validate_equity_symbol
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -44,7 +45,7 @@ def validate_data(df: pd.DataFrame) -> None:
 
 def main():
     parser = argparse.ArgumentParser(description="Fit standalone GARCH VaR model.")
-    parser.add_argument("--symbol", default="TATASTEEL.NS", help="Stock symbol to fit on")
+    parser.add_argument("--symbol", default=None, help="Optional single equity symbol to fit on")
     parser.add_argument("--limit", type=int, default=None, help="Max rows to fetch from DB")
     parser.add_argument("--window-size", type=int, default=252, help="Trading days window size")
     parser.add_argument("--dist", default="normal", choices=["normal", "t", "skewstudent"], help="Return distribution model")
@@ -56,24 +57,50 @@ def main():
     args = parser.parse_args()
 
     set_seed(args.seed)
-    
-    # Auto-adjust distribution for forex to account for fat tails
-    if args.symbol.endswith("=X") and args.dist == "normal":
-        args.dist = "t"
-        logger.info(f"Forex symbol detected. Auto-adjusted GARCH distribution to '{args.dist}' (Student's t)")
 
     os.makedirs(args.output_dir, exist_ok=True)
 
-    # 1. Fetch Data
-    logger.info(f"Fetching data for {args.symbol}...")
     db_url = os.getenv("DATABASE_URL", "postgresql://sentinel:sentinel@localhost:5432/sentinel_db")
     loader = DataLoader(db_url)
-    try:
-        df = loader.load_historical_bars(args.symbol, limit=args.limit, use_nse_fallback=args.use_nse, min_fallback_rows=30, interval=args.interval).dropna(subset=['close'])
-        df = df.sort_values('timestamp').reset_index(drop=True)
-    except Exception as e:
-        logger.error(f"Failed to load data: {e}")
+
+    def validate_symbol(symbol: str):
+        try:
+            frame = loader.load_historical_bars(
+                symbol,
+                limit=args.limit,
+                use_nse_fallback=args.use_nse,
+                min_fallback_rows=30,
+                interval=args.interval,
+            )
+        except Exception as exc:
+            return SymbolValidationResult(symbol=symbol, is_active=False, reason=f"load_failed: {exc}")
+        return validate_equity_symbol(symbol=symbol, frame=frame, interval=args.interval)
+
+    discovery = discover_training_symbols(
+        interval=args.interval,
+        requested_symbols=[args.symbol] if args.symbol else None,
+        database_url=db_url,
+        validator=validate_symbol,
+        print_fn=lambda message: logger.info(message),
+    )
+    training_symbols = list(discovery.active_symbols)
+    if not training_symbols:
+        logger.error("No active equity symbols passed the training quality gate.")
         sys.exit(1)
+    if args.symbol is None and len(training_symbols) > 1:
+        logger.info("No --symbol provided. Using first active discovered symbol: %s", training_symbols[0])
+    for symbol in training_symbols:
+        assert not is_forex(symbol), (
+            f"{symbol} is a forex symbol and must never "
+            f"be trained as a prediction target. "
+            f"It must be used as an external feature only. "
+            f"Remove it from the training symbol list."
+        )
+    args.symbol = args.symbol or training_symbols[0]
+
+    # 1. Fetch Data
+    logger.info(f"Fetching data for {args.symbol}...")
+    df = discovery.frames[args.symbol].copy()
 
     # 2. Validate Data
     logger.info(f"Loaded {len(df)} rows. Validating...")

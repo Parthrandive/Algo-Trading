@@ -6,6 +6,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pandas as pd
 from sqlalchemy import text
 
 # Add project root to sys.path
@@ -15,6 +16,15 @@ if str(PROJECT_ROOT) not in sys.path:
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
+from config.symbols import (
+    SplitCounts,
+    SymbolValidationResult,
+    dedupe_symbols,
+    discover_training_symbols,
+    is_forex,
+    validate_equity_symbol,
+)
 
 
 def run_command(command: list[str]) -> bool:
@@ -212,12 +222,23 @@ def _prepare_data_if_needed(args: argparse.Namespace) -> bool:
     return True
 
 
+def _quality_gate_split_counts(df: pd.DataFrame) -> SplitCounts:
+    n_rows = len(df)
+    train_end = int(n_rows * 0.70)
+    val_end = int(n_rows * 0.85)
+    return SplitCounts(
+        train_rows=train_end,
+        val_rows=val_end - train_end,
+        test_rows=n_rows - val_end,
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description="Unified Technical Agent Model Training Entrypoint.")
     parser.add_argument("--symbol", default=None, help="Single symbol override for all models")
     parser.add_argument(
         "--symbols",
-        default="INFY.NS,RELIANCE.NS,TATASTEEL.NS,TCS.NS",
+        default=None,
         help="Comma-separated symbols to train when --symbol is not provided",
     )
     parser.add_argument("--limit", type=int, default=None, help="Max rows to fetch from DB")
@@ -244,18 +265,59 @@ def main():
 
     args = parser.parse_args()
 
-    symbols = [args.symbol] if args.symbol else [s.strip() for s in args.symbols.split(",") if s.strip()]
-    if not symbols:
+    db_url = _default_db_url()
+    requested_symbols = [args.symbol] if args.symbol else []
+    if args.symbols:
+        requested_symbols.extend([s.strip() for s in args.symbols.split(",") if s.strip()])
+    requested_symbols = dedupe_symbols(requested_symbols)
+
+    def validate_symbol(symbol: str):
+        trial_args = argparse.Namespace(**vars(args))
+        trial_args.symbol = symbol
+        if trial_args.auto_prepare_data and not _prepare_data_if_needed(trial_args):
+            return SymbolValidationResult(symbol=symbol, is_active=False, reason="auto_prepare_failed")
+        from src.agents.technical.data_loader import DataLoader
+
+        loader = DataLoader(db_url)
+        try:
+            frame = loader.load_historical_bars(
+                symbol,
+                limit=args.limit,
+                use_nse_fallback=args.use_nse,
+                min_fallback_rows=_default_min_rows(args.interval),
+                interval=args.interval,
+            )
+        except Exception as exc:
+            return SymbolValidationResult(symbol=symbol, is_active=False, reason=f"load_failed: {exc}")
+        return validate_equity_symbol(
+            symbol=symbol,
+            frame=frame,
+            interval=args.interval,
+            split_counts=_quality_gate_split_counts(frame),
+        )
+
+    discovery = discover_training_symbols(
+        interval=args.interval,
+        requested_symbols=requested_symbols or None,
+        database_url=db_url,
+        validator=validate_symbol,
+        print_fn=lambda message: logger.info(message),
+    )
+    training_symbols = list(discovery.active_symbols)
+    if not training_symbols:
         logger.error("No symbols provided.")
         sys.exit(1)
 
-    logger.info("=== Starting Unified Training for %s at %s interval ===", symbols, args.interval)
+    logger.info("=== Starting Unified Training for %s at %s interval ===", training_symbols, args.interval)
 
-    for symbol in symbols:
+    for symbol in training_symbols:
+        assert not is_forex(symbol), (
+            f"{symbol} is a forex symbol and must never "
+            f"be trained as a prediction target. "
+            f"It must be used as an external feature only. "
+            f"Remove it from the training symbol list."
+        )
         args.symbol = symbol
-        if args.auto_prepare_data:
-            if not _prepare_data_if_needed(args):
-                sys.exit(1)
 
         common_args = ["--symbol", symbol, "--seed", str(args.seed), "--interval", args.interval]
         if args.limit is not None:

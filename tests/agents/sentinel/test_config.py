@@ -9,6 +9,7 @@ def test_default_runtime_config_loads():
     assert config.version == "nse-sentinel-runtime-v1"
     assert config.symbol_universe.version == "week2-core-v1"
     assert "RELIANCE.NS" in config.symbol_universe.all_symbols
+    assert config.symbol_universe.fx_symbols == ["USDINR=X"]
     assert len(config.active_sources()) >= 2
     assert config.failover.failure_threshold == 2
     assert config.failover.cooldown_seconds == 60

@@ -29,13 +29,25 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.agents.technical.data_loader import DataLoader
 from src.agents.technical.features import engineer_features
+from config.symbols import (
+    FX_RESULTS_NOTE,
+    FOREX_SYMBOLS,
+    SplitCounts,
+    SymbolValidationResult,
+    dedupe_symbols,
+    discover_training_symbols,
+    is_forex,
+    validate_equity_symbol,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-DEFAULT_SYMBOLS = ["INFY.NS", "RELIANCE.NS", "TATASTEEL.NS", "TCS.NS"]
 REQUIRED_COLS = {"timestamp", "open", "high", "low", "close", "volume"}
 EPS = 1e-8
+UP_WEIGHT_MULTIPLIER = 3.0
+BEARISH_DOMINANCE_RATIO = 0.70
+REGIME_SHIFT_THRESHOLD = 0.10
 
 
 @dataclass
@@ -94,11 +106,12 @@ def set_seed(seed: int) -> None:
     torch.backends.cudnn.benchmark = False
 
 
-def parse_symbols(symbol: Optional[str], symbols: str) -> List[str]:
+def parse_symbols(symbol: Optional[str], symbols: Optional[str]) -> List[str]:
     if symbol:
         return [symbol.strip()]
-    parsed = [s.strip() for s in symbols.split(",") if s.strip()]
-    return parsed or DEFAULT_SYMBOLS
+    if not symbols:
+        return []
+    return [s.strip() for s in symbols.split(",") if s.strip()]
 
 
 def sanitize_symbol(symbol: str) -> str:
@@ -143,6 +156,84 @@ def load_symbol_from_local_silver(symbol: str, base_dir: str) -> pd.DataFrame:
     return df
 
 
+def prepare_usdinr_features(df_usdinr: pd.DataFrame) -> pd.DataFrame:
+    if "timestamp" not in df_usdinr.columns or "close" not in df_usdinr.columns:
+        raise ValueError("USDINR context data must include timestamp and close columns.")
+
+    frame = df_usdinr.copy()
+    frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True, errors="coerce")
+    frame["close"] = pd.to_numeric(frame["close"], errors="coerce")
+    frame = frame.dropna(subset=["timestamp", "close"]).sort_values("timestamp").drop_duplicates(
+        subset=["timestamp"],
+        keep="last",
+    )
+    if frame.empty:
+        raise ValueError("USDINR context data is empty after cleaning.")
+
+    frame["usdinr_close"] = frame["close"]
+    frame["usdinr_return"] = np.log(frame["usdinr_close"] / frame["usdinr_close"].shift(1))
+    rolling_mean = frame["usdinr_return"].rolling(20, min_periods=20).mean()
+    rolling_std = frame["usdinr_return"].rolling(20, min_periods=20).std()
+    frame["usdinr_zscore"] = (frame["usdinr_return"] - rolling_mean) / (rolling_std + EPS)
+    frame["usdinr_trend"] = frame["usdinr_close"] / frame["usdinr_close"].rolling(20, min_periods=20).mean() - 1.0
+    frame["usdinr_vol"] = frame["usdinr_return"].rolling(20, min_periods=20).std()
+
+    return frame[
+        [
+            "timestamp",
+            "usdinr_close",
+            "usdinr_return",
+            "usdinr_zscore",
+            "usdinr_trend",
+            "usdinr_vol",
+        ]
+    ].dropna().reset_index(drop=True)
+
+
+def load_fx_context_frame(
+    loader: DataLoader,
+    *,
+    local_silver_dir: Optional[str],
+    limit: Optional[int],
+    use_nse: bool,
+    interval: str,
+) -> pd.DataFrame:
+    fx_symbol = FOREX_SYMBOLS[0]
+    if local_silver_dir:
+        frame = load_symbol_from_local_silver(symbol=fx_symbol, base_dir=local_silver_dir)
+        if limit is not None:
+            frame = frame.tail(limit).copy()
+    else:
+        frame = loader.load_historical_bars(
+            symbol=fx_symbol,
+            limit=limit,
+            use_nse_fallback=use_nse,
+            min_fallback_rows=180,
+            interval=interval,
+        )
+    return prepare_usdinr_features(frame)
+
+
+def merge_usdinr_features(df: pd.DataFrame, fx_context: pd.DataFrame) -> pd.DataFrame:
+    if fx_context.empty:
+        raise ValueError("USDINR context features are required before training any equity symbol.")
+
+    target = df.copy()
+    target["timestamp"] = pd.to_datetime(target["timestamp"], utc=True, errors="coerce")
+    target = target.dropna(subset=["timestamp"]).sort_values("timestamp").drop_duplicates(subset=["timestamp"], keep="last")
+
+    merged = pd.merge_asof(
+        target,
+        fx_context.sort_values("timestamp"),
+        on="timestamp",
+        direction="backward",
+    )
+
+    for column in ["usdinr_close", "usdinr_return", "usdinr_zscore", "usdinr_trend", "usdinr_vol"]:
+        merged[column] = pd.to_numeric(merged[column], errors="coerce").ffill()
+    return merged
+
+
 def chronological_split(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     n = len(df)
     train_end = int(n * 0.70)
@@ -151,6 +242,15 @@ def chronological_split(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, p
     val_df = df.iloc[train_end:val_end].copy()
     test_df = df.iloc[val_end:].copy()
     return train_df, val_df, test_df
+
+
+def quality_gate_split_counts(df: pd.DataFrame) -> SplitCounts:
+    train_df, val_df, test_df = chronological_split(df)
+    return SplitCounts(
+        train_rows=len(train_df),
+        val_rows=len(val_df),
+        test_rows=len(test_df),
+    )
 
 
 def add_symbol_features(df: pd.DataFrame, train_len: int) -> pd.DataFrame:
@@ -319,14 +419,91 @@ def class_distribution(y: np.ndarray, use_binary: bool) -> Dict[str, float]:
     }
 
 
-def compute_class_weights(y_train: np.ndarray, num_classes: int) -> Tuple[Dict[int, float], torch.Tensor]:
+def is_forex_target(symbol: str) -> bool:
+    return is_forex(symbol)
+
+
+def emit_regime_shift_warning(symbol: str, class_name: str, train_pct: float, test_pct: float, diff: float) -> None:
+    logger.warning(
+        "WARNING: [%s] Regime shift detected\n"
+        "Train %s: %.1f%%\n"
+        "Test %s:  %.1f%%\n"
+        "Difference: %.1f%% exceeds 10%% threshold\n"
+        "XGBoost regime feature will be critical\n"
+        "for this symbol",
+        symbol,
+        class_name,
+        train_pct * 100.0,
+        class_name,
+        test_pct * 100.0,
+        diff * 100.0,
+    )
+
+
+def compute_class_weights(
+    y_train: np.ndarray,
+    num_classes: int,
+    symbol: str,
+    y_test: np.ndarray,
+    use_binary: bool,
+) -> Tuple[Dict[int, float], torch.Tensor]:
     classes = np.unique(y_train)
     weights = compute_class_weight(class_weight="balanced", classes=classes, y=y_train)
     class_weight_dict = {int(cls): float(weight) for cls, weight in zip(classes, weights)}
 
+    up_idx = 0
+    neutral_idx = None if use_binary else 1
+    down_idx = 1 if use_binary else 2
+    counts_train = np.bincount(y_train.astype(int), minlength=num_classes)
+    up_count = int(counts_train[up_idx])
+    neutral_count = int(counts_train[neutral_idx]) if neutral_idx is not None else 0
+    down_count = int(counts_train[down_idx])
+    bearish_dominant = (not is_forex_target(symbol)) and up_count < down_count * BEARISH_DOMINANCE_RATIO
+
+    if bearish_dominant:
+        class_weight_dict[up_idx] = float(class_weight_dict.get(up_idx, 1.0) * UP_WEIGHT_MULTIPLIER)
+        logger.warning(
+            "WARNING: [%s] Bearish-dominant train split detected: up=%s down=%s. Applying up class weight multiplier x%.1f",
+            symbol,
+            up_count,
+            down_count,
+            UP_WEIGHT_MULTIPLIER,
+        )
+
     full_weights = torch.ones(num_classes, dtype=torch.float32)
     for cls, weight in class_weight_dict.items():
         full_weights[cls] = float(weight)
+
+    regime_shift_warning = False
+    if not is_forex_target(symbol) and len(y_test) > 0:
+        counts_test = np.bincount(y_test.astype(int), minlength=num_classes)
+        total_train = int(counts_train.sum())
+        total_test = int(counts_test.sum())
+        if total_train > 0 and total_test > 0:
+            train_up_pct = up_count / total_train
+            test_up_pct = int(counts_test[up_idx]) / total_test
+            up_diff = abs(train_up_pct - test_up_pct)
+            if up_diff > REGIME_SHIFT_THRESHOLD:
+                regime_shift_warning = True
+                emit_regime_shift_warning(symbol, "up", train_up_pct, test_up_pct, up_diff)
+
+            train_down_pct = down_count / total_train
+            test_down_pct = int(counts_test[down_idx]) / total_test
+            down_diff = abs(train_down_pct - test_down_pct)
+            if down_diff > REGIME_SHIFT_THRESHOLD:
+                regime_shift_warning = True
+                emit_regime_shift_warning(symbol, "down", train_down_pct, test_down_pct, down_diff)
+
+    down_weight = float(full_weights[down_idx].item())
+    neutral_weight = float(full_weights[neutral_idx].item()) if neutral_idx is not None else 0.0
+    up_weight = float(full_weights[up_idx].item())
+    logger.info("[%s] Raw class counts (train):", symbol)
+    logger.info("           up=%s  neutral=%s  down=%s", up_count, neutral_count, down_count)
+    logger.info("[%s] Bearish dominant: %s", symbol, "Yes" if bearish_dominant else "No")
+    logger.info("[%s] Up multiplier applied: %s", symbol, "Yes" if bearish_dominant else "No")
+    logger.info("[%s] Final class weights:", symbol)
+    logger.info("           down=%.6f  neutral=%.6f  up=%.6f", down_weight, neutral_weight, up_weight)
+    logger.info("[%s] Regime shift warning: %s", symbol, "Yes" if regime_shift_warning else "No")
     return class_weight_dict, full_weights
 
 
@@ -667,7 +844,13 @@ def train_single_symbol(
         )
 
     num_classes = 2 if use_binary else 3
-    class_weight_dict, class_weight_tensor = compute_class_weights(y_train, num_classes=num_classes)
+    class_weight_dict, class_weight_tensor = compute_class_weights(
+        y_train,
+        num_classes=num_classes,
+        symbol=symbol,
+        y_test=y_test,
+        use_binary=use_binary,
+    )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = HybridCnnLstmClassifier(num_features=len(feature_columns), num_classes=num_classes).to(device)
@@ -812,7 +995,7 @@ def main() -> None:
     parser.add_argument("--symbol", default=None, help="Single symbol override (e.g., TATASTEEL.NS).")
     parser.add_argument(
         "--symbols",
-        default=",".join(DEFAULT_SYMBOLS),
+        default=None,
         help="Comma-separated symbols to train (ignored if --symbol is set).",
     )
     parser.add_argument("--limit", type=int, default=None, help="Optional max rows to fetch per symbol.")
@@ -842,38 +1025,77 @@ def main() -> None:
     args = parser.parse_args()
 
     set_seed(args.seed)
-    symbols = parse_symbols(args.symbol, args.symbols)
     output_root = Path(args.output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
     arima_order = tuple(int(x.strip()) for x in args.arima_order.split(","))
 
-    logger.info("Symbols to train: %s", symbols)
-    logger.info("Mode: %s", "binary(up/down)" if args.use_binary else "multiclass(up/neutral/down)")
-
     db_url = os.getenv("DATABASE_URL", "postgresql://sentinel:sentinel@localhost:5432/sentinel_db")
     loader = DataLoader(db_url)
+    fx_context = load_fx_context_frame(
+        loader,
+        local_silver_dir=args.local_silver_dir,
+        limit=args.limit,
+        use_nse=args.use_nse,
+        interval=args.interval,
+    )
+    logger.info("USDINR context rows available: %s", len(fx_context))
 
-    results: List[SymbolTrainingResult] = []
-    failures: List[Tuple[str, str]] = []
+    requested_symbols = dedupe_symbols(parse_symbols(args.symbol, args.symbols))
 
-    for symbol in symbols:
-        logger.info("========== Training %s ==========", symbol)
+    def validate_symbol(symbol: str):
         try:
             if args.local_silver_dir:
-                df = load_symbol_from_local_silver(symbol=symbol, base_dir=args.local_silver_dir)
+                frame = load_symbol_from_local_silver(symbol=symbol, base_dir=args.local_silver_dir)
                 if args.limit is not None:
-                    df = df.tail(args.limit).copy()
+                    frame = frame.tail(args.limit).copy()
             else:
-                df = loader.load_historical_bars(
+                frame = loader.load_historical_bars(
                     symbol=symbol,
                     limit=args.limit,
                     use_nse_fallback=args.use_nse,
                     min_fallback_rows=180,
                     interval=args.interval,
                 )
-            df = df.sort_values("timestamp").dropna(subset=["timestamp", "open", "high", "low", "close", "volume"]).reset_index(
-                drop=True
-            )
+            frame = frame.sort_values("timestamp").dropna(
+                subset=["timestamp", "open", "high", "low", "close", "volume"]
+            ).reset_index(drop=True)
+            frame = merge_usdinr_features(frame, fx_context)
+        except Exception as exc:
+            return SymbolValidationResult(symbol=symbol, is_active=False, reason=f"load_failed: {exc}")
+        return validate_equity_symbol(
+            symbol=symbol,
+            frame=frame,
+            interval=args.interval,
+            split_counts=quality_gate_split_counts(frame),
+        )
+
+    discovery = discover_training_symbols(
+        interval=args.interval,
+        requested_symbols=requested_symbols or None,
+        database_url=db_url,
+        validator=validate_symbol,
+        print_fn=lambda message: logger.info(message),
+    )
+    training_symbols = list(discovery.active_symbols)
+    logger.info("Symbols to train: %s", training_symbols)
+    logger.info("Mode: %s", "binary(up/down)" if args.use_binary else "multiclass(up/neutral/down)")
+    if not training_symbols:
+        logger.error("No active equity symbols passed the training quality gate.")
+        raise SystemExit(1)
+
+    results: List[SymbolTrainingResult] = []
+    failures: List[Tuple[str, str]] = []
+
+    for symbol in training_symbols:
+        assert not is_forex(symbol), (
+            f"{symbol} is a forex symbol and must never "
+            f"be trained as a prediction target. "
+            f"It must be used as an external feature only. "
+            f"Remove it from the training symbol list."
+        )
+        logger.info("========== Training %s ==========", symbol)
+        try:
+            df = discovery.frames[symbol].copy()
             result = train_single_symbol(
                 symbol=symbol,
                 df=df,
@@ -916,6 +1138,8 @@ def main() -> None:
         for symbol, message in failures:
             logger.error("%s failed: %s", symbol, message)
         sys.exit(1)
+
+    logger.info(FX_RESULTS_NOTE)
 
     logger.info("Hybrid regime training pipeline complete.")
 
