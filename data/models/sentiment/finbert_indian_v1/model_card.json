@@ -1,15 +1,11 @@
 {
   "model_id": "finbert_indian_v1",
   "agent": "sentiment",
-  "model_family": "finbert_adapted_runtime",
+  "model_family": "dual_speed_sentiment",
   "version": "1.0",
-  "owner": "Sentiment Agent",
-  "algorithm": "FinBERT-compatible sentiment runtime with offline sklearn adaptation fallback",
-  "description": "Uses Indian-market labeled text to adapt the sentiment runtime. When transformers assets are unavailable locally, the fallback backend remains clearly flagged.",
-  "hyperparameters": {
-    "vectorizer": "tfidf_unigram_bigram",
-    "classifier": "logistic_regression"
-  },
+  "created_at": "2026-03-21 11:51:41.861074+00:00",
+  "updated_at": "2026-03-21 11:51:41.861074+00:00",
+  "status": "research_ready",
   "performance": {
     "backend": "sklearn_logistic_regression",
     "train_size": 12,
@@ -79,23 +75,103 @@
       }
     ]
   },
-  "threshold_status": {
-    "per_class": {
-      "positive": {
-        "precision_ok": false,
-        "recall_ok": false
+  "training_data_snapshot_hash": "pending_external_dataset",
+  "code_hash": "workspace_current",
+  "feature_schema_version": "1.0",
+  "hyperparameters": {},
+  "validation_metrics": {
+    "backend": "sklearn_logistic_regression",
+    "train_size": 12,
+    "validation_size": 3,
+    "accuracy": 0.0,
+    "classes": {
+      "negative": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 1
       },
       "neutral": {
-        "precision_ok": false,
-        "recall_ok": false
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 1
       },
-      "negative": {
-        "precision_ok": false,
-        "recall_ok": false
+      "positive": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 1
       }
     },
-    "all_pass": false
+    "macro_f1": 0.0,
+    "confusion_matrix": [
+      [
+        0,
+        0,
+        1
+      ],
+      [
+        0,
+        0,
+        1
+      ],
+      [
+        1,
+        0,
+        0
+      ]
+    ],
+    "class_order": [
+      "negative",
+      "neutral",
+      "positive"
+    ],
+    "validation_predictions": [
+      {
+        "text": "RBI tightening surprise pressures rate-sensitive lenders and NBFCs",
+        "predicted_label": "positive",
+        "true_label": "negative",
+        "confidence": 0.3830226144202297
+      },
+      {
+        "text": "SEBI clears compliance issue and shares rally on relief",
+        "predicted_label": "negative",
+        "true_label": "positive",
+        "confidence": 0.4009531202489841
+      },
+      {
+        "text": "Rupee holds steady while investors watch global yields",
+        "predicted_label": "positive",
+        "true_label": "neutral",
+        "confidence": 0.3509115528120731
+      }
+    ]
   },
-  "synthetic_data": true,
-  "status": "bootstrap_only"
+  "baseline_comparison": {},
+  "plan_version": "v1.3.7",
+  "created_by": "Codex",
+  "reviewed_by": "pending",
+  "promotion_gate_checklist": {
+    "timestamp_alignment": true,
+    "cache_in_execution_path": false,
+    "manipulation_detection": true,
+    "thresholds_met": {
+      "per_class": {
+        "positive": {
+          "precision_ok": false,
+          "recall_ok": false
+        },
+        "neutral": {
+          "precision_ok": false,
+          "recall_ok": false
+        },
+        "negative": {
+          "precision_ok": false,
+          "recall_ok": false
+        }
+      },
+      "all_pass": false
+    }
+  }
 }

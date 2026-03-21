@@ -81,12 +81,13 @@ def nse_pipeline_setup(tmp_path):
 @pytest.mark.skipif(not list(Path("data/silver/ohlcv").rglob("*.parquet")), reason="Real NSE parquet data missing (migrated to DB)")
 def test_real_nse_data_pipeline(nse_pipeline_setup):
     """
-    Integration test utilizing the fully populated data/silver/ohlcv directory.
-    Tests reading all 11 symbols and processing them through the pipeline.
+    Integration test utilizing the checked-in data/silver/ohlcv fixture.
+    Tests reading every available symbol snapshot and processing it through the pipeline.
     """
     config_path, real_market_path, macro_path = nse_pipeline_setup
     
     pipeline = PreprocessingPipeline(config_path=str(config_path))
+    raw_market = pipeline.market_loader.load(real_market_path, "snapshot_real_nse_01")
     output = pipeline.process_snapshot(
         market_source_path=real_market_path,
         macro_source_path=macro_path,
@@ -95,7 +96,9 @@ def test_real_nse_data_pipeline(nse_pipeline_setup):
     
     # Asserts for base pipeline success
     assert output.input_snapshot_id == "snapshot_real_nse_01"
-    assert len(output.records) > 1000  # 474 files * ~7 hours = ~3000 records
+    assert not raw_market.empty
+    assert len(output.records) == len(raw_market)
+    assert {record["symbol"] for record in output.records} == set(raw_market["symbol"].unique())
     
     # Check shape/features
     first_record = output.records[0]

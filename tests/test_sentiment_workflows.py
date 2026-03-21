@@ -1,4 +1,6 @@
+import json
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
@@ -105,3 +107,66 @@ def test_local_training_artifact_can_bootstrap_slow_model(tmp_path):
 
     assert model.using_fallback is False
     assert prediction.label.value in {"positive", "neutral", "negative"}
+
+
+def test_nightly_batch_can_read_from_db_without_persisting_results():
+    session_factory, recorder = _build_sqlite_recorder()
+    now = datetime.now(timezone.utc)
+
+    with session_factory() as session:
+        session.add(
+            TextItemDB(
+                source_type="rss_feed",
+                source_id="doc_dry_run_1",
+                timestamp=now - timedelta(hours=1),
+                content="RBI support keeps financial sentiment resilient",
+                item_type="news",
+                headline="RBI support keeps financial sentiment resilient",
+                publisher="Mint",
+                symbol="SBIN.NS",
+                language="en",
+                quality_status="pass",
+                ingestion_timestamp_utc=now,
+                ingestion_timestamp_ist=now,
+                schema_version="1.0",
+            )
+        )
+        session.commit()
+
+    agent = SentimentAgent.from_default_components(phase2_recorder=recorder, persist_predictions=False)
+    batch = agent.run_nightly_batch(as_of_utc=now, lookback_hours=24)
+
+    assert len(batch.document_predictions) == 1
+    with session_factory() as session:
+        stored_scores = session.execute(select(SentimentScoreDB)).scalars().all()
+        stored_cards = session.execute(select(ModelCardDB)).scalars().all()
+
+    assert stored_scores == []
+    assert stored_cards == []
+
+
+def test_finbert_bootstrap_loads_local_hf_artifact_directory(tmp_path, monkeypatch):
+    (tmp_path / "config.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "tokenizer_config.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "artifact_manifest.json").write_text(
+        json.dumps({"model_id": "finbert_indian_hf_v1", "backend": "huggingface_transformers"}),
+        encoding="utf-8",
+    )
+
+    def _fake_hf_classifier(model_ref, *, local_files_only):
+        assert Path(model_ref) == tmp_path
+        assert local_files_only is True
+        return lambda text, truncation=True: {"label": "positive", "score": 0.91}
+
+    monkeypatch.setattr(FinBERTSentimentModel, "_build_hf_classifier", staticmethod(_fake_hf_classifier))
+
+    model = FinBERTSentimentModel.bootstrap(
+        model_id="ProsusAI/finbert",
+        enable_hf_pipeline=False,
+        artifact_dir=tmp_path,
+    )
+    prediction = model.predict("RBI liquidity support improves market sentiment")
+
+    assert model.using_fallback is False
+    assert prediction.label.value == "positive"
+    assert prediction.model_name == "finbert_indian_hf_v1"

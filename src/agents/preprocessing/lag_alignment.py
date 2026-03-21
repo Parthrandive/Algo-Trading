@@ -50,7 +50,11 @@ class LagAligner:
                     macro_df["release_date"], utc=True, errors="coerce"
                 ).astype("datetime64[ns, UTC]")
             else:
-                macro_df["release_date"] = pd.NaT
+                macro_df["release_date"] = pd.Series(
+                    pd.NaT,
+                    index=macro_df.index,
+                    dtype="datetime64[ns, UTC]",
+                )
 
             for indicator in sorted(macro_df["indicator_name"].astype(str).unique()):
                 delay = self.publication_delays.get(str(indicator), timedelta(0))
@@ -74,7 +78,9 @@ class LagAligner:
                 if ind_df.empty:
                     continue
 
-                market_df = market_df.sort_values("timestamp")
+                # Reset the sorted index so merge_asof results can be assigned
+                # positionally without leaking values across rows.
+                market_df = market_df.sort_values("timestamp").reset_index(drop=True)
                 merged = pd.merge_asof(
                     market_df,
                     ind_df,
@@ -82,7 +88,7 @@ class LagAligner:
                     right_on="effective_time",
                     direction="backward",
                 )
-                market_df[indicator] = merged["value"]
+                market_df[indicator] = merged["value"].to_numpy()
 
         # 3. Align Textual Sentiment
         if text_df is not None and not text_df.empty:
@@ -90,8 +96,8 @@ class LagAligner:
             text_df["timestamp"] = pd.to_datetime(text_df["timestamp"], utc=True).astype("datetime64[ns, UTC]")
             
             # Sort both for merge_asof
-            market_df = market_df.sort_values("timestamp")
-            text_df = text_df.sort_values("timestamp")
+            market_df = market_df.sort_values("timestamp").reset_index(drop=True)
+            text_df = text_df.sort_values("timestamp").reset_index(drop=True)
             
             # We must group by symbol for text, as sentiment is entity-specific, unlike global macro
             if "symbol" in market_df.columns and "symbol" in text_df.columns:

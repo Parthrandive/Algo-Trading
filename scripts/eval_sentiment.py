@@ -9,8 +9,13 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from src.agents.sentiment.models import FinBERTSentimentModel
 from src.agents.sentiment.training import (
     BOOTSTRAP_CORPUS,
+    DEFAULT_THRESHOLDS,
+    HF_BACKEND,
+    detect_artifact_backend,
+    evaluate_model,
     evaluate_pipeline,
     load_dataset_rows,
     load_examples_from_sources,
@@ -43,21 +48,25 @@ def _load_sources(dataset_specs: list[str]) -> dict[str, list[dict]]:
 
 def main() -> None:
     args = parse_args()
-    pipeline = load_pipeline_artifact(Path(args.artifact_dir))
+    artifact_dir = Path(args.artifact_dir)
+    backend = detect_artifact_backend(artifact_dir)
     sources = _load_sources(args.dataset)
     if not sources and not args.include_bootstrap_corpus:
         raise SystemExit("No datasets supplied. Use --dataset ... or --include-bootstrap-corpus.")
 
     examples = load_examples_from_sources(sources, include_bootstrap=args.include_bootstrap_corpus)
-    report = evaluate_pipeline(pipeline, examples)
-    report["threshold_status"] = threshold_report(
-        report,
-        {
-            "positive": {"precision_min": 0.75, "recall_min": 0.72},
-            "neutral": {"precision_min": 0.70, "recall_min": 0.68},
-            "negative": {"precision_min": 0.78, "recall_min": 0.74},
-        },
-    )
+    if backend == HF_BACKEND:
+        model = FinBERTSentimentModel.bootstrap(
+            model_id="ProsusAI/finbert",
+            enable_hf_pipeline=False,
+            artifact_dir=artifact_dir,
+        )
+        report = evaluate_model(model, examples, backend=backend)
+    else:
+        pipeline = load_pipeline_artifact(artifact_dir)
+        report = evaluate_pipeline(pipeline, examples)
+
+    report["threshold_status"] = threshold_report(report, DEFAULT_THRESHOLDS)
     report["synthetic_data_only"] = bool(args.include_bootstrap_corpus and not sources)
     if args.include_bootstrap_corpus:
         report["bootstrap_rows"] = len(BOOTSTRAP_CORPUS["synthetic_bootstrap"])
@@ -65,7 +74,16 @@ def main() -> None:
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
-    print(json.dumps({"output": str(output_path), "accuracy": report["accuracy"]}, indent=2))
+    print(
+        json.dumps(
+            {
+                "output": str(output_path),
+                "accuracy": report["accuracy"],
+                "backend": report["backend"],
+            },
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

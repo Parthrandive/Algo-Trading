@@ -117,16 +117,7 @@ class FinBERTSentimentModel:
                 return cls(model_id=resolved_model_id, classifier=classifier)
         if enable_hf_pipeline:
             try:
-                from transformers import pipeline  # type: ignore
-
-                classifier = pipeline(
-                    task="text-classification",
-                    model=model_id,
-                    tokenizer=model_id,
-                    truncation=True,
-                    top_k=1,
-                    local_files_only=local_files_only,
-                )
+                classifier = cls._build_hf_classifier(model_id, local_files_only=local_files_only)
             except Exception:
                 classifier = None
         return cls(model_id=resolved_model_id, classifier=classifier)
@@ -191,16 +182,7 @@ class FinBERTSentimentModel:
     ) -> tuple[Callable[..., Any] | None, str]:
         classifier_path = artifact_dir / "classifier.pkl"
         manifest_path = artifact_dir / "artifact_manifest.json"
-        if not classifier_path.exists():
-            return None, fallback_model_id
-
-        try:
-            with classifier_path.open("rb") as handle:
-                pipeline = pickle.load(handle)
-        except Exception:
-            return None, fallback_model_id
-        if not isinstance(pipeline, Pipeline):
-            return None, fallback_model_id
+        config_path = artifact_dir / "config.json"
 
         manifest: dict[str, Any] = {}
         if manifest_path.exists():
@@ -211,7 +193,42 @@ class FinBERTSentimentModel:
             except Exception:
                 manifest = {}
         model_id = str(manifest.get("model_id", fallback_model_id))
-        return SklearnArtifactClassifier(pipeline), model_id
+
+        if classifier_path.exists():
+            try:
+                with classifier_path.open("rb") as handle:
+                    pipeline = pickle.load(handle)
+            except Exception:
+                return None, fallback_model_id
+            if not isinstance(pipeline, Pipeline):
+                return None, fallback_model_id
+            return SklearnArtifactClassifier(pipeline), model_id
+
+        try:
+            if config_path.exists():
+                classifier = FinBERTSentimentModel._build_hf_classifier(artifact_dir, local_files_only=True)
+                return classifier, model_id
+        except Exception:
+            return None, fallback_model_id
+        return None, fallback_model_id
+
+    @staticmethod
+    def _build_hf_classifier(
+        model_ref: str | Path,
+        *,
+        local_files_only: bool,
+    ) -> Callable[..., Any]:
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline  # type: ignore
+
+        model = AutoModelForSequenceClassification.from_pretrained(model_ref, local_files_only=local_files_only)
+        tokenizer = AutoTokenizer.from_pretrained(model_ref, local_files_only=local_files_only, use_fast=True)
+        return pipeline(
+            task="text-classification",
+            model=model,
+            tokenizer=tokenizer,
+            truncation=True,
+            top_k=1,
+        )
 
 
 class SklearnArtifactClassifier:

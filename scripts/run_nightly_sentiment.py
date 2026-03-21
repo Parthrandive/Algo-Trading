@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.agents.sentiment.sentiment_agent import SentimentAgent
+from src.db.phase2_recorder import Phase2Recorder
 
 
 def parse_args() -> argparse.Namespace:
@@ -18,15 +19,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--database-url", default=None)
     parser.add_argument("--runtime-config", default="configs/sentiment_agent_runtime_v1.json")
     parser.add_argument("--output", default="data/reports/sentiment_eval/nightly_batch_summary.json")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Read from the database and score the nightly batch without persisting predictions or aggregates.",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    recorder = Phase2Recorder(database_url=args.database_url)
     agent = SentimentAgent.from_default_components(
         Path(args.runtime_config),
-        database_url=args.database_url,
-        persist_predictions=True,
+        database_url=args.database_url if not args.dry_run else None,
+        phase2_recorder=recorder,
+        persist_predictions=not args.dry_run,
     )
     batch = agent.run_nightly_batch(lookback_hours=args.lookback_hours)
 
@@ -34,6 +42,7 @@ def main() -> None:
         "started_at_utc": batch.started_at_utc.isoformat(),
         "completed_at_utc": batch.completed_at_utc.isoformat(),
         "lookback_hours": batch.lookback_hours,
+        "dry_run": bool(args.dry_run),
         "document_predictions": len(batch.document_predictions),
         "symbol_aggregates": [
             {
