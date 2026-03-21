@@ -110,7 +110,7 @@ def custom_train_lstm(
 
     best_val_loss = float('inf')
     epochs_no_improve = 0
-    best_weights_path = os.path.join(output_dir, f"best_model_{symbol}.keras")
+    best_weights_path = os.path.join("/tmp", f"best_model_{symbol}.keras")
     best_train_loss = float('inf')
     
     logger.info("Training LSTM on residuals...")
@@ -428,8 +428,8 @@ def main():
     logger.info(f"Final MSE - Train: {train_mse:.6f}, Val: {val_mse:.6f}, Test: {test_mse:.6f}")
 
     # 7. Save Models and Meta
-    logger.info(f"Saving model artifacts to {args.output_dir}")
-    hybrid.save(args.output_dir)
+    # Skip persisting heavy .pt weights locally (saved to /tmp/ during training for early stopping only)
+    # hybrid.save(args.output_dir)  # disabled to avoid local disk bloat
     
     meta = {
         "timestamp": datetime.now(timezone.utc).isoformat(),

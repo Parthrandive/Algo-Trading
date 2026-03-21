@@ -205,7 +205,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--gold-dir", default="data/gold", help="Gold parquet fallback directory.")
     parser.add_argument("--interval", default="1d", help="Candle interval to use when falling back to OHLCV DB loader.")
     parser.add_argument("--limit", type=int, default=4000, help="Maximum rows to load per symbol.")
-    parser.add_argument("--output-root", default="data/reports/training_runs", help="Directory for run artifacts.")
+    parser.add_argument("--output-root", default="/tmp/training_runs", help="Directory for run artifacts (defaults to /tmp to avoid disk bloat).")
     parser.add_argument("--seed", type=int, default=42, help="Global random seed.")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu", help="Device: cuda or cpu.")
 
