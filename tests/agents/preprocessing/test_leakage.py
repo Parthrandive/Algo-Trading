@@ -81,6 +81,41 @@ def test_leakage_detected(base_harness, mock_market_df, mock_macro_df):
     with pytest.raises(LeakageError, match="Future Leak for CPI"):
          base_harness.verify_no_lookahead(mock_market_df, mock_macro_df, output)
 
+
+def test_lag_aligner_preserves_macro_values_with_unsorted_market_index():
+    aligner = LagAligner(publication_delays={"CPI": timedelta(0)})
+    market_df = pd.DataFrame(
+        {
+            "timestamp": [
+                datetime(2023, 1, 1, 9, 15, tzinfo=timezone.utc),
+                datetime(2023, 1, 3, 9, 15, tzinfo=timezone.utc),
+                datetime(2023, 1, 2, 9, 15, tzinfo=timezone.utc),
+            ],
+            "symbol": ["RELIANCE", "RELIANCE", "INFY"],
+            "close": [100.0, 103.0, 102.0],
+        },
+        index=[100, 300, 200],
+    )
+    macro_df = pd.DataFrame(
+        {
+            "timestamp": [
+                datetime(2023, 1, 1, 0, 0, tzinfo=timezone.utc),
+                datetime(2023, 1, 3, 0, 0, tzinfo=timezone.utc),
+            ],
+            "indicator_name": ["CPI", "CPI"],
+            "value": [10.0, 11.0],
+        }
+    )
+
+    aligned = aligner.align(market_df, macro_df)
+    observed = {
+        (row.symbol, row.timestamp.isoformat()): row.CPI
+        for row in aligned.itertuples(index=False)
+    }
+
+    assert observed[("INFY", datetime(2023, 1, 2, 9, 15, tzinfo=timezone.utc).isoformat())] == 10.0
+    assert observed[("RELIANCE", datetime(2023, 1, 3, 9, 15, tzinfo=timezone.utc).isoformat())] == 11.0
+
 def test_time_alignment_validation(base_harness):
     """Verify that non-monotonic timestamps raise LeakageError."""
     

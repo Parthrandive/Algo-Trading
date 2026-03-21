@@ -130,11 +130,19 @@ class Phase2Recorder:
             "symbol": payload.get("symbol"),
             "timestamp": self._coerce_datetime(payload["timestamp"]),
             "lane": str(payload["lane"]),
+            "source_id": payload.get("source_id"),
+            "source_type": payload.get("source_type"),
             "sentiment_class": str(payload["sentiment_class"]),
             "sentiment_score": float(payload["sentiment_score"]),
             "z_t": self._optional_float(payload.get("z_t")),
             "confidence": float(payload["confidence"]),
             "source_count": int(payload.get("source_count", 0)),
+            "ttl_seconds": self._optional_int(payload.get("ttl_seconds")),
+            "freshness_flag": payload.get("freshness_flag"),
+            "headline_timestamp": self._optional_datetime(payload.get("headline_timestamp")),
+            "score_timestamp": self._optional_datetime(payload.get("score_timestamp")),
+            "quality_status": payload.get("quality_status"),
+            "metadata_json": self._to_json(payload.get("metadata")) if payload.get("metadata") is not None else None,
             "model_id": str(payload["model_id"]),
             "schema_version": str(payload.get("schema_version", "1.0")),
         }
@@ -309,6 +317,17 @@ class Phase2Recorder:
         if value is None:
             return None
         return float(value)
+
+    @staticmethod
+    def _optional_int(value: Any) -> int | None:
+        if value is None:
+            return None
+        return int(value)
+
+    def _optional_datetime(self, value: Any) -> datetime | None:
+        if value is None:
+            return None
+        return self._coerce_datetime(value)
 
     @staticmethod
     def _coerce_datetime(value: Any) -> datetime:
