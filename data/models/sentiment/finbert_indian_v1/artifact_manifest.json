@@ -1,0 +1,14 @@
+{
+  "model_id": "finbert_indian_v1",
+  "version": "1.0",
+  "backend": "sklearn_logistic_regression",
+  "class_order": [
+    "negative",
+    "neutral",
+    "positive"
+  ],
+  "synthetic_data": true,
+  "dataset_sizes": {
+    "synthetic_bootstrap": 15
+  }
+}

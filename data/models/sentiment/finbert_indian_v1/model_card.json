@@ -1,0 +1,101 @@
+{
+  "model_id": "finbert_indian_v1",
+  "agent": "sentiment",
+  "model_family": "finbert_adapted_runtime",
+  "version": "1.0",
+  "owner": "Sentiment Agent",
+  "algorithm": "FinBERT-compatible sentiment runtime with offline sklearn adaptation fallback",
+  "description": "Uses Indian-market labeled text to adapt the sentiment runtime. When transformers assets are unavailable locally, the fallback backend remains clearly flagged.",
+  "hyperparameters": {
+    "vectorizer": "tfidf_unigram_bigram",
+    "classifier": "logistic_regression"
+  },
+  "performance": {
+    "backend": "sklearn_logistic_regression",
+    "train_size": 12,
+    "validation_size": 3,
+    "accuracy": 0.0,
+    "classes": {
+      "negative": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 1
+      },
+      "neutral": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 1
+      },
+      "positive": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 1
+      }
+    },
+    "macro_f1": 0.0,
+    "confusion_matrix": [
+      [
+        0,
+        0,
+        1
+      ],
+      [
+        0,
+        0,
+        1
+      ],
+      [
+        1,
+        0,
+        0
+      ]
+    ],
+    "class_order": [
+      "negative",
+      "neutral",
+      "positive"
+    ],
+    "validation_predictions": [
+      {
+        "text": "RBI tightening surprise pressures rate-sensitive lenders and NBFCs",
+        "predicted_label": "positive",
+        "true_label": "negative",
+        "confidence": 0.3830226144202297
+      },
+      {
+        "text": "SEBI clears compliance issue and shares rally on relief",
+        "predicted_label": "negative",
+        "true_label": "positive",
+        "confidence": 0.4009531202489841
+      },
+      {
+        "text": "Rupee holds steady while investors watch global yields",
+        "predicted_label": "positive",
+        "true_label": "neutral",
+        "confidence": 0.3509115528120731
+      }
+    ]
+  },
+  "threshold_status": {
+    "per_class": {
+      "positive": {
+        "precision_ok": false,
+        "recall_ok": false
+      },
+      "neutral": {
+        "precision_ok": false,
+        "recall_ok": false
+      },
+      "negative": {
+        "precision_ok": false,
+        "recall_ok": false
+      }
+    },
+    "all_pass": false
+  },
+  "synthetic_data": true,
+  "status": "bootstrap_only"
+}
