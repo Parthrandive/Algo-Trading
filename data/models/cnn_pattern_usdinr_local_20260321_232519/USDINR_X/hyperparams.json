@@ -1,0 +1,42 @@
+{
+  "symbol": "USDINR=X",
+  "window_size": 20,
+  "learning_rate": 0.001,
+  "feature_columns": [
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "close_lag_1",
+    "close_lag_2",
+    "close_lag_3",
+    "close_lag_4",
+    "close_lag_5",
+    "close_roll_mean_7",
+    "close_roll_std_7",
+    "close_roll_mean_14",
+    "close_roll_std_14",
+    "rsi",
+    "macd",
+    "macd_signal",
+    "macd_hist",
+    "macro_coverage_ratio",
+    "macro_regime_index",
+    "macro_regime_shock",
+    "macro_directional_flag",
+    "returns",
+    "vol_regime",
+    "return_zscore",
+    "arima_forecast",
+    "arima_residual"
+  ],
+  "neutral_threshold": 0.005,
+  "use_binary": false,
+  "confidence_threshold": 0.6499999999999999,
+  "class_weight_dict": {
+    "0": 6.454545454545454,
+    "1": 0.3662940670679278,
+    "2": 8.693877551020408
+  }
+}

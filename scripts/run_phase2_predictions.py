@@ -11,7 +11,9 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
 from src.agents.regime.regime_agent import RegimeAgent
+from src.agents.technical.data_loader import DataLoader
 from src.agents.technical.technical_agent import TechnicalAgent
+from config.symbols import SymbolValidationResult, dedupe_symbols, discover_training_symbols, is_forex, validate_equity_symbol
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -23,10 +25,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--symbols",
         nargs="+",
-        default=["USDINR=X"],
-        help="Symbols to score, e.g. USDINR=X POWERGRID.NS LT.NS",
+        default=None,
+        help="Equity symbols to score, e.g. RELIANCE.NS POWERGRID.NS LT.NS",
     )
     parser.add_argument("--db-url", default=os.getenv("DATABASE_URL"), help="Optional DATABASE_URL override.")
+    parser.add_argument("--interval", default="1h", help="Interval used for runtime symbol discovery.")
     parser.add_argument("--models-dir", default="data/models", help="Directory containing trained technical model artifacts.")
     parser.add_argument("--technical-limit", type=int, default=300, help="History bars used by the technical agent loader.")
     parser.add_argument("--regime-limit", type=int, default=800, help="Gold-feature rows used by the regime agent.")
@@ -56,6 +59,32 @@ def main() -> None:
     output_path = Path(args.output) if args.output else _default_output_path()
     _ensure_output_dir(output_path)
 
+    loader = DataLoader(args.db_url or os.getenv("DATABASE_URL", "postgresql://sentinel:sentinel@localhost:5432/sentinel_db"))
+
+    def validate_symbol(symbol: str):
+        try:
+            frame = loader.load_historical_bars(
+                symbol,
+                limit=max(args.technical_limit, args.regime_limit),
+                use_nse_fallback=False,
+                min_fallback_rows=100,
+                interval=args.interval,
+            )
+        except Exception as exc:
+            return SymbolValidationResult(symbol=symbol, is_active=False, reason=f"load_failed: {exc}")
+        return validate_equity_symbol(symbol=symbol, frame=frame, interval=args.interval)
+
+    discovery = discover_training_symbols(
+        interval=args.interval,
+        requested_symbols=dedupe_symbols(args.symbols or []) or None,
+        database_url=args.db_url,
+        validator=validate_symbol,
+        print_fn=lambda message: logger.info(message),
+    )
+    symbols_to_score = list(discovery.active_symbols)
+    if not symbols_to_score:
+        raise SystemExit("No active equity symbols available for scoring.")
+
     technical_agent = None
     regime_agent = None
     if not args.skip_technical:
@@ -74,7 +103,13 @@ def main() -> None:
     results: list[dict] = []
     failures: list[dict] = []
 
-    for symbol in args.symbols:
+    for symbol in symbols_to_score:
+        assert not is_forex(symbol), (
+            f"{symbol} is a forex symbol and must never "
+            f"be trained as a prediction target. "
+            f"It must be used as an external feature only. "
+            f"Remove it from the training symbol list."
+        )
         symbol_result = {
             "symbol": symbol,
             "technical": None,
@@ -110,7 +145,7 @@ def main() -> None:
         "snapshot_id": snapshot_id,
         "db_url": args.db_url or os.getenv("DATABASE_URL"),
         "persist_enabled": not args.disable_persist,
-        "symbols": args.symbols,
+        "symbols": symbols_to_score,
         "results": results,
         "failures": failures,
     }

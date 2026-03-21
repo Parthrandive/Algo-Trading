@@ -26,6 +26,18 @@ from src.agents.regime.models.ood_detector import OODDetector
 from src.agents.regime.models.pearl_meta import PearlMetaModel
 from src.agents.sentiment.sentiment_agent import SentimentAgent
 from src.agents.technical.features import engineer_features
+from config.symbols import (
+    FX_RESULTS_NOTE,
+    FOREX_SYMBOLS,
+    MIN_TEST_ROWS,
+    MIN_TRAIN_ROWS,
+    SplitCounts,
+    dedupe_symbols,
+    format_symbol_list,
+    is_forex,
+    print_symbol_selection_summary,
+    validate_equity_symbol,
+)
 
 
 MACRO_COLUMNS = [
@@ -66,6 +78,7 @@ RISK_LEVEL_TO_FLOAT = {"full_risk": 0.0, "reduced_risk": 0.5, "neutral_cash": 1.
 class PipelineConfig:
     symbols: list[str]
     output_root: Path
+    fx_context_symbol: str = FOREX_SYMBOLS[0]
     silver_ohlcv_root: Path = Path("data/silver/ohlcv")
     silver_macro_root: Path = Path("data/silver/macro")
     textual_canonical_path: Path = Path("docs/reports/day4_sync_s2/artifacts/textual_canonical_2026-03-05.parquet")
@@ -176,6 +189,27 @@ def _load_symbol_ohlcv(symbol: str, root: Path) -> pd.DataFrame:
     return df
 
 
+def _discover_local_equity_symbols(root: Path) -> list[str]:
+    if not root.exists():
+        return []
+    symbols = [path.name for path in sorted(root.iterdir()) if path.is_dir() and not is_forex(path.name)]
+    return dedupe_symbols(symbols)
+
+
+def _quality_gate_split_counts(frame: pd.DataFrame, config: PipelineConfig) -> SplitCounts:
+    total_rows = len(frame)
+    if total_rows <= 0:
+        return SplitCounts(train_rows=0, val_rows=0, test_rows=0)
+    test_start = int(total_rows * (1.0 - config.test_size_ratio))
+    test_start = max(test_start, config.min_train_rows + 1)
+    test_rows = max(0, total_rows - test_start)
+    return SplitCounts(
+        train_rows=max(test_start, config.min_train_rows),
+        val_rows=max(test_rows, MIN_TEST_ROWS),
+        test_rows=test_rows,
+    )
+
+
 def _load_macro_frame(root: Path) -> pd.DataFrame:
     if not root.exists():
         return pd.DataFrame(columns=["timestamp", "indicator_name", "value"])
@@ -261,6 +295,38 @@ def merge_macro_asof(
     return merged, {"macro_rows": int(len(macro_df)), "asof_safe_violations": int(leak_check)}
 
 
+def _load_fx_context_frame(symbol: str, root: Path) -> pd.DataFrame:
+    frame = _load_symbol_ohlcv(symbol, root)
+    if frame.empty:
+        return pd.DataFrame(columns=["timestamp", "usdinr_close"])
+
+    context = frame.copy()
+    context["timestamp"] = pd.to_datetime(context["timestamp"], utc=True, errors="coerce")
+    context["close"] = pd.to_numeric(context["close"], errors="coerce")
+    context = context.dropna(subset=["timestamp", "close"]).sort_values("timestamp").drop_duplicates(
+        subset=["timestamp"],
+        keep="last",
+    )
+    if context.empty:
+        return pd.DataFrame(columns=["timestamp", "usdinr_close"])
+
+    return context[["timestamp", "close"]].rename(columns={"close": "usdinr_close"}).reset_index(drop=True)
+
+
+def _merge_fx_context(df: pd.DataFrame, fx_context: pd.DataFrame) -> pd.DataFrame:
+    if fx_context.empty:
+        raise ValueError("USDINR context data is required before consensus training.")
+
+    merged = pd.merge_asof(
+        df.sort_values("timestamp"),
+        fx_context.sort_values("timestamp"),
+        on="timestamp",
+        direction="backward",
+    )
+    merged["usdinr_close"] = pd.to_numeric(merged["usdinr_close"], errors="coerce").ffill()
+    return merged
+
+
 def _neutral_band(vol: float, tx_cost_bps: float, vol_scale: float) -> float:
     tx = tx_cost_bps / 10_000.0
     safe_vol = max(0.0, float(vol))
@@ -276,7 +342,7 @@ def _return_to_class(next_return: float, band: float) -> int:
 
 
 def build_market_frame(df: pd.DataFrame, tx_cost_bps: float, neutral_vol_scale: float) -> pd.DataFrame:
-    out = engineer_features(df.copy(), is_forex=str(df["symbol"].iloc[0]).endswith("=X"))
+    out = engineer_features(df.copy(), is_forex=is_forex(str(df["symbol"].iloc[0])))
     out = out.sort_values("timestamp").reset_index(drop=True)
     out["next_return"] = out["close"].shift(-1) / out["close"] - 1.0
     out["volatility_rolling_20"] = (
@@ -1283,6 +1349,7 @@ def choose_recommendation(
 
 def build_markdown_report(
     config: PipelineConfig,
+    training_symbols: list[str],
     run_dir: Path,
     data_overview: dict[str, Any],
     leakage_checks: dict[str, Any],
@@ -1296,7 +1363,7 @@ def build_markdown_report(
     lines.append("# Phase-2 Offline Training Report (Technical -> Regime -> Sentiment -> Consensus)")
     lines.append("")
     lines.append(f"- Generated at (UTC): {datetime.now(UTC).isoformat()}")
-    lines.append(f"- Symbols: {', '.join(config.symbols)}")
+    lines.append(f"- Symbols: {', '.join(training_symbols)}")
     lines.append(f"- Run directory: `{run_dir}`")
     lines.append("")
     lines.append("## Data Used")
@@ -1339,6 +1406,8 @@ def build_markdown_report(
     lines.append("- Available local history is limited; long-horizon (2019+) validation is not currently possible from local files.")
     lines.append("- Textual data coverage is sparse and mostly point-in-time artifacts; sentiment is run with graceful degradation.")
     lines.append("- Results are offline research validation only; no live execution logic is touched.")
+    lines.append("")
+    lines.append(FX_RESULTS_NOTE)
     return "\n".join(lines) + "\n"
 
 
@@ -1348,19 +1417,71 @@ def run_pipeline(config: PipelineConfig) -> dict[str, Any]:
     run_dir = config.output_root / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
+    requested_symbols = dedupe_symbols(config.symbols)
+    candidate_symbols = requested_symbols or _discover_local_equity_symbols(config.silver_ohlcv_root)
     symbol_frames: dict[str, pd.DataFrame] = {}
-    data_overview: dict[str, Any] = {"symbols": {}, "macro_rows": 0, "doc_rows": 0}
+    fx_context = _load_fx_context_frame(config.fx_context_symbol, config.silver_ohlcv_root)
+    if fx_context.empty:
+        raise ValueError(f"FX context symbol {config.fx_context_symbol} must be available before consensus training.")
+    if not candidate_symbols:
+        raise ValueError("No NSE equity symbols were discovered in the local data pipeline.")
+    print(f"Discovered candidate equity symbols from data pipeline: {format_symbol_list(candidate_symbols)}")
+
+    skipped_reasons: dict[str, str] = {}
+    validated_frames: dict[str, pd.DataFrame] = {}
+    data_overview: dict[str, Any] = {
+        "symbols": {},
+        "macro_rows": 0,
+        "doc_rows": 0,
+        "fx_context_symbol": config.fx_context_symbol,
+        "fx_context_rows": int(len(fx_context)),
+    }
     macro = _load_macro_frame(config.silver_macro_root)
     data_overview["macro_rows"] = int(len(macro))
 
-    macro_leak_total = 0
-    for symbol in config.symbols:
+    for symbol in candidate_symbols:
+        if is_forex(symbol):
+            skipped_reasons[symbol] = "forex_context_only"
+            continue
         raw = _load_symbol_ohlcv(symbol, config.silver_ohlcv_root)
         if raw.empty:
+            skipped_reasons[symbol] = "no_local_ohlcv_rows"
             continue
+        merged, _ = merge_macro_asof(raw, macro)
+        merged = _merge_fx_context(merged, fx_context)
+        prepared = build_market_frame(merged, tx_cost_bps=config.tx_cost_bps, neutral_vol_scale=config.neutral_vol_scale)
+        outcome = validate_equity_symbol(
+            symbol=symbol,
+            frame=prepared,
+            interval="1h",
+            split_counts=_quality_gate_split_counts(prepared, config),
+        )
+        if outcome.is_active and outcome.frame is not None:
+            validated_frames[symbol] = prepared
+        else:
+            skipped_reasons[symbol] = outcome.reason or "quality_gate_failed"
+
+    training_symbols = list(validated_frames)
+    print_symbol_selection_summary(
+        active_symbols=training_symbols,
+        skipped_reasons=skipped_reasons,
+        print_fn=print,
+    )
+    if not training_symbols:
+        raise ValueError("No active equity symbols passed the consensus training quality gate.")
+
+    macro_leak_total = 0
+    for symbol in training_symbols:
+        assert not is_forex(symbol), (
+            f"{symbol} is a forex symbol and must never "
+            f"be trained as a prediction target. "
+            f"It must be used as an external feature only. "
+            f"Remove it from the training symbol list."
+        )
+        raw = _load_symbol_ohlcv(symbol, config.silver_ohlcv_root)
         merged, leak_stats = merge_macro_asof(raw, macro)
         macro_leak_total += int(leak_stats["asof_safe_violations"])
-        prepared = build_market_frame(merged, tx_cost_bps=config.tx_cost_bps, neutral_vol_scale=config.neutral_vol_scale)
+        prepared = validated_frames[symbol].copy()
         symbol_frames[symbol] = prepared
         data_overview["symbols"][symbol] = {
             "rows": int(len(prepared)),
@@ -1478,6 +1599,7 @@ def run_pipeline(config: PipelineConfig) -> dict[str, Any]:
 
     report_text = build_markdown_report(
         config=config,
+        training_symbols=training_symbols,
         run_dir=run_dir,
         data_overview=data_overview,
         leakage_checks=leakage_checks,
@@ -1496,6 +1618,8 @@ def run_pipeline(config: PipelineConfig) -> dict[str, Any]:
         "metrics_path": str(run_dir / "metrics.json"),
         "recommendation": recommendation,
         "data_overview": data_overview,
+        "symbols_skipped": skipped_reasons,
     }
     save_json(run_dir / "run_manifest.json", result)
+    print(FX_RESULTS_NOTE)
     return result

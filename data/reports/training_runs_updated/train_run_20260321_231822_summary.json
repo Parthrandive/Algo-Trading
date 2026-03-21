@@ -1,0 +1,82 @@
+{
+  "run": {
+    "timestamp_utc": "2026-03-21T17:50:19.473121+00:00",
+    "interval": "1d",
+    "epochs": 150,
+    "batch_size": 128,
+    "seq_len": 30,
+    "symbols": [
+      "INFY.NS",
+      "RELIANCE.NS",
+      "TATASTEEL.NS",
+      "TCS.NS"
+    ],
+    "model_dir": "models/multi_symbol_cnn_updated_1d_20260321_231822"
+  },
+  "results": {
+    "INFY.NS": {
+      "threshold": 0.0036,
+      "gamma": 2.0,
+      "architecture": "full",
+      "epochs_trained": 21,
+      "neutral_pct": 0.21524201853759012,
+      "cv_mean": 0.3329234198677917,
+      "cv_std": 0.045496075207342106,
+      "val_bal_acc": 0.36051806292770144,
+      "test_bal_acc": 0.3253250264298338,
+      "val_test_gap": 0.03519303649786765,
+      "neutral_precision_val": 0.2719298245614035,
+      "neutral_recall_val": 0.5636363636363636,
+      "neutral_f1_val": 0.3668639053254438,
+      "down_recall_val": 0.3974358974358974
+    },
+    "RELIANCE.NS": {
+      "threshold": 0.0036,
+      "gamma": 4.0,
+      "architecture": "shallow",
+      "epochs_trained": 64,
+      "neutral_pct": 0.2059732234809475,
+      "cv_mean": 0.34825011187725535,
+      "cv_std": 0.024487567114955675,
+      "val_bal_acc": 0.37376383361500304,
+      "test_bal_acc": 0.33595100172609843,
+      "val_test_gap": 0.03781283188890461,
+      "neutral_precision_val": 0.3247863247863248,
+      "neutral_recall_val": 0.5846153846153846,
+      "neutral_f1_val": 0.4175824175824176,
+      "down_recall_val": 0.10294117647058823
+    },
+    "TATASTEEL.NS": {
+      "threshold": 0.0066,
+      "gamma": 4.0,
+      "architecture": "shallow",
+      "epochs_trained": 93,
+      "neutral_pct": 0.203913491246138,
+      "cv_mean": 0.3497979821239853,
+      "cv_std": 0.04807937777302604,
+      "val_bal_acc": 0.3898000610215506,
+      "test_bal_acc": 0.320479302832244,
+      "val_test_gap": 0.06932075818930661,
+      "neutral_precision_val": 0.5172413793103449,
+      "neutral_recall_val": 0.7352941176470589,
+      "neutral_f1_val": 0.6072874493927125,
+      "down_recall_val": 0.40425531914893614
+    },
+    "TCS.NS": {
+      "threshold": 0.003,
+      "gamma": 2.0,
+      "architecture": "full",
+      "epochs_trained": 22,
+      "neutral_pct": 0.20185375901132852,
+      "cv_mean": 0.33987591373390835,
+      "cv_std": 0.02191759999875872,
+      "val_bal_acc": 0.36566008517228027,
+      "test_bal_acc": 0.3557566939686623,
+      "val_test_gap": 0.009903391203617995,
+      "neutral_precision_val": 0.2696629213483146,
+      "neutral_recall_val": 0.8571428571428571,
+      "neutral_f1_val": 0.41025641025641024,
+      "down_recall_val": 0.16666666666666666
+    }
+  }
+}

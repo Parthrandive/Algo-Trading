@@ -1,0 +1,97 @@
+{
+  "best_epoch": 9,
+  "epochs_ran": 10,
+  "best_val_loss": 0.16928729821335187,
+  "best_val_balanced_accuracy": 0.40587238848108415,
+  "val_accuracy": 0.41454545454545455,
+  "val_balanced_accuracy": 0.40587238848108415,
+  "test_accuracy": 0.41454545454545455,
+  "test_balanced_accuracy": 0.3335923335923336,
+  "train_windows": 1253,
+  "val_windows": 275,
+  "test_windows": 275,
+  "neutral_threshold": 0.0006547007805133192,
+  "focal_gamma": 1.1448552999315933,
+  "class_distribution_train": {
+    "up": 504,
+    "neutral": 251,
+    "down": 498
+  },
+  "class_distribution_val": {
+    "up": 115,
+    "neutral": 55,
+    "down": 105
+  },
+  "class_distribution_test": {
+    "up": 92,
+    "neutral": 66,
+    "down": 117
+  },
+  "class_distribution_train_pct": {
+    "up": 0.4022346368715084,
+    "neutral": 0.20031923383878691,
+    "down": 0.3974461292897047
+  },
+  "class_distribution_val_pct": {
+    "up": 0.41818181818181815,
+    "neutral": 0.2,
+    "down": 0.38181818181818183
+  },
+  "class_distribution_test_pct": {
+    "up": 0.33454545454545453,
+    "neutral": 0.24,
+    "down": 0.4254545454545455
+  },
+  "predicted_distribution_val": {
+    "up": 18,
+    "neutral": 29,
+    "down": 228
+  },
+  "actual_distribution_val": {
+    "up": 115,
+    "neutral": 55,
+    "down": 105
+  },
+  "class_weight_balanced": {
+    "up": 0.8287037014961243,
+    "neutral": 1.6640106439590454,
+    "down": 0.83868807554245
+  },
+  "per_class_accuracy": {
+    "up": {
+      "correct": 8,
+      "total": 115,
+      "accuracy": 0.06956521739130435
+    },
+    "neutral": {
+      "correct": 16,
+      "total": 55,
+      "accuracy": 0.2909090909090909
+    },
+    "down": {
+      "correct": 90,
+      "total": 105,
+      "accuracy": 0.8571428571428571
+    }
+  },
+  "per_class_accuracy_test": {
+    "up": {
+      "correct": 0,
+      "total": 92,
+      "accuracy": 0.0
+    },
+    "neutral": {
+      "correct": 4,
+      "total": 66,
+      "accuracy": 0.06060606060606061
+    },
+    "down": {
+      "correct": 110,
+      "total": 117,
+      "accuracy": 0.9401709401709402
+    }
+  },
+  "final_train_loss": 0.1503020741479547,
+  "final_val_loss": 0.17403840856118635,
+  "early_stopped": true
+}

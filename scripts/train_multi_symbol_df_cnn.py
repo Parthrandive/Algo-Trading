@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 from typing import Any
 
 import numpy as np
@@ -17,20 +18,27 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.utils import Sequence
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
 
-# To add a new stock only change this one block - nothing else:
-EQUITY_SYMBOLS = ["INFY.NS", "RELIANCE.NS", "TATASTEEL.NS", "TCS.NS"]
-# Add any NSE symbol here:
-# EQUITY_SYMBOLS += ["HDFCBANK.NS", "WIPRO.NS"]
-
-FOREX_SYMBOLS = ["USDINR=X"]
-# USDINR is never a prediction target - external feature only
+from config.symbols import (
+    FX_RESULTS_NOTE,
+    SplitCounts,
+    dedupe_symbols,
+    is_forex,
+    print_symbol_selection_summary,
+    validate_equity_symbol,
+)
 
 TRAIN_END = "2022-12-31"
 VAL_END = "2023-12-31"
 FOCAL_ALPHA = [0.25, 0.50, 0.25]  # [down, neutral, up]
 DEFAULT_LEARNING_RATE = 3e-4
 DEFAULT_BATCH_SIZE = 128
+UP_WEIGHT_MULTIPLIER = 3.0
+BEARISH_DOMINANCE_RATIO = 0.70
+REGIME_SHIFT_THRESHOLD = 0.10
 
 
 def _to_datetime_index(df: pd.DataFrame, name: str, require_volume: bool) -> pd.DataFrame:
@@ -251,12 +259,75 @@ def focal_loss(gamma: float = 2.0, alpha: list[float] | tuple[float, float, floa
     return loss_fn
 
 
-def _compute_class_weight_dict(y: np.ndarray) -> dict[int, float]:
+def _is_forex_target(symbol: str) -> bool:
+    return is_forex(symbol)
+
+
+def _emit_regime_shift_warning(symbol: str, class_name: str, train_pct: float, test_pct: float, diff: float) -> None:
+    print(
+        f"WARNING: [{symbol}] Regime shift detected\n"
+        f"Train {class_name}: {train_pct:.1%}\n"
+        f"Test {class_name}:  {test_pct:.1%}\n"
+        f"Difference: {diff:.1%} exceeds 10% threshold\n"
+        "XGBoost regime feature will be critical\n"
+        "for this symbol"
+    )
+
+
+def _compute_class_weight_dict(
+    y: np.ndarray,
+    symbol: str,
+    y_test: np.ndarray | None = None,
+    emit_logs: bool = False,
+) -> dict[int, float]:
     classes = np.unique(y)
     cw = compute_class_weight("balanced", classes=classes, y=y)
     weights = {int(cls): float(weight) for cls, weight in zip(classes, cw)}
-    # Asymmetric penalty: amplify missed down moves.
-    weights[0] = float(weights.get(0, 1.0) * 2.0)
+
+    counts_train = np.bincount(y.astype(int), minlength=3)
+    up_count = int(counts_train[2])
+    neutral_count = int(counts_train[1])
+    down_count = int(counts_train[0])
+    bearish_dominant = (not _is_forex_target(symbol)) and up_count < down_count * BEARISH_DOMINANCE_RATIO
+    if bearish_dominant:
+        weights[2] = float(weights.get(2, 1.0) * UP_WEIGHT_MULTIPLIER)
+        if emit_logs:
+            print(
+                f"WARNING: [{symbol}] Bearish-dominant train split detected: "
+                f"up={up_count} down={down_count}. Applying up class weight multiplier x{UP_WEIGHT_MULTIPLIER:.1f}"
+            )
+
+    regime_shift_warning = False
+    if emit_logs and y_test is not None and not _is_forex_target(symbol):
+        counts_test = np.bincount(y_test.astype(int), minlength=3)
+        total_train = int(counts_train.sum())
+        total_test = int(counts_test.sum())
+        if total_train > 0 and total_test > 0:
+            train_up_pct = up_count / total_train
+            test_up_pct = int(counts_test[2]) / total_test
+            up_diff = abs(train_up_pct - test_up_pct)
+            if up_diff > REGIME_SHIFT_THRESHOLD:
+                regime_shift_warning = True
+                _emit_regime_shift_warning(symbol, "up", train_up_pct, test_up_pct, up_diff)
+
+            train_down_pct = down_count / total_train
+            test_down_pct = int(counts_test[0]) / total_test
+            down_diff = abs(train_down_pct - test_down_pct)
+            if down_diff > REGIME_SHIFT_THRESHOLD:
+                regime_shift_warning = True
+                _emit_regime_shift_warning(symbol, "down", train_down_pct, test_down_pct, down_diff)
+
+    if emit_logs:
+        print(f"  [{symbol}] Raw class counts (train):")
+        print(f"             up={up_count}  neutral={neutral_count}  down={down_count}")
+        print(f"  [{symbol}] Bearish dominant: {'Yes' if bearish_dominant else 'No'}")
+        print(f"  [{symbol}] Up multiplier applied: {'Yes' if bearish_dominant else 'No'}")
+        print(f"  [{symbol}] Final class weights:")
+        print(
+            f"             down={weights.get(0, 1.0):.6f}  "
+            f"neutral={weights.get(1, 1.0):.6f}  up={weights.get(2, 1.0):.6f}"
+        )
+        print(f"  [{symbol}] Regime shift warning: {'Yes' if regime_shift_warning else 'No'}")
     return weights
 
 
@@ -502,7 +573,7 @@ def run_walk_forward_cv(
         X_tr_f = sc_f.fit_transform(X_tr_f)
         X_v_f = sc_f.transform(X_v_f)
 
-        cw_f = _compute_class_weight_dict(y_tr_f)
+        cw_f = _compute_class_weight_dict(y_tr_f, symbol=symbol, emit_logs=False)
         gam_f = compute_gamma(y_tr_f, symbol)
 
         try:
@@ -572,7 +643,7 @@ def print_validation_checklist(
     gap: float,
     cv_std: float,
 ) -> None:
-    forex_in_results = any(sym in FOREX_SYMBOLS or sym.endswith("=X") for sym in symbol_results.keys())
+    forex_in_results = any(is_forex(sym) for sym in symbol_results.keys())
     checks = [
         ("USDINR in results table", "Never", "Yes" if forex_in_results else "No", not forex_in_results),
         (
@@ -601,6 +672,7 @@ def print_validation_checklist(
 def run_multi_symbol_training(
     equity_frames: dict[str, pd.DataFrame],
     df_usdinr: pd.DataFrame,
+    training_symbols: list[str] | None = None,
     seq_len: int = 30,
     batch_size: int = DEFAULT_BATCH_SIZE,
     epochs: int = 150,
@@ -625,29 +697,69 @@ def run_multi_symbol_training(
     tf.random.set_seed(42)
     np.random.seed(42)
 
-    invalid_equity_symbols = [sym for sym in EQUITY_SYMBOLS if sym in FOREX_SYMBOLS or sym.endswith("=X")]
-    assert not invalid_equity_symbols, (
-        f"EQUITY_SYMBOLS contains forex symbol(s): {invalid_equity_symbols}. "
-        "USDINR must be external feature only."
-    )
-
     df_usdinr_feat = prepare_usdinr_features(df_usdinr)
 
     model_root = Path(model_dir)
     model_root.mkdir(parents=True, exist_ok=True)
 
-    for symbol in EQUITY_SYMBOLS:
+    candidate_symbols = dedupe_symbols(training_symbols or list(equity_frames))
+    prepared_equity_frames: dict[str, pd.DataFrame] = {}
+    skipped_reasons: dict[str, str] = {}
+
+    def quality_gate_split_counts(df: pd.DataFrame) -> SplitCounts:
+        norm_idx = _normalize_dates(df.index)
+        train_rows = int((norm_idx <= TRAIN_END).sum())
+        val_rows = int(((norm_idx > TRAIN_END) & (norm_idx <= VAL_END)).sum())
+        test_rows = int((norm_idx > VAL_END).sum())
+        return SplitCounts(train_rows=train_rows, val_rows=val_rows, test_rows=test_rows)
+
+    for symbol in candidate_symbols:
+        if is_forex(symbol):
+            skipped_reasons[symbol] = "forex_context_only"
+            continue
+        if symbol not in equity_frames:
+            skipped_reasons[symbol] = "missing_in_equity_frames"
+            continue
+        try:
+            frame = _to_datetime_index(equity_frames[symbol], symbol, require_volume=True)
+            merged = merge_usdinr_features(frame, df_usdinr_feat, symbol)
+        except Exception as exc:
+            skipped_reasons[symbol] = f"load_failed: {exc}"
+            continue
+        gate_ready = merged.reset_index().rename(columns={"index": "timestamp"}) if "timestamp" not in merged.columns else merged
+        outcome = validate_equity_symbol(
+            symbol=symbol,
+            frame=gate_ready,
+            interval="1d",
+            split_counts=quality_gate_split_counts(merged),
+            required_end=VAL_END,
+        )
+        if outcome.is_active:
+            prepared_equity_frames[symbol] = merged
+        else:
+            skipped_reasons[symbol] = outcome.reason or "quality_gate_failed"
+
+    training_symbols = list(prepared_equity_frames)
+    print_symbol_selection_summary(
+        active_symbols=training_symbols,
+        skipped_reasons=skipped_reasons,
+        print_fn=print,
+    )
+    if not training_symbols:
+        raise ValueError("No active equity symbols passed the multi-symbol CNN quality gate.")
+
+    for symbol in training_symbols:
+        assert not is_forex(symbol), (
+            f"{symbol} is a forex symbol and must never "
+            f"be trained as a prediction target. "
+            f"It must be used as an external feature only. "
+            f"Remove it from the training symbol list."
+        )
         print(f"\n{'='*60}")
         print(f"Processing: {symbol}")
         print(f"{'='*60}")
 
-        if symbol not in equity_frames:
-            print(f"  WARNING: [{symbol}] missing in equity_frames - skipped")
-            continue
-
-        df = _to_datetime_index(equity_frames[symbol], symbol, require_volume=True)
-
-        df = merge_usdinr_features(df, df_usdinr_feat, symbol)
+        df = prepared_equity_frames[symbol].copy()
         all_null_cols = [col for col in df.columns if df[col].isna().all()]
         if all_null_cols:
             print(f"  [{symbol}] Dropping all-null columns before features: {all_null_cols}")
@@ -693,8 +805,7 @@ def run_multi_symbol_training(
         X_test = scaler.transform(test_df[feature_cols].iloc[:-1])
         SYMBOL_SCALERS[symbol] = scaler
 
-        class_weight_dict = _compute_class_weight_dict(y_train)
-        print(f"  [{symbol}] Asymmetric class weights (down x2): {class_weight_dict}")
+        class_weight_dict = _compute_class_weight_dict(y_train, symbol=symbol, y_test=y_test, emit_logs=True)
 
         gamma = compute_gamma(y_train, symbol)
         SYMBOL_CONFIGS[symbol]["gamma"] = float(gamma)
@@ -805,7 +916,7 @@ def run_multi_symbol_training(
     )
     print("-" * 90)
 
-    for sym in EQUITY_SYMBOLS:
+    for sym in training_symbols:
         if sym not in SYMBOL_RESULTS:
             continue
         r = SYMBOL_RESULTS[sym]
@@ -831,9 +942,9 @@ def run_multi_symbol_training(
             f"{status:>7}"
         )
 
-    print("\n[USDINR=X] Used as external feature only - not a prediction target.")
+    print(f"\n{FX_RESULTS_NOTE}")
 
-    for sym in EQUITY_SYMBOLS:
+    for sym in training_symbols:
         if sym not in SYMBOL_RESULTS:
             continue
         r = SYMBOL_RESULTS[sym]

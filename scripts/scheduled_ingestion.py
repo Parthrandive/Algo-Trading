@@ -24,6 +24,15 @@ from scripts.backfill_historical import run as run_backfill
 
 import json
 
+from config.symbols import (
+    FOREX_SYMBOLS,
+    INDEX_SYMBOLS,
+    SENTINEL_CORE_SYMBOLS,
+    WATCHLIST_ROTATE_BATCH_SIZE,
+    WATCHLIST_ROTATING_POOL,
+    dedupe_symbols,
+)
+
 # Configuration 
 WATCHLIST_PATH = PROJECT_ROOT / "configs" / "watchlist.json"
 RUN_TIME_IST_MORNING = os.environ.get("SCHEDULE_TIME_MORNING_IST", "10:20")
@@ -32,25 +41,24 @@ DAYS_TO_FETCH = int(os.environ.get("SCHEDULE_DAYS", "3"))
 
 def get_todays_symbols() -> list[str]:
     """
-    Reads watchlist.json and returns a merged list of:
-    1. Core Symbols
-    2. Index/FX Symbols
-    3. Today's batch from the Rotating Pool
+    Builds today's watchlist from the central symbol config and the optional
+    rotate_batch_size override in watchlist.json.
     """
+    config: dict[str, object] = {}
     if not WATCHLIST_PATH.exists():
-        logger.warning(f"Watchlist not found at {WATCHLIST_PATH}, using fallback.")
-        return ["RELIANCE.NS", "TATASTEEL.NS", "^NSEI", "USDINR=X"]
-        
-    with open(WATCHLIST_PATH, "r") as f:
-        config = json.load(f)
-        
-    core = config.get("core_symbols", [])
-    index_fx = config.get("index_fx_symbols", [])
-    pool = config.get("rotating_pool", [])
-    batch_size = config.get("rotate_batch_size", 8)
+        logger.warning(f"Watchlist not found at {WATCHLIST_PATH}, using central symbol defaults.")
+    else:
+        with open(WATCHLIST_PATH, "r") as f:
+            config = json.load(f)
+
+    core = list(config.get("core_symbols", SENTINEL_CORE_SYMBOLS))
+    index_symbols = list(config.get("index_symbols", INDEX_SYMBOLS))
+    fx_symbols = list(config.get("fx_symbols", FOREX_SYMBOLS))
+    pool = list(config.get("rotating_pool", WATCHLIST_ROTATING_POOL))
+    batch_size = int(config.get("rotate_batch_size", WATCHLIST_ROTATE_BATCH_SIZE))
     
     if not pool:
-        return core + index_fx
+        return dedupe_symbols([*core, *index_symbols, *fx_symbols])
         
     # Simple deterministic rotation based on day of year
     day_of_year = datetime.now(timezone.utc).timetuple().tm_yday
@@ -65,10 +73,8 @@ def get_todays_symbols() -> list[str]:
     logger.info(f"Rotation: Day {day_of_year}, picking batch {batch_index+1} (indices {start_idx}-{end_idx})")
     
     # Combine and deduplicate
-    all_symbols = core + index_fx + todays_rotating_batch
-    # Keep order but remove duplicates
-    seen = set()
-    return [x for x in all_symbols if not (x in seen or seen.add(x))]
+    all_symbols = [*core, *index_symbols, *fx_symbols, *todays_rotating_batch]
+    return dedupe_symbols(all_symbols)
 
 def ingestion_job():
     logger.info("="*50)

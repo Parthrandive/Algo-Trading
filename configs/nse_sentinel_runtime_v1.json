@@ -77,16 +77,6 @@
   ],
   "symbol_universe": {
     "version": "week2-core-v1",
-    "core_symbols": [
-      "RELIANCE.NS",
-      "TATASTEEL.NS"
-    ],
-    "fx_symbols": [
-      "USDINR=X"
-    ],
-    "index_symbols": [
-      "^NSEI"
-    ],
     "review_cadence": "quarterly"
   },
   "session_rules": {

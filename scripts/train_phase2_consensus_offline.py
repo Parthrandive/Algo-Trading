@@ -9,6 +9,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
 from src.agents.consensus.offline_pipeline import PipelineConfig, run_pipeline
+from config.symbols import FOREX_SYMBOLS, dedupe_symbols, is_forex
 
 
 def parse_args() -> argparse.Namespace:
@@ -18,8 +19,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--symbols",
         nargs="+",
-        default=["RELIANCE.NS", "TATASTEEL.NS", "USDINR=X"],
+        default=None,
         help="Symbols to include (hourly).",
+    )
+    parser.add_argument(
+        "--fx-context-symbol",
+        default=FOREX_SYMBOLS[0],
+        help="Forex context symbol merged into each equity training frame.",
     )
     parser.add_argument(
         "--output-root",
@@ -49,8 +55,17 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    training_symbols = dedupe_symbols(args.symbols or [])
+    for symbol in training_symbols:
+        assert not is_forex(symbol), (
+            f"{symbol} is a forex symbol and must never "
+            f"be trained as a prediction target. "
+            f"It must be used as an external feature only. "
+            f"Remove it from the training symbol list."
+        )
     config = PipelineConfig(
-        symbols=args.symbols,
+        symbols=training_symbols,
+        fx_context_symbol=args.fx_context_symbol,
         output_root=Path(args.output_root),
         silver_ohlcv_root=Path(args.silver_ohlcv_root),
         silver_macro_root=Path(args.silver_macro_root),
