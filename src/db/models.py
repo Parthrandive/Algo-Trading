@@ -241,7 +241,7 @@ class SentimentScoreDB(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     symbol = Column(String(32), nullable=True)
     timestamp = Column(DateTime(timezone=True), nullable=False)
-    lane = Column(String(8), nullable=False)
+    lane = Column(String(16), nullable=False)
     source_id = Column(String(256), nullable=True)
     source_type = Column(String(32), nullable=True)
     sentiment_class = Column(String(12), nullable=False)

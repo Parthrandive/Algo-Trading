@@ -1,11 +1,13 @@
 import logging
+
 from sqlalchemy import text
+
 from src.db.connection import get_engine
 from src.db.models import Base
 
 logger = logging.getLogger(__name__)
 
-# ── TimescaleDB-only DDL (skipped on plain PostgreSQL) ──────────────────
+# TimescaleDB-only DDL (skipped on plain PostgreSQL)
 TIMESCALE_DDL = [
     "CREATE EXTENSION IF NOT EXISTS timescaledb;",
     "SELECT create_hypertable('ohlcv_bars', 'timestamp', chunk_time_interval => INTERVAL '1 month', if_not_exists => TRUE);",
@@ -24,7 +26,7 @@ COMPRESSION_DDL = [
     "SELECT add_compression_policy('ohlcv_bars', INTERVAL '7 days', if_not_exists => TRUE);",
 ]
 
-# ── Plain-PostgreSQL-safe DDL (always run) ──────────────────────────────
+# Plain-PostgreSQL-safe DDL (always run)
 INDEX_DDL = [
     "CREATE INDEX IF NOT EXISTS idx_bars_symbol_ts ON ohlcv_bars (symbol, timestamp DESC);",
     "CREATE INDEX IF NOT EXISTS idx_ticks_symbol_ts ON ticks (symbol, timestamp DESC);",
@@ -42,6 +44,10 @@ INDEX_DDL = [
     "CREATE INDEX IF NOT EXISTS idx_consensus_sym_ts ON consensus_signals (symbol, timestamp DESC);",
     "CREATE INDEX IF NOT EXISTS idx_pred_log_agent_ts ON prediction_log (agent, timestamp DESC);",
     "CREATE INDEX IF NOT EXISTS idx_backtest_model ON backtest_runs (model_id, run_timestamp DESC);",
+]
+
+POSTGRES_SCHEMA_REPAIR_DDL = [
+    "ALTER TABLE IF EXISTS sentiment_scores ALTER COLUMN lane TYPE VARCHAR(16);",
 ]
 
 
@@ -71,8 +77,8 @@ def init_database(database_url: str | None = None):
     """
     Creates tables via ORM and configures database features.
 
-    • On TimescaleDB (Docker): creates hypertables, compression, indexes.
-    • On plain PostgreSQL (local): creates regular tables and indexes only.
+    On TimescaleDB: creates hypertables, compression, and indexes.
+    On plain PostgreSQL: creates regular tables, schema repairs, and indexes.
     """
     engine = get_engine(database_url)
 
@@ -81,13 +87,18 @@ def init_database(database_url: str | None = None):
 
     with engine.begin() as conn:
         if _has_timescaledb(conn):
-            logger.info("TimescaleDB detected — applying hypertables & compression...")
+            logger.info("TimescaleDB detected; applying hypertables and compression...")
             for stmt in TIMESCALE_DDL:
                 _execute_statement(conn, stmt, optional=False)
             for stmt in COMPRESSION_DDL:
                 _execute_statement(conn, stmt, optional=True)
         else:
-            logger.info("Plain PostgreSQL detected — skipping TimescaleDB DDL.")
+            logger.info("Plain PostgreSQL detected; skipping TimescaleDB DDL.")
+
+        if conn.dialect.name == "postgresql":
+            logger.info("Applying schema repair DDL...")
+            for stmt in POSTGRES_SCHEMA_REPAIR_DDL:
+                _execute_statement(conn, stmt, optional=False)
 
         logger.info("Creating indexes...")
         for stmt in INDEX_DDL:
