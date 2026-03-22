@@ -39,6 +39,7 @@ from src.agents.regime.data_loader import RegimeDataLoader
 from src.agents.technical.backtest import TechnicalBacktester, WalkForwardConfig
 from src.agents.technical.data_loader import DataLoader
 from src.agents.technical.features import engineer_features
+from config.symbols import FX_RESULTS_NOTE, dedupe_symbols, is_forex
 from src.db.connection import get_engine
 
 
@@ -166,7 +167,15 @@ def discover_quality_rows(args: argparse.Namespace) -> pd.DataFrame:
             df[column] = pd.to_datetime(df[column], utc=True, errors="coerce")
 
     if args.symbols:
-        requested = {value.strip().upper() for value in args.symbols.split(",") if value.strip()}
+        requested_symbols = dedupe_symbols(value.strip().upper() for value in args.symbols.split(",") if value.strip())
+        for symbol in requested_symbols:
+            assert not is_forex(symbol), (
+                f"{symbol} is a forex symbol and must never "
+                f"be trained as a prediction target. "
+                f"It must be used as an external feature only. "
+                f"Remove it from the training symbol list."
+            )
+        requested = set(requested_symbols)
         df = df[df["symbol"].str.upper().isin(requested)].copy()
     if df.empty:
         raise ValueError("No symbols matched the requested filter after applying quality metadata.")
@@ -258,8 +267,8 @@ def prepare_symbol_dataset(symbol: str, train_args: argparse.Namespace) -> Symbo
     if clean_rows < train_args.min_rows:
         raise ValueError(f"Only {clean_rows} clean rows available for {symbol}; need at least {train_args.min_rows}.")
 
-    is_forex = symbol.endswith("=X")
-    engineered = engineer_features(frame, is_forex=is_forex).reset_index(drop=True)
+    is_forex_target = is_forex(symbol)
+    engineered = engineer_features(frame, is_forex=is_forex_target).reset_index(drop=True)
     engineered["symbol"] = symbol
     engineered["daily_return"] = engineered["close"].pct_change()
     engineered["log_close"] = np.log(engineered["close"].clip(lower=1e-8))
@@ -423,6 +432,12 @@ def run_training(
     LOGGER.info("Training run root: %s", run_root)
 
     for symbol in symbols:
+        assert not is_forex(symbol), (
+            f"{symbol} is a forex symbol and must never "
+            f"be trained as a prediction target. "
+            f"It must be used as an external feature only. "
+            f"Remove it from the training symbol list."
+        )
         LOGGER.info("Training symbol=%s", symbol)
         try:
             summary = run_for_dataset(datasets[symbol], train_args, run_root)
@@ -1055,6 +1070,8 @@ def write_markdown_report(
             f"- Validation accuracy is `{validation_metrics['validation_accuracy']:.4f}` and out-of-sample test accuracy is `{test_metrics['test_accuracy']:.4f}`.",
             f"- Trading Sharpe is `{test_metrics['trading_metrics']['sharpe_ratio']}` with max drawdown `{test_metrics['trading_metrics']['max_drawdown']}`.",
             f"- The largest validation feature-importance drivers are `{', '.join(row['feature'] for row in top_features[:5])}`.",
+            "",
+            FX_RESULTS_NOTE,
         ]
     )
 
@@ -1068,13 +1085,21 @@ def main() -> int:
     train_args = build_training_args(args)
 
     quality_df = discover_quality_rows(args)
-    train_ready_symbols = quality_df.loc[quality_df["train_ready"] == True, "symbol"].astype(str).tolist()
+    train_ready_symbols = dedupe_symbols(
+        quality_df.loc[quality_df["train_ready"] == True, "symbol"].astype(str).tolist()
+    )
     if not train_ready_symbols:
         raise ValueError("No train-ready symbols found after applying quality gates.")
 
     datasets: dict[str, SymbolDataset] = {}
     preparation_failures: list[dict[str, str]] = []
     for symbol in train_ready_symbols:
+        assert not is_forex(symbol), (
+            f"{symbol} is a forex symbol and must never "
+            f"be trained as a prediction target. "
+            f"It must be used as an external feature only. "
+            f"Remove it from the training symbol list."
+        )
         try:
             datasets[symbol] = prepare_symbol_dataset(symbol, train_args)
         except Exception as exc:

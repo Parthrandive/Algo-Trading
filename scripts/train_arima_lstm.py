@@ -21,6 +21,7 @@ from torch.utils.data import TensorDataset
 from src.agents.technical.data_loader import DataLoader
 from src.agents.technical.features import engineer_features
 from src.agents.technical.models.arima_lstm import ArimaLstmHybrid, LSTMResidualModel
+from config.symbols import SplitCounts, SymbolValidationResult, discover_training_symbols, is_forex, validate_equity_symbol
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -109,7 +110,7 @@ def custom_train_lstm(
 
     best_val_loss = float('inf')
     epochs_no_improve = 0
-    best_weights_path = os.path.join(output_dir, f"best_model_{symbol}.keras")
+    best_weights_path = os.path.join("/tmp", f"best_model_{symbol}.keras")
     best_train_loss = float('inf')
     
     logger.info("Training LSTM on residuals...")
@@ -239,9 +240,20 @@ def evaluate_mse(
     return total_loss / max(total_count, 1)
 
 
+def quality_gate_split_counts(df: pd.DataFrame) -> SplitCounts:
+    n_rows = len(df)
+    train_end = int(n_rows * 0.70)
+    val_end = int(n_rows * 0.85)
+    return SplitCounts(
+        train_rows=train_end,
+        val_rows=val_end - train_end,
+        test_rows=n_rows - val_end,
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description="Train standalone ARIMA-LSTM model.")
-    parser.add_argument("--symbol", default="TATASTEEL.NS", help="Stock symbol to train on")
+    parser.add_argument("--symbol", default=None, help="Optional single equity symbol to train on")
     parser.add_argument("--limit", type=int, default=None, help="Max rows to fetch from DB")
     parser.add_argument("--epochs", type=int, default=150, help="Max training epochs")
     parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
@@ -259,12 +271,59 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
     arima_order = tuple(map(int, args.arima_order.split(',')))
 
-    # 1. Fetch Data
-    logger.info(f"Fetching data for {args.symbol}...")
     db_url = os.getenv("DATABASE_URL", "postgresql://sentinel:sentinel@localhost:5432/sentinel_db")
     loader = DataLoader(db_url)
+
+    def validate_symbol(symbol: str):
+        try:
+            frame = loader.load_historical_bars(
+                symbol,
+                limit=args.limit,
+                use_nse_fallback=args.use_nse,
+                min_fallback_rows=40,
+                interval=args.interval,
+            )
+        except Exception as exc:
+            return SymbolValidationResult(symbol=symbol, is_active=False, reason=f"load_failed: {exc}")
+        return validate_equity_symbol(
+            symbol=symbol,
+            frame=frame,
+            interval=args.interval,
+            split_counts=quality_gate_split_counts(frame),
+        )
+
+    discovery = discover_training_symbols(
+        interval=args.interval,
+        requested_symbols=[args.symbol] if args.symbol else None,
+        database_url=db_url,
+        validator=validate_symbol,
+        print_fn=lambda message: logger.info(message),
+    )
+    training_symbols = list(discovery.active_symbols)
+    if not training_symbols:
+        logger.error("No active equity symbols passed the training quality gate.")
+        sys.exit(1)
+    if args.symbol is None and len(training_symbols) > 1:
+        logger.info("No --symbol provided. Using first active discovered symbol: %s", training_symbols[0])
+    for symbol in training_symbols:
+        assert not is_forex(symbol), (
+            f"{symbol} is a forex symbol and must never "
+            f"be trained as a prediction target. "
+            f"It must be used as an external feature only. "
+            f"Remove it from the training symbol list."
+        )
+    args.symbol = args.symbol or training_symbols[0]
+
+    # 1. Fetch Data
+    logger.info(f"Fetching data for {args.symbol}...")
     try:
-        df = loader.load_historical_bars(args.symbol, limit=args.limit, use_nse_fallback=args.use_nse, min_fallback_rows=40, interval=args.interval)
+        df = loader.load_historical_bars(
+            args.symbol,
+            limit=args.limit,
+            use_nse_fallback=args.use_nse,
+            min_fallback_rows=40,
+            interval=args.interval,
+        )
     except Exception as e:
         logger.error(f"Failed to load data: {e}")
         sys.exit(1)
@@ -287,8 +346,8 @@ def main():
 
     # 3. Feature Engineering
     logger.info("Engineering features...")
-    is_forex = args.symbol.endswith("=X")
-    df_features = engineer_features(df, is_forex=is_forex)
+    is_forex_target = is_forex(args.symbol)
+    df_features = engineer_features(df, is_forex=is_forex_target)
     df_features = df_features.sort_values('timestamp').reset_index(drop=True)
 
     # Initialize Model
@@ -369,8 +428,8 @@ def main():
     logger.info(f"Final MSE - Train: {train_mse:.6f}, Val: {val_mse:.6f}, Test: {test_mse:.6f}")
 
     # 7. Save Models and Meta
-    logger.info(f"Saving model artifacts to {args.output_dir}")
-    hybrid.save(args.output_dir)
+    # Skip persisting heavy .pt weights locally (saved to /tmp/ during training for early stopping only)
+    # hybrid.save(args.output_dir)  # disabled to avoid local disk bloat
     
     meta = {
         "timestamp": datetime.now(timezone.utc).isoformat(),

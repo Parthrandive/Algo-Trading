@@ -47,13 +47,24 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.agents.regime.data_loader import RegimeDataLoader
 from src.agents.technical.data_loader import DataLoader
 from src.agents.technical.features import engineer_features
+from config.symbols import (
+    FX_RESULTS_NOTE,
+    FOREX_SYMBOLS,
+    SplitCounts,
+    SymbolValidationResult,
+    dedupe_symbols,
+    discover_training_symbols,
+    is_forex,
+    validate_equity_symbol,
+)
 
 
 REQUIRED_OHLCV = {"open", "high", "low", "close", "volume"}
 LOGGER = logging.getLogger("train_regime_aware")
 CLASS_NAMES = {0: "up", 1: "neutral", 2: "down"}
-EQUITY_SYMBOLS = ["INFY.NS", "RELIANCE.NS", "TATASTEEL.NS", "TCS.NS"]
-FOREX_SYMBOLS = ["USDINR=X"]
+UP_WEIGHT_MULTIPLIER = 3.0
+BEARISH_DOMINANCE_RATIO = 0.70
+REGIME_SHIFT_THRESHOLD = 0.10
 DEFAULT_META_COLUMNS = {
     "symbol",
     "timestamp",
@@ -186,7 +197,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--symbols",
         nargs="+",
-        default=EQUITY_SYMBOLS,
+        default=None,
         help="One or more equity symbols to train, e.g. INFY.NS RELIANCE.NS TCS.NS",
     )
     parser.add_argument("--data-path", default=None, help="Optional CSV/Parquet file containing the training dataset.")
@@ -194,7 +205,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--gold-dir", default="data/gold", help="Gold parquet fallback directory.")
     parser.add_argument("--interval", default="1d", help="Candle interval to use when falling back to OHLCV DB loader.")
     parser.add_argument("--limit", type=int, default=4000, help="Maximum rows to load per symbol.")
-    parser.add_argument("--output-root", default="data/reports/training_runs", help="Directory for run artifacts.")
+    parser.add_argument("--output-root", default="/tmp/training_runs", help="Directory for run artifacts (defaults to /tmp to avoid disk bloat).")
     parser.add_argument("--seed", type=int, default=42, help="Global random seed.")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu", help="Device: cuda or cpu.")
 
@@ -246,6 +257,17 @@ def parse_args() -> argparse.Namespace:
 
 def sanitize_symbol(symbol: str) -> str:
     return symbol.replace("/", "_").replace("=", "_").replace(".", "_")
+
+
+def quality_gate_split_counts(frame: pd.DataFrame) -> SplitCounts:
+    n_rows = len(frame)
+    train_end = int(n_rows * 0.70)
+    val_end = int(n_rows * 0.85)
+    return SplitCounts(
+        train_rows=train_end,
+        val_rows=val_end - train_end,
+        test_rows=n_rows - val_end,
+    )
 
 
 def set_seed(seed: int) -> None:
@@ -403,7 +425,11 @@ def _load_fx_context_frame(args: argparse.Namespace) -> pd.DataFrame:
     return frame[["timestamp", "close"]].rename(columns={"close": "usdinr_close"}).reset_index(drop=True)
 
 
-def load_symbol_frame(symbol: str, args: argparse.Namespace) -> tuple[pd.DataFrame, str, dict[str, int]]:
+def load_symbol_frame(
+    symbol: str,
+    args: argparse.Namespace,
+    fx_context_frame: pd.DataFrame | None = None,
+) -> tuple[pd.DataFrame, str, dict[str, int]]:
     if args.data_path:
         source_path = Path(args.data_path)
         if not source_path.exists():
@@ -474,7 +500,7 @@ def load_symbol_frame(symbol: str, args: argparse.Namespace) -> tuple[pd.DataFra
     frame["rolling_mean"] = frame["close"].rolling(rolling_window, min_periods=1).mean()
 
     if symbol.endswith(".NS"):
-        fx_frame = _load_fx_context_frame(args)
+        fx_frame = fx_context_frame if fx_context_frame is not None else _load_fx_context_frame(args)
         if not fx_frame.empty:
             frame = pd.merge_asof(
                 frame.sort_values("timestamp"),
@@ -487,8 +513,8 @@ def load_symbol_frame(symbol: str, args: argparse.Namespace) -> tuple[pd.DataFra
     if len(frame) < args.min_rows:
         raise ValueError(f"Only {len(frame)} rows available for {symbol}; need at least {args.min_rows}.")
 
-    is_forex = symbol.endswith("=X")
-    frame = engineer_features(frame, is_forex=is_forex)
+    is_forex_target = is_forex(symbol)
+    frame = engineer_features(frame, is_forex=is_forex_target)
     frame["symbol"] = symbol
     frame["log_return"] = np.log(frame["close"] / frame["close"].shift(1))
     frame["daily_return"] = frame["close"].pct_change()
@@ -1116,7 +1142,7 @@ def run_cnn_walk_forward_cv(
         X_tr = scaler.fit_transform(X_tr_raw.reshape(len(X_tr_raw), -1)).reshape(X_tr_shape).astype(np.float32)
         X_v = scaler.transform(X_v_raw.reshape(len(X_v_raw), -1)).reshape(X_v_shape).astype(np.float32)
 
-        class_weights = build_class_weight_vector(y_tr)
+        class_weights = build_class_weight_vector(y_tr, symbol=symbol, emit_logs=False)
         gamma_fold, _, _ = compute_gamma(y_tr, symbol, args)
         criterion = FocalLoss(gamma=gamma_fold, alpha=args.focal_alpha, class_weights=class_weights).to(device)
 
@@ -1418,12 +1444,88 @@ def train_regression_model(
     return RegressionArtifacts(metrics=metrics, history=history, prediction_frame=prediction_frame)
 
 
-def build_class_weight_vector(y_train: np.ndarray) -> np.ndarray:
+def is_forex_target(symbol: str) -> bool:
+    return is_forex(symbol)
+
+
+def emit_regime_shift_warning(symbol: str, class_name: str, train_pct: float, test_pct: float, diff: float) -> None:
+    LOGGER.warning(
+        "WARNING: [%s] Regime shift detected\n"
+        "Train %s: %.1f%%\n"
+        "Test %s:  %.1f%%\n"
+        "Difference: %.1f%% exceeds 10%% threshold\n"
+        "XGBoost regime feature will be critical\n"
+        "for this symbol",
+        symbol,
+        class_name,
+        train_pct * 100.0,
+        class_name,
+        test_pct * 100.0,
+        diff * 100.0,
+    )
+
+
+def build_class_weight_vector(
+    y_train: np.ndarray,
+    symbol: str | None = None,
+    y_test: np.ndarray | None = None,
+    emit_logs: bool = False,
+) -> np.ndarray:
     present_classes = np.unique(y_train)
     present_weights = compute_class_weight(class_weight="balanced", classes=present_classes, y=y_train)
     full_weights = np.ones(3, dtype=np.float32)
     for klass, weight in zip(present_classes, present_weights):
         full_weights[int(klass)] = float(weight)
+
+    counts_train = np.bincount(y_train.astype(int), minlength=3)
+    up_count = int(counts_train[0])
+    neutral_count = int(counts_train[1])
+    down_count = int(counts_train[2])
+    bearish_dominant = bool(symbol) and (not is_forex_target(symbol)) and up_count < down_count * BEARISH_DOMINANCE_RATIO
+    if bearish_dominant:
+        full_weights[0] = float(full_weights[0] * UP_WEIGHT_MULTIPLIER)
+        if emit_logs and symbol is not None:
+            LOGGER.warning(
+                "WARNING: [%s] Bearish-dominant train split detected: up=%s down=%s. Applying up class weight multiplier x%.1f",
+                symbol,
+                up_count,
+                down_count,
+                UP_WEIGHT_MULTIPLIER,
+            )
+
+    regime_shift_warning = False
+    if emit_logs and symbol is not None and y_test is not None and not is_forex_target(symbol):
+        counts_test = np.bincount(y_test.astype(int), minlength=3)
+        total_train = int(counts_train.sum())
+        total_test = int(counts_test.sum())
+        if total_train > 0 and total_test > 0:
+            train_up_pct = up_count / total_train
+            test_up_pct = int(counts_test[0]) / total_test
+            up_diff = abs(train_up_pct - test_up_pct)
+            if up_diff > REGIME_SHIFT_THRESHOLD:
+                regime_shift_warning = True
+                emit_regime_shift_warning(symbol, "up", train_up_pct, test_up_pct, up_diff)
+
+            train_down_pct = down_count / total_train
+            test_down_pct = int(counts_test[2]) / total_test
+            down_diff = abs(train_down_pct - test_down_pct)
+            if down_diff > REGIME_SHIFT_THRESHOLD:
+                regime_shift_warning = True
+                emit_regime_shift_warning(symbol, "down", train_down_pct, test_down_pct, down_diff)
+
+    if emit_logs and symbol is not None:
+        LOGGER.info("[%s] Raw class counts (train):", symbol)
+        LOGGER.info("           up=%s  neutral=%s  down=%s", up_count, neutral_count, down_count)
+        LOGGER.info("[%s] Bearish dominant: %s", symbol, "Yes" if bearish_dominant else "No")
+        LOGGER.info("[%s] Up multiplier applied: %s", symbol, "Yes" if bearish_dominant else "No")
+        LOGGER.info("[%s] Final class weights:", symbol)
+        LOGGER.info(
+            "           down=%.6f  neutral=%.6f  up=%.6f",
+            float(full_weights[2]),
+            float(full_weights[1]),
+            float(full_weights[0]),
+        )
+        LOGGER.info("[%s] Regime shift warning: %s", symbol, "Yes" if regime_shift_warning else "No")
     return full_weights
 
 
@@ -1442,6 +1544,7 @@ def per_class_accuracy(confusion: np.ndarray) -> dict[str, dict[str, float]]:
 
 
 def train_cnn_model(
+    symbol: str,
     bundle: SequenceDatasetBundle,
     feature_columns: list[str],
     focal_gamma: float,
@@ -1450,10 +1553,10 @@ def train_cnn_model(
     model_dir: Path,
 ) -> ClassificationArtifacts:
     device = torch.device(args.device)
-    class_weights = build_class_weight_vector(bundle.y_train)
+    class_weights = build_class_weight_vector(bundle.y_train, symbol=symbol, y_test=bundle.y_test, emit_logs=True)
     LOGGER.info("[CNN] class distribution train=%s", class_distribution(bundle.y_train))
     LOGGER.info("[CNN] class distribution val=%s", class_distribution(bundle.y_val))
-    LOGGER.info("[CNN] balanced class weights=%s", class_weights.tolist())
+    LOGGER.info("[CNN] final class weights=%s", class_weights.tolist())
 
     train_loader = make_loader(bundle.X_train, bundle.y_train, args.batch_size)
     val_loader = make_loader(bundle.X_val, bundle.y_val, args.batch_size)
@@ -1718,11 +1821,16 @@ def add_volatility_regime_features(frame: pd.DataFrame, train_end: int) -> tuple
     return frame, window
 
 
-def run_for_symbol(symbol: str, args: argparse.Namespace, root_run_dir: Path) -> dict[str, Any]:
+def run_for_symbol(
+    symbol: str,
+    args: argparse.Namespace,
+    root_run_dir: Path,
+    fx_context_frame: pd.DataFrame | None = None,
+) -> dict[str, Any]:
     symbol_dir = root_run_dir / sanitize_symbol(symbol)
     symbol_dir.mkdir(parents=True, exist_ok=True)
 
-    frame, source_name, diagnostics = load_symbol_frame(symbol, args)
+    frame, source_name, diagnostics = load_symbol_frame(symbol, args, fx_context_frame=fx_context_frame)
     LOGGER.info("Loaded %s rows for %s from %s", len(frame), symbol, source_name)
     LOGGER.info("[%s] Raw rows loaded: %s", symbol, diagnostics["raw_rows_loaded"])
     LOGGER.info("[%s] Rows after ffill + dropna: %s", symbol, diagnostics["rows_after_ffill_dropna"])
@@ -1909,6 +2017,7 @@ def run_for_symbol(symbol: str, args: argparse.Namespace, root_run_dir: Path) ->
         selected_arima_order=selected_arima_order,
     )
     classification_artifacts = train_cnn_model(
+        symbol=symbol,
         bundle=cnn_bundle,
         feature_columns=cnn_columns,
         focal_gamma=focal_gamma,
@@ -1996,6 +2105,7 @@ def run_for_symbol(symbol: str, args: argparse.Namespace, root_run_dir: Path) ->
 
 def main() -> None:
     args = parse_args()
+    args.symbols = dedupe_symbols(args.symbols or [])
     set_seed(args.seed)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -2004,6 +2114,14 @@ def main() -> None:
 
     LOGGER.info("Starting regime-aware training run at %s", root_run_dir)
     LOGGER.info("Args: %s", vars(args))
+    fx_context_frame = _load_fx_context_frame(args)
+    if fx_context_frame.empty:
+        raise ValueError(f"FX context symbol {args.fx_context_symbol} must be available before training.")
+    LOGGER.info(
+        "Loaded FX context symbol %s with %s rows before training.",
+        args.fx_context_symbol,
+        len(fx_context_frame),
+    )
 
     all_summaries: list[dict[str, Any]] = []
     failed_symbols: list[dict[str, str]] = []
@@ -2013,43 +2131,48 @@ def main() -> None:
     SYMBOL_SCALERS: dict[str, dict[str, str]] = {}
     SYMBOL_RESULTS: dict[str, dict[str, float]] = {}
 
-    from src.db.queries import get_market_data_quality
+    def validate_symbol(symbol: str):
+        try:
+            frame, _, diagnostics = load_symbol_frame(symbol, args, fx_context_frame=fx_context_frame)
+        except Exception as exc:
+            return SymbolValidationResult(symbol=symbol, is_active=False, reason=f"load_failed: {exc}")
+        outcome = validate_equity_symbol(
+            symbol=symbol,
+            frame=frame,
+            interval=args.interval,
+            split_counts=quality_gate_split_counts(frame),
+        )
+        outcome.diagnostics.update(diagnostics)
+        return outcome
 
-    for symbol in args.symbols:
+    discovery = discover_training_symbols(
+        interval=args.interval,
+        requested_symbols=args.symbols or None,
+        database_url=args.database_url,
+        validator=validate_symbol,
+        print_fn=lambda message: LOGGER.info(message),
+    )
+    skipped_symbols.extend(
+        [
+            {"symbol": symbol, "reason": discovery.skipped_reasons[symbol], "details": str(discovery.diagnostics.get(symbol, {}))}
+            for symbol in discovery.skipped_symbols
+        ]
+    )
+    training_symbols = list(discovery.active_symbols)
+    if not training_symbols:
+        raise ValueError("No active equity symbols passed the training quality gate.")
+    for symbol in training_symbols:
+        assert not is_forex(symbol), (
+            f"{symbol} is a forex symbol and must never "
+            f"be trained as a prediction target. "
+            f"It must be used as an external feature only. "
+            f"Remove it from the training symbol list."
+        )
         LOGGER.info("\n%s", "=" * 60)
         LOGGER.info("Processing: %s", symbol)
         LOGGER.info("%s", "=" * 60)
-        if symbol in FOREX_SYMBOLS or symbol.endswith("=X"):
-            LOGGER.warning(
-                "Skipping %s as a direct training target; forex symbols are context features only.",
-                symbol,
-            )
-            skipped_symbols.append(
-                {
-                    "symbol": symbol,
-                    "reason": "forex_context_only",
-                    "details": f"Configured via --fx-context-symbol={args.fx_context_symbol}",
-                }
-            )
-            continue
-        quality = get_market_data_quality(symbol, args.interval, dataset_type="historical")
-        if quality is not None and not quality.get("train_ready"):
-            LOGGER.warning(
-                "Skipping %s due to historical quality gate: status=%s details=%s",
-                symbol,
-                quality.get("status"),
-                quality.get("details_json"),
-            )
-            skipped_symbols.append(
-                {
-                    "symbol": symbol,
-                    "reason": "historical_quality_gate",
-                    "details": str(quality.get("details_json")),
-                }
-            )
-            continue
         try:
-            summary = run_for_symbol(symbol, args, root_run_dir)
+            summary = run_for_symbol(symbol, args, root_run_dir, fx_context_frame=fx_context_frame)
             all_summaries.append(summary)
             SYMBOL_CONFIGS[symbol] = summary.get("symbol_config", {})
             SYMBOL_MODELS[symbol] = summary.get("model_paths", {})
@@ -2063,7 +2186,7 @@ def main() -> None:
     manifest = {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "run_dir": str(root_run_dir),
-        "symbols_requested": args.symbols,
+        "symbols_requested": training_symbols,
         "symbols_succeeded": [summary["symbol"] for summary in all_summaries],
         "symbols_skipped": skipped_symbols,
         "symbols_failed": failed_symbols,
@@ -2091,9 +2214,13 @@ def main() -> None:
         "Status",
     )
     LOGGER.info("%s", "-" * 80)
-    for symbol in args.symbols:
-        if symbol in FOREX_SYMBOLS or symbol.endswith("=X"):
-            continue
+    for symbol in training_symbols:
+        assert not is_forex(symbol), (
+            f"{symbol} is a forex symbol and must never "
+            f"be trained as a prediction target. "
+            f"It must be used as an external feature only. "
+            f"Remove it from the training symbol list."
+        )
         cfg = SYMBOL_CONFIGS.get(symbol)
         res = SYMBOL_RESULTS.get(symbol)
         if not cfg or not res:
@@ -2114,6 +2241,7 @@ def main() -> None:
             test_bal,
             status,
         )
+    LOGGER.info(FX_RESULTS_NOTE)
 
     if failed_symbols:
         raise SystemExit(1)

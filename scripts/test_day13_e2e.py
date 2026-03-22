@@ -24,6 +24,7 @@ from src.agents.sentinel.recorder import SilverRecorder
 from src.agents.sentinel.bronze_recorder import BronzeRecorder
 from src.agents.sentinel.pipeline import SentinelIngestPipeline
 from src.agents.sentinel.client import NSEClientInterface
+from config.symbols import SENTINEL_CORE_SYMBOLS
 from src.schemas.market_data import (
     Bar,
     CorporateAction,
@@ -202,7 +203,7 @@ def main():
     )
 
     # 6. Test Data Ingestion + trace spans
-    symbols = ["RELIANCE.NS", "TCS.NS"]
+    symbols = list(SENTINEL_CORE_SYMBOLS)
     end_date = datetime.now(ZoneInfo("UTC"))
     start_date = end_date - timedelta(days=7)
 

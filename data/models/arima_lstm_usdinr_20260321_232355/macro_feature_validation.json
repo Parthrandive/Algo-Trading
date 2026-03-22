@@ -1,0 +1,82 @@
+{
+  "CPI": {
+    "first_available_date": "2000-01-01",
+    "last_available_date": "2026-03-08",
+    "row_count": 306,
+    "coverage_pct": 100.0,
+    "missing_after_join": 0,
+    "train_ready": true
+  },
+  "WPI": {
+    "first_available_date": "2000-01-01",
+    "last_available_date": "2026-03-08",
+    "row_count": 279,
+    "coverage_pct": 100.0,
+    "missing_after_join": 0,
+    "train_ready": true
+  },
+  "IIP": {
+    "first_available_date": "2000-01-01",
+    "last_available_date": "2026-03-08",
+    "row_count": 294,
+    "coverage_pct": 100.0,
+    "missing_after_join": 0,
+    "train_ready": true
+  },
+  "FII_FLOW": {
+    "first_available_date": "2000-03-31",
+    "last_available_date": "2026-03-08",
+    "row_count": 30,
+    "coverage_pct": 100.0,
+    "missing_after_join": 0,
+    "train_ready": true
+  },
+  "DII_FLOW": {
+    "first_available_date": "2026-03-07",
+    "last_available_date": "2026-03-08",
+    "row_count": 2,
+    "coverage_pct": 0.2661,
+    "missing_after_join": 1874,
+    "train_ready": false
+  },
+  "FX_RESERVES": {
+    "first_available_date": "2000-01-01",
+    "last_available_date": "2026-03-08",
+    "row_count": 318,
+    "coverage_pct": 100.0,
+    "missing_after_join": 0,
+    "train_ready": true
+  },
+  "INDIA_US_10Y_SPREAD": {
+    "first_available_date": "2011-12-01",
+    "last_available_date": "2026-03-08",
+    "row_count": 176,
+    "coverage_pct": 100.0,
+    "missing_after_join": 0,
+    "train_ready": true
+  },
+  "RBI_BULLETIN": {
+    "first_available_date": "2000-05-19",
+    "last_available_date": "2026-03-08",
+    "row_count": 247,
+    "coverage_pct": 100.0,
+    "missing_after_join": 0,
+    "train_ready": true
+  },
+  "REPO_RATE": {
+    "first_available_date": "2000-08-01",
+    "last_available_date": "2025-08-06",
+    "row_count": 227,
+    "coverage_pct": 100.0,
+    "missing_after_join": 0,
+    "train_ready": true
+  },
+  "US_10Y": {
+    "first_available_date": "2000-01-03",
+    "last_available_date": "2026-03-13",
+    "row_count": 6551,
+    "coverage_pct": 100.0,
+    "missing_after_join": 0,
+    "train_ready": true
+  }
+}

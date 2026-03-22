@@ -1,1 +1,1 @@
-"""Project configuration helpers."""
+"""Project-level runtime configuration package."""
