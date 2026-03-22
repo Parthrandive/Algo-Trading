@@ -4,6 +4,7 @@ import csv
 import json
 import pickle
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Protocol
 
@@ -51,6 +52,7 @@ ID_TO_LABEL = {value: key for key, value in LABEL_TO_ID.items()}
 SKLEARN_BACKEND = "sklearn_logistic_regression"
 HF_BACKEND = "huggingface_transformers"
 DEFAULT_REMOTE_DATASETS = ("harixn/indian_news_sentiment",)
+DEFAULT_SENTIMENT_TRAINING_SYMBOL = "NSE_SENTIMENT"
 DEFAULT_THRESHOLDS: dict[str, dict[str, float]] = {
     "positive": {"precision_min": 0.75, "recall_min": 0.72},
     "neutral": {"precision_min": 0.70, "recall_min": 0.68},
@@ -376,6 +378,7 @@ def train_hf_sentiment_model(
     *,
     output_dir: Path,
     model_id: str,
+    symbol: str = DEFAULT_SENTIMENT_TRAINING_SYMBOL,
     version: str,
     dataset_sizes: Mapping[str, int],
     thresholds: Mapping[str, Mapping[str, float]],
@@ -521,6 +524,7 @@ def train_hf_sentiment_model(
             "seed": seed,
             "local_files_only": local_files_only,
         },
+        symbol=symbol,
     )
 
 
@@ -599,6 +603,8 @@ def _write_artifact_metadata(
     description: str,
     hyperparameters: Mapping[str, Any],
     base_model_id: str | None = None,
+    symbol: str = DEFAULT_SENTIMENT_TRAINING_SYMBOL,
+    timestamp: str | None = None,
 ) -> TrainingArtifact:
     output_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = output_dir / "artifact_manifest.json"
@@ -618,7 +624,10 @@ def _write_artifact_metadata(
         manifest["base_model_id"] = base_model_id
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
+    artifact_timestamp = timestamp or datetime.now(timezone.utc).isoformat()
     training_meta = {
+        "timestamp": artifact_timestamp,
+        "symbol": symbol,
         "model_id": model_id,
         "version": version,
         "backend": backend,
@@ -669,6 +678,8 @@ def persist_training_artifact(
     dataset_sizes: Mapping[str, int],
     thresholds: Mapping[str, Mapping[str, float]],
     synthetic_data: bool,
+    symbol: str = DEFAULT_SENTIMENT_TRAINING_SYMBOL,
+    timestamp: str | None = None,
 ) -> TrainingArtifact:
     output_dir.mkdir(parents=True, exist_ok=True)
     classifier_path = output_dir / "classifier.pkl"
@@ -694,6 +705,8 @@ def persist_training_artifact(
             "vectorizer": "tfidf_unigram_bigram",
             "classifier": "logistic_regression",
         },
+        symbol=symbol,
+        timestamp=timestamp,
     )
 
 
@@ -708,6 +721,8 @@ def persist_hf_training_artifact(
     synthetic_data: bool,
     base_model_id: str,
     hyperparameters: Mapping[str, Any],
+    symbol: str = DEFAULT_SENTIMENT_TRAINING_SYMBOL,
+    timestamp: str | None = None,
 ) -> TrainingArtifact:
     return _write_artifact_metadata(
         output_dir=output_dir,
@@ -726,6 +741,8 @@ def persist_hf_training_artifact(
         ),
         hyperparameters=hyperparameters,
         base_model_id=base_model_id,
+        symbol=symbol,
+        timestamp=timestamp,
     )
 
 

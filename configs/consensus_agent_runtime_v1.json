@@ -19,6 +19,21 @@
     "regime_base": 0.35,
     "sentiment_base": 0.23
   },
+  "freshness": {
+    "stale_sentiment_weight_multiplier": 0.4,
+    "missing_sentiment_weight_multiplier": 0.05,
+    "stale_confidence_penalty": 0.05,
+    "missing_confidence_penalty": 0.1
+  },
+  "ood": {
+    "warning_regime_weight_multiplier": 1.1,
+    "warning_technical_weight_multiplier": 0.9,
+    "warning_confidence_penalty": 0.15,
+    "alien_regime_weight_multiplier": 1.2,
+    "alien_technical_weight_multiplier": 0.8,
+    "alien_sentiment_weight_multiplier": 0.6,
+    "alien_confidence_penalty": 0.2
+  },
   "phase2_contract": {
     "required_signals": [
       "technical",
@@ -32,6 +47,28 @@
       "sentiment_quantile",
       "crisis_probability",
       "generated_at_utc"
+    ],
+    "optional_signal_fields": {
+      "regime": [
+        "risk_level",
+        "ood_warning",
+        "ood_alien"
+      ],
+      "sentiment": [
+        "freshness_flag",
+        "is_stale",
+        "is_missing",
+        "source_count"
+      ]
+    },
+    "optional_context": [
+      "regime_risk_level",
+      "regime_ood_warning",
+      "regime_ood_alien",
+      "sentiment_freshness",
+      "sentiment_is_stale",
+      "sentiment_is_missing",
+      "sentiment_source_count"
     ]
   }
 }

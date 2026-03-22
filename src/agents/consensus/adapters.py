@@ -3,7 +3,11 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any, Mapping
 
-from src.agents.consensus.schemas import AgentSignal, ConsensusInput
+from src.agents.consensus.schemas import (
+    AgentSignal,
+    ConsensusInput,
+    ConsensusRegimeRiskLevel,
+)
 
 
 def build_consensus_input(
@@ -23,6 +27,17 @@ def build_consensus_input(
         rbi_signal=_coerce_float(context.get("rbi_signal"), default=0.0),
         sentiment_quantile=_coerce_float(context.get("sentiment_quantile"), default=0.5),
         crisis_probability=_coerce_float(context.get("crisis_probability"), default=0.0),
+        sentiment_is_stale=_coerce_sentiment_stale(sentiment, context),
+        sentiment_is_missing=_coerce_sentiment_missing(sentiment, context),
+        regime_ood_warning=_coerce_bool(
+            regime.get("ood_warning", context.get("regime_ood_warning")),
+            default=False,
+        ),
+        regime_ood_alien=_coerce_bool(
+            regime.get("ood_alien", context.get("regime_ood_alien")),
+            default=False,
+        ),
+        regime_risk_level=_coerce_regime_risk_level(regime, context),
         generated_at_utc=generated_at,
     )
 
@@ -82,6 +97,54 @@ def _coerce_float(value: Any, *, default: float) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _coerce_bool(value: Any, *, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "y", "stale", "missing"}:
+            return True
+        if normalized in {"false", "0", "no", "n", "fresh"}:
+            return False
+    return default
+
+
+def _coerce_sentiment_stale(sentiment: Mapping[str, Any], context: Mapping[str, Any]) -> bool:
+    freshness = sentiment.get("freshness_flag", context.get("sentiment_freshness"))
+    if isinstance(freshness, str) and freshness.strip().lower() in {"stale", "missing", "expired"}:
+        return True
+    return _coerce_bool(sentiment.get("is_stale", context.get("sentiment_is_stale")), default=False)
+
+
+def _coerce_sentiment_missing(sentiment: Mapping[str, Any], context: Mapping[str, Any]) -> bool:
+    freshness = sentiment.get("freshness_flag", context.get("sentiment_freshness"))
+    if isinstance(freshness, str) and freshness.strip().lower() in {"missing", "expired"}:
+        return True
+    source_count = sentiment.get("source_count", context.get("sentiment_source_count"))
+    if source_count is not None and _coerce_float(source_count, default=0.0) <= 0.0:
+        return True
+    return _coerce_bool(sentiment.get("is_missing", context.get("sentiment_is_missing")), default=False)
+
+
+def _coerce_regime_risk_level(
+    regime: Mapping[str, Any],
+    context: Mapping[str, Any],
+) -> ConsensusRegimeRiskLevel:
+    value = regime.get("risk_level", context.get("regime_risk_level", ConsensusRegimeRiskLevel.FULL_RISK.value))
+    if isinstance(value, ConsensusRegimeRiskLevel):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        for member in ConsensusRegimeRiskLevel:
+            if member.value == normalized:
+                return member
+    return ConsensusRegimeRiskLevel.FULL_RISK
 
 
 def _expect_mapping(value: Any, *, name: str) -> Mapping[str, Any]:

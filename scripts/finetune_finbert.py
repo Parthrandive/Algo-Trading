@@ -81,6 +81,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--backend", choices=["auto", HF_BACKEND, SKLEARN_BACKEND], default="auto")
     parser.add_argument("--output-dir", default="data/models/sentiment/finbert_indian_v1")
     parser.add_argument("--model-id", default="finbert_indian_v1")
+    parser.add_argument("--symbol", default="NSE_SENTIMENT")
     parser.add_argument("--version", default="1.0")
     parser.add_argument("--base-model-id", default="ProsusAI/finbert")
     parser.add_argument("--seed", type=int, default=42)
@@ -145,6 +146,7 @@ def main() -> None:
             examples,
             output_dir=output_dir,
             model_id=args.model_id,
+            symbol=args.symbol,
             version=args.version,
             dataset_sizes=dataset_sizes,
             thresholds=DEFAULT_THRESHOLDS,
@@ -172,6 +174,7 @@ def main() -> None:
             output_dir=output_dir,
             pipeline=pipeline,
             model_id=args.model_id,
+            symbol=args.symbol,
             version=args.version,
             training_report=training_report,
             dataset_sizes=dataset_sizes,
