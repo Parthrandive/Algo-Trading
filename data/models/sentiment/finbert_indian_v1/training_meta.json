@@ -1,7 +1,13 @@
 {
+  "timestamp": "2026-03-21T11:51:41.861074+00:00",
+  "symbol": "NSE_SENTIMENT",
   "model_id": "finbert_indian_v1",
   "version": "1.0",
   "backend": "sklearn_logistic_regression",
+  "hyperparameters": {
+    "vectorizer": "tfidf_unigram_bigram",
+    "classifier": "logistic_regression"
+  },
   "dataset_sizes": {
     "synthetic_bootstrap": 15
   },

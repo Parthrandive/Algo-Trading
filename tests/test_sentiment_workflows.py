@@ -83,7 +83,7 @@ def test_nightly_batch_persists_document_scores_and_daily_aggregates(tmp_path):
 def test_local_training_artifact_can_bootstrap_slow_model(tmp_path):
     examples = load_examples_from_sources(include_bootstrap=True)
     pipeline, report = train_sklearn_sentiment_model(examples, seed=7, val_ratio=0.33)
-    persist_training_artifact(
+    artifact = persist_training_artifact(
         output_dir=tmp_path,
         pipeline=pipeline,
         model_id="finbert_indian_v1",
@@ -97,6 +97,10 @@ def test_local_training_artifact_can_bootstrap_slow_model(tmp_path):
         },
         synthetic_data=True,
     )
+    training_meta = json.loads(artifact.training_meta_path.read_text(encoding="utf-8"))
+    assert training_meta["symbol"] == "NSE_SENTIMENT"
+    assert training_meta["timestamp"]
+    assert training_meta["hyperparameters"]["classifier"] == "logistic_regression"
 
     model = FinBERTSentimentModel.bootstrap(
         model_id="ProsusAI/finbert",
