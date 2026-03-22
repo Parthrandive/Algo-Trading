@@ -1,0 +1,34 @@
+{
+  "timestamp_utc": "2026-03-22T14:59:04.634693+00:00",
+  "snapshot_id": "phase2_run_20260322_145904",
+  "db_url": null,
+  "persist_enabled": true,
+  "symbols": [
+    "USDINR=X",
+    "RELIANCE.NS",
+    "TATASTEEL.NS"
+  ],
+  "phase3_observation_emitted": true,
+  "results": [],
+  "failures": [
+    {
+      "agent": "sentiment_batch",
+      "error": "(psycopg2.errors.StringDataRightTruncation) value too long for type character varying(8)\n\n[SQL: INSERT INTO sentiment_scores (symbol, timestamp, lane, source_id, source_type, sentiment_class, sentiment_score, z_t, confidence, source_count, ttl_seconds, freshness_flag, headline_timestamp, score_timestamp, quality_status, metadata_json, model_id, schema_version) VALUES (%(symbol)s, %(timestamp)s, %(lane)s, %(source_id)s, %(source_type)s, %(sentiment_class)s, %(sentiment_score)s, %(z_t)s, %(confidence)s, %(source_count)s, %(ttl_seconds)s, %(freshness_flag)s, %(headline_timestamp)s, %(score_timestamp)s, %(quality_status)s, %(metadata_json)s, %(model_id)s, %(schema_version)s) ON CONFLICT (symbol, timestamp, lane, model_id) DO UPDATE SET source_id = excluded.source_id, source_type = excluded.source_type, sentiment_class = excluded.sentiment_class, sentiment_score = excluded.sentiment_score, z_t = excluded.z_t, confidence = excluded.confidence, source_count = excluded.source_count, ttl_seconds = excluded.ttl_seconds, freshness_flag = excluded.freshness_flag, headline_timestamp = excluded.headline_timestamp, score_timestamp = excluded.score_timestamp, quality_status = excluded.quality_status, metadata_json = excluded.metadata_json, schema_version = excluded.schema_version RETURNING sentiment_scores.id]\n[parameters: {'symbol': None, 'timestamp': datetime.datetime(2026, 3, 22, 14, 59, 4, 634693, tzinfo=datetime.timezone.utc), 'lane': 'daily_agg', 'source_id': 'MARKET', 'source_type': 'aggregate', 'sentiment_class': 'neutral', 'sentiment_score': 0.0, 'z_t': 0.0, 'confidence': 0.0, 'source_count': 0, 'ttl_seconds': 86400, 'freshness_flag': 'fresh', 'headline_timestamp': None, 'score_timestamp': datetime.datetime(2026, 3, 22, 14, 59, 4, 634693, tzinfo=datetime.timezone.utc), 'quality_status': 'fail', 'metadata_json': '{\"provenance\":{\"component\":\"sentiment_agent\",\"macro_feature_count\":0}}', 'model_id': 'sentiment_daily_agg_v1', 'schema_version': '1.0'}]\n(Background on this error at: https://sqlalche.me/e/20/9h9h)"
+    },
+    {
+      "symbol": "USDINR=X",
+      "agent": "phase2_pipeline",
+      "error": "technical agent returned no prediction for USDINR=X"
+    },
+    {
+      "symbol": "RELIANCE.NS",
+      "agent": "phase2_pipeline",
+      "error": "technical agent returned no prediction for RELIANCE.NS"
+    },
+    {
+      "symbol": "TATASTEEL.NS",
+      "agent": "phase2_pipeline",
+      "error": "technical agent returned no prediction for TATASTEEL.NS"
+    }
+  ]
+}

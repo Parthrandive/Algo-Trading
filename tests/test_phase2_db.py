@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy import create_engine, inspect, select
 from sqlalchemy.orm import sessionmaker
 
+from src.agents.sentiment.schemas import SentimentLane
 import src.db.queries as db_queries
 from src.agents.regime.schemas import RegimePrediction, RegimeState, RiskLevel
 from src.agents.technical.schemas import TechnicalPrediction
@@ -27,6 +28,27 @@ def _build_sqlite_recorder():
     return engine, session_factory, recorder
 
 
+def test_phase2_recorder_bootstraps_missing_tables():
+    engine = create_engine("sqlite:///:memory:")
+
+    recorder = Phase2Recorder(engine=engine)
+
+    inspector = inspect(engine)
+    table_names = set(inspector.get_table_names())
+    expected = {
+        "technical_predictions",
+        "regime_predictions",
+        "sentiment_scores",
+        "consensus_signals",
+        "model_cards",
+        "backtest_runs",
+        "prediction_log",
+    }
+
+    assert expected.issubset(table_names)
+    assert recorder.Session is not None
+
+
 def test_phase2_tables_are_created():
     engine, _, _ = _build_sqlite_recorder()
     inspector = inspect(engine)
@@ -42,6 +64,11 @@ def test_phase2_tables_are_created():
         "prediction_log",
     }
     assert expected.issubset(table_names)
+
+
+def test_sentiment_lane_schema_supports_daily_aggregate():
+    lane_column = SentimentScoreDB.__table__.c.lane
+    assert lane_column.type.length >= len(SentimentLane.DAILY_AGG.value)
 
 
 def test_technical_prediction_upsert_and_prediction_log(monkeypatch):

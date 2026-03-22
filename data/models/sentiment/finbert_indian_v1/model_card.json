@@ -3,9 +3,9 @@
   "agent": "sentiment",
   "model_family": "dual_speed_sentiment",
   "version": "1.0",
-  "created_at": "2026-03-21 11:51:41.861074+00:00",
-  "updated_at": "2026-03-21 11:51:41.861074+00:00",
-  "status": "research_ready",
+  "created_at": "2026-03-22 15:05:36.573159+00:00",
+  "updated_at": "2026-03-22 15:05:36.573159+00:00",
+  "status": "paper_ready",
   "performance": {
     "backend": "sklearn_logistic_regression",
     "train_size": 12,
@@ -78,7 +78,10 @@
   "training_data_snapshot_hash": "pending_external_dataset",
   "code_hash": "workspace_current",
   "feature_schema_version": "1.0",
-  "hyperparameters": {},
+  "hyperparameters": {
+    "vectorizer": "tfidf_unigram_bigram",
+    "classifier": "logistic_regression"
+  },
   "validation_metrics": {
     "backend": "sklearn_logistic_regression",
     "train_size": 12,
@@ -173,5 +176,6 @@
       },
       "all_pass": false
     }
-  }
+  },
+  "last_registered_snapshot_id": "phase2_run_20260322_150536"
 }

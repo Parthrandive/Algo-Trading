@@ -7,11 +7,12 @@ from enum import Enum
 from typing import Any
 
 import pandas as pd
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from src.db.connection import get_engine, get_session
+from src.db.models import Base
 from src.db.models import (
     BacktestRunDB,
     ConsensusSignalDB,
@@ -24,6 +25,29 @@ from src.db.models import (
 
 logger = logging.getLogger(__name__)
 
+PHASE2_TABLES = (
+    TechnicalPredictionDB.__table__,
+    RegimePredictionDB.__table__,
+    SentimentScoreDB.__table__,
+    ConsensusSignalDB.__table__,
+    ModelCardDB.__table__,
+    BacktestRunDB.__table__,
+    PredictionLogDB.__table__,
+)
+
+PHASE2_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_tech_pred_sym_ts ON technical_predictions (symbol, timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_regime_pred_sym_ts ON regime_predictions (symbol, timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_sentiment_sym_ts ON sentiment_scores (symbol, timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_consensus_sym_ts ON consensus_signals (symbol, timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_pred_log_agent_ts ON prediction_log (agent, timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_backtest_model ON backtest_runs (model_id, run_timestamp DESC);",
+)
+
+PHASE2_POSTGRES_REPAIR_DDL = (
+    "ALTER TABLE IF EXISTS sentiment_scores ALTER COLUMN lane TYPE VARCHAR(16);",
+)
+
 
 class Phase2Recorder:
     """
@@ -32,9 +56,36 @@ class Phase2Recorder:
     The public save methods accept either Pydantic models or plain dictionaries.
     """
 
-    def __init__(self, database_url: str | None = None, engine=None, session_factory=None):
+    def __init__(
+        self,
+        database_url: str | None = None,
+        engine=None,
+        session_factory=None,
+        *,
+        bootstrap_schema: bool = True,
+    ):
         self.engine = engine or get_engine(database_url)
+        self._bootstrap_schema = bool(bootstrap_schema)
+        if self._bootstrap_schema:
+            self._ensure_phase2_schema()
         self.Session = session_factory or get_session(self.engine)
+
+    def _ensure_phase2_schema(self) -> None:
+        """
+        Idempotently creates the Phase 2 registry/prediction tables required by
+        the analyst-board agents. This protects first-run bootstrap flows where
+        the base DB exists but Phase 2 tables were never initialized.
+        """
+        try:
+            Base.metadata.create_all(self.engine, tables=list(PHASE2_TABLES))
+            with self.engine.begin() as conn:
+                if self.engine.dialect.name == "postgresql":
+                    for ddl in PHASE2_POSTGRES_REPAIR_DDL:
+                        conn.execute(text(ddl))
+                for ddl in PHASE2_INDEX_DDL:
+                    conn.execute(text(ddl))
+        except Exception as exc:
+            raise RuntimeError("Failed to bootstrap Phase 2 recorder schema.") from exc
 
     def save_technical_prediction(
         self,
