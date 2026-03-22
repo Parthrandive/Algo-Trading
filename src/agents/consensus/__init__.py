@@ -7,6 +7,7 @@ from src.agents.consensus.schemas import (
     AgentSignal,
     ConsensusInput,
     ConsensusOutput,
+    ConsensusRegimeRiskLevel,
     ConsensusRiskMode,
     ConsensusTransitionModel,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "ConsensusAgent",
     "ConsensusInput",
     "ConsensusOutput",
+    "ConsensusRegimeRiskLevel",
     "ConsensusRiskMode",
     "ConsensusTransitionModel",
 ]
