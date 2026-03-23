@@ -10,13 +10,11 @@ import tensorflow as tf
 from sklearn.metrics import balanced_accuracy_score, classification_report
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import StandardScaler
-from sklearn.utils.class_weight import compute_class_weight
 from tensorflow.keras.callbacks import Callback, EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 from tensorflow.keras.layers import BatchNormalization, Conv1D, Dense, Dropout, Flatten, Input, MaxPooling1D
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
-from tensorflow.keras.utils import Sequence
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -36,9 +34,7 @@ VAL_END = "2023-12-31"
 FOCAL_ALPHA = [0.25, 0.50, 0.25]  # [down, neutral, up]
 DEFAULT_LEARNING_RATE = 3e-4
 DEFAULT_BATCH_SIZE = 128
-UP_WEIGHT_MULTIPLIER = 3.0
-BEARISH_DOMINANCE_RATIO = 0.70
-REGIME_SHIFT_THRESHOLD = 0.10
+FIXED_FOCAL_GAMMA = 3.0
 
 
 def _to_datetime_index(df: pd.DataFrame, name: str, require_volume: bool) -> pd.DataFrame:
@@ -221,29 +217,7 @@ def apply_labels(log_returns: np.ndarray, thresh: float) -> np.ndarray:
     return np.where(log_returns > thresh, 2, np.where(log_returns < -thresh, 0, 1))
 
 
-def compute_gamma(y_train: np.ndarray, symbol: str) -> float:
-    counts = np.bincount(y_train.astype(int), minlength=3)
-    dominant = counts.max()
-    non_zero = counts[counts > 0]
-    minority = non_zero.min() if len(non_zero) else 1
-    imbalance = dominant / (minority + 1e-6)
-
-    if imbalance > 6.0:
-        gamma = 5.0
-    elif imbalance > 4.0:
-        gamma = 4.0
-    elif imbalance > 2.5:
-        gamma = 3.0
-    elif imbalance > 1.5:
-        gamma = 2.0
-    else:
-        gamma = 1.5
-
-    print(f"  [{symbol}] Counts: {counts} | Imbalance: {imbalance:.2f} | Gamma: {gamma}")
-    return gamma
-
-
-def focal_loss(gamma: float = 2.0, alpha: list[float] | tuple[float, float, float] = FOCAL_ALPHA):
+def focal_loss(gamma: float = FIXED_FOCAL_GAMMA, alpha: list[float] | tuple[float, float, float] = FOCAL_ALPHA):
     alpha_vec = tf.constant(alpha, dtype=tf.float32)
 
     def loss_fn(y_true, y_pred):
@@ -257,78 +231,6 @@ def focal_loss(gamma: float = 2.0, alpha: list[float] | tuple[float, float, floa
         return tf.reduce_mean(focal_w * ce)
 
     return loss_fn
-
-
-def _is_forex_target(symbol: str) -> bool:
-    return is_forex(symbol)
-
-
-def _emit_regime_shift_warning(symbol: str, class_name: str, train_pct: float, test_pct: float, diff: float) -> None:
-    print(
-        f"WARNING: [{symbol}] Regime shift detected\n"
-        f"Train {class_name}: {train_pct:.1%}\n"
-        f"Test {class_name}:  {test_pct:.1%}\n"
-        f"Difference: {diff:.1%} exceeds 10% threshold\n"
-        "XGBoost regime feature will be critical\n"
-        "for this symbol"
-    )
-
-
-def _compute_class_weight_dict(
-    y: np.ndarray,
-    symbol: str,
-    y_test: np.ndarray | None = None,
-    emit_logs: bool = False,
-) -> dict[int, float]:
-    classes = np.unique(y)
-    cw = compute_class_weight("balanced", classes=classes, y=y)
-    weights = {int(cls): float(weight) for cls, weight in zip(classes, cw)}
-
-    counts_train = np.bincount(y.astype(int), minlength=3)
-    up_count = int(counts_train[2])
-    neutral_count = int(counts_train[1])
-    down_count = int(counts_train[0])
-    bearish_dominant = (not _is_forex_target(symbol)) and up_count < down_count * BEARISH_DOMINANCE_RATIO
-    if bearish_dominant:
-        weights[2] = float(weights.get(2, 1.0) * UP_WEIGHT_MULTIPLIER)
-        if emit_logs:
-            print(
-                f"WARNING: [{symbol}] Bearish-dominant train split detected: "
-                f"up={up_count} down={down_count}. Applying up class weight multiplier x{UP_WEIGHT_MULTIPLIER:.1f}"
-            )
-
-    regime_shift_warning = False
-    if emit_logs and y_test is not None and not _is_forex_target(symbol):
-        counts_test = np.bincount(y_test.astype(int), minlength=3)
-        total_train = int(counts_train.sum())
-        total_test = int(counts_test.sum())
-        if total_train > 0 and total_test > 0:
-            train_up_pct = up_count / total_train
-            test_up_pct = int(counts_test[2]) / total_test
-            up_diff = abs(train_up_pct - test_up_pct)
-            if up_diff > REGIME_SHIFT_THRESHOLD:
-                regime_shift_warning = True
-                _emit_regime_shift_warning(symbol, "up", train_up_pct, test_up_pct, up_diff)
-
-            train_down_pct = down_count / total_train
-            test_down_pct = int(counts_test[0]) / total_test
-            down_diff = abs(train_down_pct - test_down_pct)
-            if down_diff > REGIME_SHIFT_THRESHOLD:
-                regime_shift_warning = True
-                _emit_regime_shift_warning(symbol, "down", train_down_pct, test_down_pct, down_diff)
-
-    if emit_logs:
-        print(f"  [{symbol}] Raw class counts (train):")
-        print(f"             up={up_count}  neutral={neutral_count}  down={down_count}")
-        print(f"  [{symbol}] Bearish dominant: {'Yes' if bearish_dominant else 'No'}")
-        print(f"  [{symbol}] Up multiplier applied: {'Yes' if bearish_dominant else 'No'}")
-        print(f"  [{symbol}] Final class weights:")
-        print(
-            f"             down={weights.get(0, 1.0):.6f}  "
-            f"neutral={weights.get(1, 1.0):.6f}  up={weights.get(2, 1.0):.6f}"
-        )
-        print(f"  [{symbol}] Regime shift warning: {'Yes' if regime_shift_warning else 'No'}")
-    return weights
 
 
 class NeutralFloorMonitor(Callback):
@@ -360,41 +262,6 @@ class NeutralFloorMonitor(Callback):
             )
 
 
-class BalancedBatchGenerator(Sequence):
-    def __init__(self, X: np.ndarray, y: np.ndarray, batch_size: int = DEFAULT_BATCH_SIZE):
-        self.X = X
-        self.y = y
-        self.batch_size = batch_size
-        self.classes = np.unique(y)
-        if len(self.classes) == 0:
-            raise ValueError("BalancedBatchGenerator received empty label array")
-
-        base = batch_size // len(self.classes)
-        remainder = batch_size % len(self.classes)
-        self.samples_per_class = {
-            int(c): base + (idx < remainder) for idx, c in enumerate(self.classes)
-        }
-
-        self.indices_per_class = {int(c): np.where(y == c)[0] for c in self.classes}
-        for c, idx in self.indices_per_class.items():
-            if len(idx) < 10:
-                print(f"  WARNING: class {c} has only {len(idx)} samples")
-
-    def __len__(self) -> int:
-        return max(len(self.y) // self.batch_size, 1)
-
-    def __getitem__(self, idx: int) -> tuple[np.ndarray, np.ndarray]:
-        batch_idx: list[int] = []
-        for c in self.classes:
-            c_int = int(c)
-            n_pick = self.samples_per_class[c_int]
-            chosen = np.random.choice(self.indices_per_class[c_int], n_pick, replace=True)
-            batch_idx.extend(chosen.tolist())
-        np.random.shuffle(batch_idx)
-        batch_idx_arr = np.asarray(batch_idx, dtype=int)
-        return self.X[batch_idx_arr], self.y[batch_idx_arr]
-
-
 def make_sequences(X: np.ndarray, y: np.ndarray, seq_len: int) -> tuple[np.ndarray, np.ndarray]:
     Xs, ys = [], []
     for i in range(seq_len, len(X)):
@@ -407,7 +274,7 @@ def make_sequences(X: np.ndarray, y: np.ndarray, seq_len: int) -> tuple[np.ndarr
     return np.asarray(Xs), np.asarray(ys)
 
 
-def build_cnn(input_shape: tuple[int, int], gamma: float = 2.0, shallow: bool = False, symbol: str = ""):
+def build_cnn(input_shape: tuple[int, int], shallow: bool = False, symbol: str = ""):
     if shallow:
         model = Sequential(
             [
@@ -441,11 +308,11 @@ def build_cnn(input_shape: tuple[int, int], gamma: float = 2.0, shallow: bool = 
 
     model.compile(
         optimizer=Adam(learning_rate=DEFAULT_LEARNING_RATE),
-        loss=focal_loss(gamma=gamma, alpha=FOCAL_ALPHA),
+        loss=focal_loss(gamma=FIXED_FOCAL_GAMMA, alpha=FOCAL_ALPHA),
         metrics=["accuracy"],
     )
     arch = "shallow" if shallow else "full"
-    print(f"  [{symbol}] CNN built: {arch} | gamma={gamma}")
+    print(f"  [{symbol}] CNN built: {arch} | gamma={FIXED_FOCAL_GAMMA}")
     return model
 
 
@@ -479,8 +346,6 @@ def train_with_retry(
     y_tr: np.ndarray,
     X_v: np.ndarray,
     y_v: np.ndarray,
-    gamma: float,
-    class_weight_dict: dict[int, float],
     model_dir: Path,
     seq_len: int = 30,
     batch_size: int = DEFAULT_BATCH_SIZE,
@@ -491,13 +356,14 @@ def train_with_retry(
     X_v_s, y_v_s = make_sequences(X_v, y_v, seq_len)
     input_shape = (seq_len, X_tr.shape[1])
 
-    model = build_cnn(input_shape, gamma=gamma, shallow=False, symbol=symbol)
-    gen = BalancedBatchGenerator(X_tr_s, y_tr_s, batch_size=batch_size)
+    model = build_cnn(input_shape, shallow=False, symbol=symbol)
     history = model.fit(
-        gen,
+        X_tr_s,
+        y_tr_s,
         validation_data=(X_v_s, y_v_s),
         epochs=epochs,
-        class_weight=class_weight_dict,
+        batch_size=batch_size,
+        shuffle=True,
         callbacks=get_callbacks(symbol, model_dir, X_val_seq=X_v_s),
         verbose=verbose,
     )
@@ -506,25 +372,25 @@ def train_with_retry(
     val_preds = np.argmax(model.predict(X_v_s, verbose=0), axis=1)
 
     architecture = "full"
-    gamma_final = gamma
+    gamma_final = FIXED_FOCAL_GAMMA
     epochs_trained = len(history.history["loss"])
     if check_collapse(val_preds, symbol):
-        gamma_retry = min(gamma + 2.0, 5.0)
-        print(f"  [{symbol}] Retrying: shallow=True gamma={gamma_retry}")
+        print(f"  [{symbol}] Retrying: shallow=True gamma={FIXED_FOCAL_GAMMA}")
 
-        model = build_cnn(input_shape, gamma=gamma_retry, shallow=True, symbol=symbol)
-        gen = BalancedBatchGenerator(X_tr_s, y_tr_s, batch_size=batch_size)
+        model = build_cnn(input_shape, shallow=True, symbol=symbol)
         history = model.fit(
-            gen,
+            X_tr_s,
+            y_tr_s,
             validation_data=(X_v_s, y_v_s),
             epochs=epochs,
-            class_weight=class_weight_dict,
+            batch_size=batch_size,
+            shuffle=True,
             callbacks=get_callbacks(symbol, model_dir, X_val_seq=X_v_s),
             verbose=verbose,
         )
         print(f"  [{symbol}] Attempt 2: {len(history.history['loss'])} epochs")
         architecture = "shallow"
-        gamma_final = gamma_retry
+        gamma_final = FIXED_FOCAL_GAMMA
         epochs_trained = len(history.history["loss"])
 
     return model, X_tr_s, y_tr_s, X_v_s, y_v_s, architecture, gamma_final, epochs_trained
@@ -573,22 +439,20 @@ def run_walk_forward_cv(
         X_tr_f = sc_f.fit_transform(X_tr_f)
         X_v_f = sc_f.transform(X_v_f)
 
-        cw_f = _compute_class_weight_dict(y_tr_f, symbol=symbol, emit_logs=False)
-        gam_f = compute_gamma(y_tr_f, symbol)
-
         try:
             X_tf_s, y_tf_s = make_sequences(X_tr_f, y_tr_f, seq_len)
             X_vf_s, y_vf_s = make_sequences(X_v_f, y_v_f, seq_len)
         except ValueError:
             continue
 
-        m_f = build_cnn((seq_len, X_tr_f.shape[1]), gamma=gam_f, shallow=False, symbol=symbol)
-        gen_f = BalancedBatchGenerator(X_tf_s, y_tf_s, batch_size=batch_size)
+        m_f = build_cnn((seq_len, X_tr_f.shape[1]), shallow=False, symbol=symbol)
         m_f.fit(
-            gen_f,
+            X_tf_s,
+            y_tf_s,
             validation_data=(X_vf_s, y_vf_s),
             epochs=epochs,
-            class_weight=cw_f,
+            batch_size=batch_size,
+            shuffle=True,
             callbacks=[
                 EarlyStopping(monitor="val_loss", patience=15, restore_best_weights=True),
                 NeutralFloorMonitor(symbol=f"{symbol}-CV{fold}", X_val=X_vf_s),
@@ -805,10 +669,7 @@ def run_multi_symbol_training(
         X_test = scaler.transform(test_df[feature_cols].iloc[:-1])
         SYMBOL_SCALERS[symbol] = scaler
 
-        class_weight_dict = _compute_class_weight_dict(y_train, symbol=symbol, y_test=y_test, emit_logs=True)
-
-        gamma = compute_gamma(y_train, symbol)
-        SYMBOL_CONFIGS[symbol]["gamma"] = float(gamma)
+        SYMBOL_CONFIGS[symbol]["gamma"] = float(FIXED_FOCAL_GAMMA)
 
         symbol_model_dir = model_root / symbol.replace(".", "_").replace("=", "_")
         model, X_tr_s, y_tr_s, X_v_s, y_v_s, architecture, gamma_final, epochs_trained = train_with_retry(
@@ -817,8 +678,6 @@ def run_multi_symbol_training(
             y_tr=y_train,
             X_v=X_val,
             y_v=y_val,
-            gamma=gamma,
-            class_weight_dict=class_weight_dict,
             model_dir=symbol_model_dir,
             seq_len=seq_len,
             batch_size=batch_size,

@@ -23,7 +23,6 @@ import torch.nn.functional as F
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, confusion_matrix
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import StandardScaler
-from sklearn.utils.class_weight import compute_class_weight
 from torch.utils.data import DataLoader as TorchDataLoader
 from torch.utils.data import TensorDataset
 
@@ -62,9 +61,7 @@ from config.symbols import (
 REQUIRED_OHLCV = {"open", "high", "low", "close", "volume"}
 LOGGER = logging.getLogger("train_regime_aware")
 CLASS_NAMES = {0: "up", 1: "neutral", 2: "down"}
-UP_WEIGHT_MULTIPLIER = 3.0
-BEARISH_DOMINANCE_RATIO = 0.70
-REGIME_SHIFT_THRESHOLD = 0.10
+FIXED_FOCAL_GAMMA = 3.0
 DEFAULT_META_COLUMNS = {
     "symbol",
     "timestamp",
@@ -886,12 +883,12 @@ def build_cnn_sequences(
     )
 
 
-def make_loader(X: np.ndarray, y: np.ndarray, batch_size: int) -> TorchDataLoader:
+def make_loader(X: np.ndarray, y: np.ndarray, batch_size: int, shuffle: bool = False) -> TorchDataLoader:
     dataset = TensorDataset(
         torch.tensor(X, dtype=torch.float32),
         torch.tensor(y, dtype=torch.float32 if y.dtype.kind == "f" else torch.long),
     )
-    return TorchDataLoader(dataset, batch_size=batch_size, shuffle=False)
+    return TorchDataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
 
 def tensor_predict(model: nn.Module, loader: TorchDataLoader, device: torch.device) -> tuple[np.ndarray, np.ndarray]:
@@ -1010,49 +1007,31 @@ def find_threshold(train_log_returns: np.ndarray, symbol: str, args: argparse.Na
     return best_threshold, fallback_neutral_pct
 
 
-def compute_gamma(y_train: np.ndarray, symbol: str, args: argparse.Namespace) -> tuple[float, np.ndarray, float]:
+def summarize_class_counts(y_train: np.ndarray, symbol: str) -> tuple[np.ndarray, float]:
     counts = np.bincount(y_train.astype(np.int64), minlength=3).astype(np.int64)
     dominant = float(counts.max()) if counts.size else 1.0
     positive_counts = counts[counts > 0]
     minority = float(positive_counts.min()) if positive_counts.size else 1.0
     imbalance = dominant / (minority + 1e-6)
-    if args.focal_gamma is not None:
-        gamma = float(args.focal_gamma)
-    else:
-        if counts.sum() == 0:
-            gamma = 1.0
-        else:
-            probs = counts.astype(np.float64) / float(counts.sum())
-            probs = probs[probs > 0]
-            entropy = float(-(probs * np.log(probs)).sum()) if probs.size else 0.0
-            max_entropy = float(np.log(max(len(counts), 2)))
-            entropy_gap = max(0.0, 1.0 - (entropy / max_entropy))
-            gamma_raw = float(np.log1p(imbalance) * (1.0 + entropy_gap))
-            gamma_cap = float(np.log1p(max(dominant, 1.0)))
-            gamma = min(gamma_raw, gamma_cap)
 
     LOGGER.info(
         "[%s] Class counts=%s | imbalance=%.2f | focal_gamma=%.2f",
         symbol,
         counts.tolist(),
         imbalance,
-        gamma,
+        FIXED_FOCAL_GAMMA,
     )
-    return gamma, counts, float(imbalance)
+    return counts, float(imbalance)
 
 
 class FocalLoss(nn.Module):
-    def __init__(self, gamma: float, alpha: float, class_weights: np.ndarray | None = None) -> None:
+    def __init__(self, gamma: float, alpha: float) -> None:
         super().__init__()
         self.gamma = float(gamma)
         self.alpha = float(alpha)
-        if class_weights is not None:
-            self.register_buffer("class_weights", torch.tensor(class_weights, dtype=torch.float32))
-        else:
-            self.class_weights = None
 
     def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        ce_loss = F.cross_entropy(logits, targets, reduction="none", weight=self.class_weights)
+        ce_loss = F.cross_entropy(logits, targets, reduction="none")
         pt = torch.exp(-ce_loss)
         focal_weight = self.alpha * torch.pow(1.0 - pt, self.gamma)
         return (focal_weight * ce_loss).mean()
@@ -1142,11 +1121,9 @@ def run_cnn_walk_forward_cv(
         X_tr = scaler.fit_transform(X_tr_raw.reshape(len(X_tr_raw), -1)).reshape(X_tr_shape).astype(np.float32)
         X_v = scaler.transform(X_v_raw.reshape(len(X_v_raw), -1)).reshape(X_v_shape).astype(np.float32)
 
-        class_weights = build_class_weight_vector(y_tr, symbol=symbol, emit_logs=False)
-        gamma_fold, _, _ = compute_gamma(y_tr, symbol, args)
-        criterion = FocalLoss(gamma=gamma_fold, alpha=args.focal_alpha, class_weights=class_weights).to(device)
+        criterion = FocalLoss(gamma=FIXED_FOCAL_GAMMA, alpha=args.focal_alpha).to(device)
 
-        train_loader = make_loader(X_tr, y_tr, args.batch_size)
+        train_loader = make_loader(X_tr, y_tr, args.batch_size, shuffle=True)
         val_loader = make_loader(X_v, y_v, args.batch_size)
 
         model = DirectionCNNClassifier(
@@ -1444,91 +1421,6 @@ def train_regression_model(
     return RegressionArtifacts(metrics=metrics, history=history, prediction_frame=prediction_frame)
 
 
-def is_forex_target(symbol: str) -> bool:
-    return is_forex(symbol)
-
-
-def emit_regime_shift_warning(symbol: str, class_name: str, train_pct: float, test_pct: float, diff: float) -> None:
-    LOGGER.warning(
-        "WARNING: [%s] Regime shift detected\n"
-        "Train %s: %.1f%%\n"
-        "Test %s:  %.1f%%\n"
-        "Difference: %.1f%% exceeds 10%% threshold\n"
-        "XGBoost regime feature will be critical\n"
-        "for this symbol",
-        symbol,
-        class_name,
-        train_pct * 100.0,
-        class_name,
-        test_pct * 100.0,
-        diff * 100.0,
-    )
-
-
-def build_class_weight_vector(
-    y_train: np.ndarray,
-    symbol: str | None = None,
-    y_test: np.ndarray | None = None,
-    emit_logs: bool = False,
-) -> np.ndarray:
-    present_classes = np.unique(y_train)
-    present_weights = compute_class_weight(class_weight="balanced", classes=present_classes, y=y_train)
-    full_weights = np.ones(3, dtype=np.float32)
-    for klass, weight in zip(present_classes, present_weights):
-        full_weights[int(klass)] = float(weight)
-
-    counts_train = np.bincount(y_train.astype(int), minlength=3)
-    up_count = int(counts_train[0])
-    neutral_count = int(counts_train[1])
-    down_count = int(counts_train[2])
-    bearish_dominant = bool(symbol) and (not is_forex_target(symbol)) and up_count < down_count * BEARISH_DOMINANCE_RATIO
-    if bearish_dominant:
-        full_weights[0] = float(full_weights[0] * UP_WEIGHT_MULTIPLIER)
-        if emit_logs and symbol is not None:
-            LOGGER.warning(
-                "WARNING: [%s] Bearish-dominant train split detected: up=%s down=%s. Applying up class weight multiplier x%.1f",
-                symbol,
-                up_count,
-                down_count,
-                UP_WEIGHT_MULTIPLIER,
-            )
-
-    regime_shift_warning = False
-    if emit_logs and symbol is not None and y_test is not None and not is_forex_target(symbol):
-        counts_test = np.bincount(y_test.astype(int), minlength=3)
-        total_train = int(counts_train.sum())
-        total_test = int(counts_test.sum())
-        if total_train > 0 and total_test > 0:
-            train_up_pct = up_count / total_train
-            test_up_pct = int(counts_test[0]) / total_test
-            up_diff = abs(train_up_pct - test_up_pct)
-            if up_diff > REGIME_SHIFT_THRESHOLD:
-                regime_shift_warning = True
-                emit_regime_shift_warning(symbol, "up", train_up_pct, test_up_pct, up_diff)
-
-            train_down_pct = down_count / total_train
-            test_down_pct = int(counts_test[2]) / total_test
-            down_diff = abs(train_down_pct - test_down_pct)
-            if down_diff > REGIME_SHIFT_THRESHOLD:
-                regime_shift_warning = True
-                emit_regime_shift_warning(symbol, "down", train_down_pct, test_down_pct, down_diff)
-
-    if emit_logs and symbol is not None:
-        LOGGER.info("[%s] Raw class counts (train):", symbol)
-        LOGGER.info("           up=%s  neutral=%s  down=%s", up_count, neutral_count, down_count)
-        LOGGER.info("[%s] Bearish dominant: %s", symbol, "Yes" if bearish_dominant else "No")
-        LOGGER.info("[%s] Up multiplier applied: %s", symbol, "Yes" if bearish_dominant else "No")
-        LOGGER.info("[%s] Final class weights:", symbol)
-        LOGGER.info(
-            "           down=%.6f  neutral=%.6f  up=%.6f",
-            float(full_weights[2]),
-            float(full_weights[1]),
-            float(full_weights[0]),
-        )
-        LOGGER.info("[%s] Regime shift warning: %s", symbol, "Yes" if regime_shift_warning else "No")
-    return full_weights
-
-
 def class_distribution(y: np.ndarray) -> dict[str, int]:
     return {CLASS_NAMES[idx]: int((y == idx).sum()) for idx in sorted(CLASS_NAMES)}
 
@@ -1553,12 +1445,11 @@ def train_cnn_model(
     model_dir: Path,
 ) -> ClassificationArtifacts:
     device = torch.device(args.device)
-    class_weights = build_class_weight_vector(bundle.y_train, symbol=symbol, y_test=bundle.y_test, emit_logs=True)
+    counts_train, imbalance_ratio = summarize_class_counts(bundle.y_train, symbol)
     LOGGER.info("[CNN] class distribution train=%s", class_distribution(bundle.y_train))
     LOGGER.info("[CNN] class distribution val=%s", class_distribution(bundle.y_val))
-    LOGGER.info("[CNN] final class weights=%s", class_weights.tolist())
 
-    train_loader = make_loader(bundle.X_train, bundle.y_train, args.batch_size)
+    train_loader = make_loader(bundle.X_train, bundle.y_train, args.batch_size, shuffle=True)
     val_loader = make_loader(bundle.X_val, bundle.y_val, args.batch_size)
     test_loader = make_loader(bundle.X_test, bundle.y_test, args.batch_size)
 
@@ -1570,7 +1461,6 @@ def train_cnn_model(
     criterion = FocalLoss(
         gamma=focal_gamma,
         alpha=args.focal_alpha,
-        class_weights=class_weights,
     ).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -1679,7 +1569,6 @@ def train_cnn_model(
                     "dropout": args.dropout,
                     "neutral_threshold": label_threshold,
                     "focal_gamma": focal_gamma,
-                    "class_weights": class_weights.tolist(),
                 },
                 checkpoint_path,
             )
@@ -1762,12 +1651,13 @@ def train_cnn_model(
         "class_distribution_test_pct": class_distribution_percentages(bundle.y_test),
         "predicted_distribution_val": {CLASS_NAMES[idx]: int(val_pred_distribution[idx]) for idx in range(3)},
         "actual_distribution_val": {CLASS_NAMES[idx]: int(val_actual_distribution[idx]) for idx in range(3)},
-        "class_weight_balanced": {CLASS_NAMES[idx]: float(class_weights[idx]) for idx in range(3)},
         "per_class_accuracy": class_acc,
         "per_class_accuracy_test": test_class_acc,
         "final_train_loss": float(history[-1]["train_loss"]) if history else None,
         "final_val_loss": float(history[-1]["val_loss"]) if history else None,
         "early_stopped": bool(best_epoch < args.epochs),
+        "class_counts_train": counts_train.tolist(),
+        "imbalance_ratio_train": imbalance_ratio,
     }
     if metrics["val_balanced_accuracy"] <= 0.34:
         LOGGER.warning(
@@ -1945,7 +1835,8 @@ def run_for_symbol(
         label_threshold=dynamic_threshold,
     )
 
-    focal_gamma, class_counts, imbalance_ratio = compute_gamma(cnn_bundle.y_train, symbol, args)
+    class_counts, imbalance_ratio = summarize_class_counts(cnn_bundle.y_train, symbol)
+    focal_gamma = FIXED_FOCAL_GAMMA
 
     if args.disable_cnn_cv:
         cv_mean = float("nan")
