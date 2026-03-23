@@ -1,0 +1,1 @@
+/Users/juhi/Desktop/algo-trading/data/models/cnn_pattern/GLOBAL/feature_scaler.pkl

@@ -34,10 +34,10 @@ class RegimeDataLoader:
         self.database_url = database_url
         self.gold_dir = Path(gold_dir)
 
-    def load_features(self, symbol: str, limit: int = 500) -> pd.DataFrame:
-        df = self._load_from_db(symbol=symbol, limit=limit)
+    def load_features(self, symbol: str, limit: int = 500, interval: str = "1d") -> pd.DataFrame:
+        df = self._load_from_db(symbol=symbol, limit=limit, interval=interval)
         if df.empty:
-            df = self._load_from_parquet(symbol=symbol, limit=limit)
+            df = self._load_from_parquet(symbol=symbol, limit=limit, interval=interval)
 
         if df.empty:
             return df
@@ -48,12 +48,12 @@ class RegimeDataLoader:
 
         return df.sort_values("timestamp").reset_index(drop=True)
 
-    def build_labeled_dataset(self, symbol: str, limit: int = 2000) -> pd.DataFrame:
+    def build_labeled_dataset(self, symbol: str, limit: int = 2000, interval: str = "1d") -> pd.DataFrame:
         """
         Day-1 helper: produce regime-labeled training rows from Gold features.
         Labels are deterministic heuristics until fully supervised labels are curated.
         """
-        df = self.load_features(symbol=symbol, limit=limit)
+        df = self.load_features(symbol=symbol, limit=limit, interval=interval)
         if df.empty:
             return df
 
@@ -111,17 +111,17 @@ class RegimeDataLoader:
             return "Bear"
         return "Sideways"
 
-    def _load_from_db(self, symbol: str, limit: int) -> pd.DataFrame:
+    def _load_from_db(self, symbol: str, limit: int, interval: str) -> pd.DataFrame:
         try:
             engine = get_engine(self.database_url)
             query = """
                 SELECT *
                 FROM gold_features
-                WHERE symbol = %(symbol)s
+                WHERE symbol = %(symbol)s AND interval = %(interval)s
                 ORDER BY timestamp DESC
                 LIMIT %(limit)s
             """
-            df = pd.read_sql(query, engine, params={"symbol": symbol, "limit": limit})
+            df = pd.read_sql(query, engine, params={"symbol": symbol, "limit": limit, "interval": interval})
             if df.empty:
                 return df
             return self._augment_macro_from_db(engine, df)
@@ -203,7 +203,7 @@ class RegimeDataLoader:
 
         return frame.sort_values("timestamp").reset_index(drop=True)
 
-    def _load_from_parquet(self, symbol: str, limit: int) -> pd.DataFrame:
+    def _load_from_parquet(self, symbol: str, limit: int, interval: str) -> pd.DataFrame:
         if not self.gold_dir.exists():
             return pd.DataFrame()
 
@@ -224,6 +224,8 @@ class RegimeDataLoader:
         df = pd.concat(frames, ignore_index=True)
         if "symbol" in df.columns:
             df = df[df["symbol"] == symbol]
+        if "interval" in df.columns:
+            df = df[df["interval"] == interval]
         if df.empty:
             return df
 

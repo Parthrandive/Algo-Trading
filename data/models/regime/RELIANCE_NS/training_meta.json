@@ -1,0 +1,20 @@
+{
+  "symbol": "RELIANCE.NS",
+  "run_timestamp_utc": "2026-03-23T13:01:20.483361+00:00",
+  "rows_trained": 1842,
+  "start_timestamp": "2025-03-17 03:45:00+00:00",
+  "end_timestamp": "2026-03-16 09:45:57.938863+00:00",
+  "artifacts_saved": [
+    "hmm_regime.parquet",
+    "training_meta.json"
+  ],
+  "hmm_components": 4,
+  "metrics": {
+    "regime_distribution": {
+      "2": 0.4413472706155633,
+      "0": 0.3867595818815331,
+      "3": 0.12427409988385599,
+      "1": 0.047619047619047616
+    }
+  }
+}

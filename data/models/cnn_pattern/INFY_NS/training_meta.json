@@ -1,0 +1,56 @@
+{
+  "timestamp": "2026-03-23T17:49:56.871769+00:00",
+  "symbol": "INFY.NS",
+  "trained_as_part_of_universe": true,
+  "hyperparameters": {
+    "window_size": 20,
+    "learning_rate": 0.001,
+    "epochs_requested": 15,
+    "confidence_threshold": 0.15,
+    "use_binary": false
+  },
+  "split_counts": {
+    "train": 2483,
+    "val": 516,
+    "test": 517
+  },
+  "metrics": {
+    "test_accuracy": 0.37524177949709864,
+    "sharpe": -0.07426822385564165,
+    "max_drawdown": -0.16548562049865723,
+    "win_rate": 0.491566265060241,
+    "up_precision": 0.2391304347826087,
+    "up_recall": 0.06432748538011696,
+    "up_f1": 0.10138248847926268,
+    "up_support": 171,
+    "down_precision": 0.4010840108401084,
+    "down_recall": 0.7081339712918661,
+    "down_f1": 0.5121107266435986,
+    "down_support": 209,
+    "directional_accuracy": 0.41842105263157897,
+    "test_confusion_matrix": [
+      [
+        11,
+        30,
+        130
+      ],
+      [
+        11,
+        35,
+        91
+      ],
+      [
+        24,
+        37,
+        148
+      ]
+    ],
+    "finetune_best_train_loss": 1.020090498177217,
+    "finetune_best_val_loss": 1.1218858707782835,
+    "finetune_best_train_acc": 0.4377768828030608,
+    "finetune_best_val_acc": 0.374031007751938,
+    "finetune_epochs_run": 6,
+    "finetune_best_val_tune_score": 0.31022895091607866,
+    "finetune_val_predicted_directional_rate": 0.7306201550387597
+  }
+}

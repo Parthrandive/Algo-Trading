@@ -1,10 +1,11 @@
 {
-    "timestamp": "2026-03-20T18:07:26.563969+00:00",
-    "symbol": "HDFCBANK.NS",
+    "timestamp": "2026-03-23T13:10:58.802490+00:00",
+    "symbol": "RELIANCE.NS",
     "input_rows": 2034,
-    "train_rows": 393,
-    "val_rows": 99,
-    "feature_count": 24,
+    "train_rows": 453,
+    "val_rows": 305,
+    "test_rows": 306,
+    "feature_count": 29,
     "hyperparameters": {
         "arima_order": [
             5,
@@ -13,13 +14,17 @@
         ],
         "window_size": 10,
         "learning_rate": 0.001,
-        "epochs_run": 50,
+        "epochs_run": 25,
         "batch_size": 32,
-        "patience": 5,
+        "patience": 15,
         "seed": 42
     },
     "metrics": {
-        "final_train_loss": 249.68497206087835,
-        "best_val_loss": 142.32583643881122
+        "final_train_loss": 382.9620883846929,
+        "best_train_loss": 406.7573451952794,
+        "best_val_loss": 380.6846822447696,
+        "train_mse": 403.5940749295409,
+        "val_mse": 380.6846822447696,
+        "test_mse": 328.11029217694255
     }
 }

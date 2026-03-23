@@ -192,6 +192,8 @@ def engineer_features(df: pd.DataFrame, is_forex: bool = False) -> pd.DataFrame:
     if 'timestamp' in df.columns:
         df = df.sort_values('timestamp')
         
+    df['log_return'] = np.log(df['close'] / df['close'].shift(1))
+        
     # Lags
     df = add_lag_features(df, target_col='close', lags=5)
     

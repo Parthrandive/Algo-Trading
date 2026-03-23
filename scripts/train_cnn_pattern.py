@@ -789,10 +789,21 @@ def train_single_symbol(
     ]
 
     train_supervised = prepare_split_for_supervised(train_feat, feature_columns=feature_columns)
-    val_supervised = prepare_split_for_supervised(val_feat, feature_columns=feature_columns)
-    test_supervised = prepare_split_for_supervised(test_feat, feature_columns=feature_columns)
+    medians = train_supervised[feature_columns].median()
+    
+    val_feat_filled = val_feat.copy()
+    val_feat_filled[feature_columns] = val_feat_filled[feature_columns].fillna(medians)
+    val_supervised = prepare_split_for_supervised(val_feat_filled, feature_columns=feature_columns)
+    
+    test_feat_filled = test_feat.copy()
+    test_feat_filled[feature_columns] = test_feat_filled[feature_columns].fillna(medians)
+    test_supervised = prepare_split_for_supervised(test_feat_filled, feature_columns=feature_columns)
 
     if min(len(train_supervised), len(val_supervised), len(test_supervised)) < window_size:
+        print("DEBUG: val_feat_filled NaNs:", val_feat_filled[feature_columns + ["close"]].isna().sum().to_dict())
+        out_test = val_feat_filled.copy()
+        out_test["future_return"] = out_test["close"].pct_change().shift(-1)
+        print("DEBUG: future_return NaNs:", out_test["future_return"].isna().sum())
         raise ValueError(
             f"{symbol}: insufficient supervised rows after feature prep for window_size={window_size}. "
             f"Got train={len(train_supervised)}, val={len(val_supervised)}, test={len(test_supervised)}."

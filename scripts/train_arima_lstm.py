@@ -377,8 +377,17 @@ def main():
     ]
 
     train_df = train_raw.dropna(subset=hybrid.feature_columns + [target_col]).reset_index(drop=True)
-    val_df = val_raw.dropna(subset=hybrid.feature_columns + [target_col]).reset_index(drop=True)
-    test_df = test_raw.dropna(subset=hybrid.feature_columns + [target_col]).reset_index(drop=True)
+    
+    # Fill val/test NaNs with train medians instead of dropping them
+    medians = train_df[hybrid.feature_columns].median()
+    
+    val_df = val_raw.copy()
+    val_df[hybrid.feature_columns] = val_df[hybrid.feature_columns].fillna(medians)
+    val_df = val_df.dropna(subset=[target_col]).reset_index(drop=True)
+    
+    test_df = test_raw.copy()
+    test_df[hybrid.feature_columns] = test_df[hybrid.feature_columns].fillna(medians)
+    test_df = test_df.dropna(subset=[target_col]).reset_index(drop=True)
 
     if min(len(train_df), len(val_df), len(test_df)) < hybrid.window_size + 5:
         raise ValueError(
