@@ -1,0 +1,28 @@
+{
+  "timestamp": "2026-03-23T13:46:01.771725+00:00",
+  "symbol": "GLOBAL",
+  "trained_on": [
+    "INFY.NS",
+    "RELIANCE.NS",
+    "TATASTEEL.NS",
+    "TCS.NS"
+  ],
+  "hyperparameters": {
+    "arima_order": [
+      5,
+      1,
+      0
+    ],
+    "window_size": 10,
+    "learning_rate": 0.001,
+    "epochs_run": 2,
+    "batch_size": 128,
+    "patience": 15,
+    "seed": 42
+  },
+  "metrics": {
+    "final_train_loss": 0.00710411309418115,
+    "best_train_loss": 0.00710411309418115,
+    "best_val_loss": 0.016726599289820746
+  }
+}

@@ -1,56 +1,11 @@
 {
-  "timestamp": "2026-03-23T13:11:10.224987+00:00",
+  "timestamp": "2026-03-23T13:55:10.168301+00:00",
   "symbol": "RELIANCE.NS",
-  "epochs_requested": 150,
-  "epochs_run": 18,
-  "split_counts": {
-    "train": 362,
-    "val": 285,
-    "test": 286
-  },
-  "class_distribution_pct": {
-    "train": {
-      "up": 37.569060773480665,
-      "neutral": 26.519337016574585,
-      "down": 35.91160220994475
-    },
-    "val": {
-      "up": 35.08771929824561,
-      "neutral": 32.98245614035088,
-      "down": 31.929824561403507
-    },
-    "test": {
-      "up": 30.76923076923077,
-      "neutral": 38.111888111888106,
-      "down": 31.11888111888112
-    }
-  },
+  "trained_as_part_of_universe": true,
   "metrics": {
-    "train_loss": 1.0777815481575812,
-    "val_loss": 1.0901520461366887,
-    "train_accuracy": 0.4198895027624309,
-    "val_accuracy": 0.3298245614035088,
-    "test_accuracy": 0.3811188811188811,
-    "best_val_f1": 0.1636069064481785,
+    "test_accuracy": 0.7272727272727273,
     "sharpe": NaN,
     "max_drawdown": 0.0,
-    "win_rate": NaN,
-    "confusion_matrix": [
-      [
-        0,
-        88,
-        0
-      ],
-      [
-        0,
-        109,
-        0
-      ],
-      [
-        0,
-        89,
-        0
-      ]
-    ]
+    "win_rate": NaN
   }
 }

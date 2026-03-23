@@ -1,0 +1,55 @@
+{
+  "timestamp": "2026-03-23T15:26:05.086086+00:00",
+  "symbol": "RELIANCE.NS",
+  "trained_as_part_of_universe": true,
+  "hyperparameters": {
+    "window_size": 20,
+    "learning_rate": 0.001,
+    "epochs_requested": 15,
+    "confidence_threshold": 0.49999999999999994,
+    "use_binary": false
+  },
+  "split_counts": {
+    "train": 2483,
+    "val": 516,
+    "test": 517
+  },
+  "metrics": {
+    "test_accuracy": 0.8549323017408124,
+    "sharpe": NaN,
+    "max_drawdown": 0.0,
+    "win_rate": NaN,
+    "up_precision": 0.0,
+    "up_recall": 0.0,
+    "up_f1": 0.0,
+    "up_support": 34,
+    "down_precision": 0.0,
+    "down_recall": 0.0,
+    "down_f1": 0.0,
+    "down_support": 41,
+    "directional_accuracy": 0.0,
+    "test_confusion_matrix": [
+      [
+        0,
+        34,
+        0
+      ],
+      [
+        0,
+        442,
+        0
+      ],
+      [
+        0,
+        41,
+        0
+      ]
+    ],
+    "finetune_best_train_loss": 1.0731071444514102,
+    "finetune_best_val_loss": 1.0808643670969231,
+    "finetune_best_train_acc": 0.6105517519130085,
+    "finetune_best_val_acc": 0.7131782945736435,
+    "finetune_epochs_run": 6,
+    "finetune_best_val_f1": 0.8263877246345572
+  }
+}

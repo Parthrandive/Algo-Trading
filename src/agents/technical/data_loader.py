@@ -287,7 +287,18 @@ class DataLoader:
         if limit is not None:
             if limit <= 0:
                 raise ValueError("`limit` must be a positive integer when provided.")
-            query += " LIMIT :limit"
+            # For bounded reads, take the latest N bars and then return them in ascending time.
+            query = """
+                SELECT *
+                FROM (
+                    SELECT *
+                    FROM ohlcv_bars
+                    WHERE symbol = :symbol AND interval = :interval
+                    ORDER BY timestamp DESC
+                    LIMIT :limit
+                ) AS latest
+                ORDER BY timestamp ASC
+            """
             params["limit"] = int(limit)
 
         try:

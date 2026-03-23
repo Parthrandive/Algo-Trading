@@ -1,0 +1,8 @@
+{
+  "timestamp": "2026-03-23T13:46:01.896351+00:00",
+  "symbol": "RELIANCE.NS",
+  "trained_as_part_of_universe": true,
+  "metrics": {
+    "test_mse": 0.0010717586847022176
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "timestamp": "2026-03-23T15:26:20.913954+00:00",
+  "symbol": "HDFCBANK.NS",
+  "trained_as_part_of_universe": true,
+  "hyperparameters": {
+    "window_size": 20,
+    "learning_rate": 0.001,
+    "epochs_requested": 15,
+    "confidence_threshold": 0.49999999999999994,
+    "use_binary": false
+  },
+  "split_counts": {
+    "train": 2458,
+    "val": 511,
+    "test": 512
+  },
+  "metrics": {
+    "test_accuracy": 0.79296875,
+    "sharpe": 1.129016753679157,
+    "max_drawdown": -0.03187596797943115,
+    "win_rate": 0.5573770491803278,
+    "up_precision": 0.0,
+    "up_recall": 0.0,
+    "up_f1": 0.0,
+    "up_support": 30,
+    "down_precision": 0.14754098360655737,
+    "down_recall": 0.23076923076923078,
+    "down_f1": 0.18,
+    "down_support": 39,
+    "directional_accuracy": 0.13043478260869565,
+    "test_confusion_matrix": [
+      [
+        0,
+        24,
+        6
+      ],
+      [
+        0,
+        397,
+        46
+      ],
+      [
+        0,
+        30,
+        9
+      ]
+    ],
+    "finetune_best_train_loss": 1.050736147276845,
+    "finetune_best_val_loss": 1.0829645999490398,
+    "finetune_best_train_acc": 0.6244914564686738,
+    "finetune_best_val_acc": 0.7162426614481409,
+    "finetune_epochs_run": 6,
+    "finetune_best_val_f1": 0.8384106822462988
+  }
+}

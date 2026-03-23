@@ -1,0 +1,8 @@
+{
+  "timestamp": "2026-03-23T13:46:01.907556+00:00",
+  "symbol": "TATASTEEL.NS",
+  "trained_as_part_of_universe": true,
+  "metrics": {
+    "test_mse": 0.002741206670179963
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "timestamp": "2026-03-23T13:46:01.926226+00:00",
+  "symbol": "TCS.NS",
+  "trained_as_part_of_universe": true,
+  "metrics": {
+    "test_mse": 0.0022723209112882614
+  }
+}

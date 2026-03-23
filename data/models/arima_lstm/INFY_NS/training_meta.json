@@ -1,0 +1,8 @@
+{
+  "timestamp": "2026-03-23T13:46:01.879944+00:00",
+  "symbol": "INFY.NS",
+  "trained_as_part_of_universe": true,
+  "metrics": {
+    "test_mse": 0.0013836883008480072
+  }
+}

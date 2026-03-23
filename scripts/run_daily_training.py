@@ -66,7 +66,7 @@ def run_training_pipeline(symbols: list[str], mode: str) -> bool:
     # 1. GARCH VaR Training
     logger.info("--- Stage 1: GARCH VaR Training ---")
     for symbol in symbols:
-        garch_cmd = [python_exec, str(scripts_dir / "train_garch_var.py"), "--symbol", symbol]
+        garch_cmd = [python_exec, str(scripts_dir / "train_garch_var.py"), "--symbol", symbol, "--interval", "1h"]
         if mode == "daily":
             logger.info(f"[{symbol}] GARCH: Performing incremental refit (on close prices)")
             # If garch had an --incremental flag, we'd pass it here
@@ -75,7 +75,7 @@ def run_training_pipeline(symbols: list[str], mode: str) -> bool:
         
     # 2. Regime Model Training (Dependent on GARCH)
     logger.info("--- Stage 2: Regime Model Training ---")
-    regime_cmd = [python_exec, str(scripts_dir / "train_regime_model.py"), "--symbols"] + symbols
+    regime_cmd = [python_exec, str(scripts_dir / "train_regime_model.py"), "--interval", "1h", "--symbols"] + symbols
     if mode == "daily":
         # Incremental
         regime_cmd.extend(["--limit", "500"])
@@ -86,34 +86,36 @@ def run_training_pipeline(symbols: list[str], mode: str) -> bool:
         all_success = False
 
     # 3. ARIMA-LSTM Training (Dependent on Regime)
-    logger.info("--- Stage 3: ARIMA-LSTM Agent ---")
-    for symbol in symbols:
-        arima_cmd = [python_exec, str(scripts_dir / "train_arima_lstm.py"), "--symbol", symbol]
-        if mode == "daily":
-            # For daily, ideally just append to ARIMA and skip full LSTM retrain.
-            # But the default script currently fits on all available data. 
-            # We pass fewer epochs for a quick update/finetune.
-            arima_cmd.extend(["--epochs", "5"])
-        else:
-            arima_cmd.extend(["--epochs", "150"])
-        if not run_cmd(arima_cmd):
-            all_success = False
+    logger.info("--- Stage 3: Combined Universe ARIMA-LSTM Agent ---")
+    symbols_str = ",".join(symbols) if symbols else ""
+    arima_cmd = [python_exec, str(scripts_dir / "train_universe_arima_lstm.py"), "--interval", "1h"]
+    if symbols_str:
+        arima_cmd.extend(["--symbols", symbols_str])
+        
+    if mode == "daily":
+        arima_cmd.extend(["--epochs", "5"])
+    else:
+        arima_cmd.extend(["--epochs", "150"])
+        
+    if not run_cmd(arima_cmd):
+        all_success = False
         
     # 4. CNN Pattern Training (Weekly Only due to expense)
     if mode == "weekly":
-        logger.info("--- Stage 4: CNN Pattern Agent ---")
-        for symbol in symbols:
-            cnn_cmd = [python_exec, str(scripts_dir / "train_cnn_pattern.py"), "--symbol", symbol]
-            cnn_cmd.extend(["--epochs", "100"])
-            if not run_cmd(cnn_cmd):
-                all_success = False
+        logger.info("--- Stage 4: Combined Universe CNN Pattern Agent ---")
+        cnn_cmd = [python_exec, str(scripts_dir / "train_universe_cnn.py"), "--interval", "1h"]
+        if symbols_str:
+            cnn_cmd.extend(["--symbols", symbols_str])
+        cnn_cmd.extend(["--epochs", "100"])
+        if not run_cmd(cnn_cmd):
+            all_success = False
     else:
-        logger.info("--- Stage 4: CNN Pattern Agent (SKIPPED in daily mode) ---")
+        logger.info("--- Stage 4: Combined Universe CNN Pattern Agent (SKIPPED in daily mode) ---")
         
     # 5. XGBoost Meta-Layer (Weekly Only, requires full base models)
     if mode == "weekly":
         logger.info("--- Stage 5: XGBoost Meta-Layer ---")
-        xgb_cmd = [python_exec, str(scripts_dir / "train_xgboost_meta_layer.py"), "--symbols"] + symbols
+        xgb_cmd = [python_exec, str(scripts_dir / "train_universe_xgboost.py"), "--interval", "1h"]
         if not run_cmd(xgb_cmd):
             all_success = False
     else:
@@ -144,7 +146,7 @@ def main() -> int:
     if not symbols:
         logger.info("No explicit symbols provided. Auto-discovering from database...")
         try:
-            symbols = discover_pipeline_equity_symbols(interval="1d")
+            symbols = discover_pipeline_equity_symbols(interval="1h")
         except Exception as e:
             logger.error(f"Failed to discover symbols: {e}")
             

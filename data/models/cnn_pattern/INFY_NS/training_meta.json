@@ -1,0 +1,55 @@
+{
+  "timestamp": "2026-03-23T15:26:18.091744+00:00",
+  "symbol": "INFY.NS",
+  "trained_as_part_of_universe": true,
+  "hyperparameters": {
+    "window_size": 20,
+    "learning_rate": 0.001,
+    "epochs_requested": 15,
+    "confidence_threshold": 0.5499999999999999,
+    "use_binary": false
+  },
+  "split_counts": {
+    "train": 2483,
+    "val": 516,
+    "test": 517
+  },
+  "metrics": {
+    "test_accuracy": 0.6615087040618955,
+    "sharpe": 0.29850219110572335,
+    "max_drawdown": -0.07361102104187012,
+    "win_rate": 0.5433070866141733,
+    "up_precision": 0.0,
+    "up_recall": 0.0,
+    "up_f1": 0.0,
+    "up_support": 49,
+    "down_precision": 0.16535433070866143,
+    "down_recall": 0.3620689655172414,
+    "down_f1": 0.22702702702702704,
+    "down_support": 58,
+    "directional_accuracy": 0.19626168224299065,
+    "test_confusion_matrix": [
+      [
+        0,
+        32,
+        17
+      ],
+      [
+        0,
+        321,
+        89
+      ],
+      [
+        0,
+        37,
+        21
+      ]
+    ],
+    "finetune_best_train_loss": 0.9931449633042178,
+    "finetune_best_val_loss": 1.0272804771282875,
+    "finetune_best_train_acc": 0.6238421264599275,
+    "finetune_best_val_acc": 0.6666666666666666,
+    "finetune_epochs_run": 11,
+    "finetune_best_val_f1": 0.7760427691336239
+  }
+}

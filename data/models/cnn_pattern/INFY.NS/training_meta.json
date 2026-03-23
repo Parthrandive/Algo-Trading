@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-03-23T13:55:10.184776+00:00",
-  "symbol": "TATASTEEL.NS",
+  "timestamp": "2026-03-23T13:55:10.151999+00:00",
+  "symbol": "INFY.NS",
   "trained_as_part_of_universe": true,
   "metrics": {
-    "test_accuracy": 0.7090909090909091,
+    "test_accuracy": 0.8909090909090909,
     "sharpe": NaN,
     "max_drawdown": 0.0,
     "win_rate": NaN

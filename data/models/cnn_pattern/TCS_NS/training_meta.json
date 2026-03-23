@@ -1,0 +1,55 @@
+{
+  "timestamp": "2026-03-23T15:26:13.156037+00:00",
+  "symbol": "TCS.NS",
+  "trained_as_part_of_universe": true,
+  "hyperparameters": {
+    "window_size": 20,
+    "learning_rate": 0.001,
+    "epochs_requested": 15,
+    "confidence_threshold": 0.6499999999999999,
+    "use_binary": false
+  },
+  "split_counts": {
+    "train": 2480,
+    "val": 516,
+    "test": 516
+  },
+  "metrics": {
+    "test_accuracy": 0.8003875968992248,
+    "sharpe": 0.1663260104605269,
+    "max_drawdown": -0.004661917686462402,
+    "win_rate": 0.5714285714285714,
+    "up_precision": 0.14285714285714285,
+    "up_recall": 0.023255813953488372,
+    "up_f1": 0.04,
+    "up_support": 43,
+    "down_precision": 0.0,
+    "down_recall": 0.0,
+    "down_f1": 0.0,
+    "down_support": 55,
+    "directional_accuracy": 0.01020408163265306,
+    "test_confusion_matrix": [
+      [
+        1,
+        42,
+        0
+      ],
+      [
+        6,
+        412,
+        0
+      ],
+      [
+        0,
+        55,
+        0
+      ]
+    ],
+    "finetune_best_train_loss": 1.0063163749633297,
+    "finetune_best_val_loss": 1.0421669178230817,
+    "finetune_best_train_acc": 0.5685483870967742,
+    "finetune_best_val_acc": 0.6647286821705426,
+    "finetune_epochs_run": 12,
+    "finetune_best_val_f1": 0.824365867652465
+  }
+}
