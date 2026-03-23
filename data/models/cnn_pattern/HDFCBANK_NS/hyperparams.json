@@ -52,18 +52,19 @@
     "arima_forecast",
     "arima_residual"
   ],
-  "neutral_threshold": 0.005,
+  "neutral_threshold": 0.000845923385300984,
   "use_binary": false,
-  "confidence_threshold": 0.49999999999999994,
+  "confidence_threshold": 0.15,
   "class_weight_dict": {
-    "0": 4.289703315881327,
-    "1": 0.39090330788804073,
-    "2": 4.791423001949318
+    "0": 0.9300037835792659,
+    "1": 1.2066764850270004,
+    "2": 0.9123979213066072
   },
   "finetune": {
     "applied": true,
     "epochs_requested": 15,
     "patience": 5,
-    "best_val_f1": 0.8384106822462988
+    "best_val_tune_score": 0.2965619899337252,
+    "val_predicted_directional_rate": 0.589041095890411
   }
 }

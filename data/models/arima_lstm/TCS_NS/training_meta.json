@@ -1,8 +1,55 @@
 {
-  "timestamp": "2026-03-23T13:46:01.926226+00:00",
+  "timestamp": "2026-03-23T17:46:02.564371+00:00",
   "symbol": "TCS.NS",
   "trained_as_part_of_universe": true,
+  "hyperparameters": {
+    "arima_order": [
+      5,
+      1,
+      0
+    ],
+    "window_size": 10,
+    "learning_rate": 0.001,
+    "epochs_requested": 15,
+    "class_threshold": 0.005
+  },
+  "split_counts": {
+    "train": 2489,
+    "val": 526,
+    "test": 526
+  },
   "metrics": {
-    "test_mse": 0.0022723209112882614
+    "test_mse": 4.394538490324788e-05,
+    "test_accuracy": 0.7889733840304183,
+    "directional_accuracy": 0.05102040816326531,
+    "up_precision": 0.23529411764705882,
+    "up_recall": 0.09302325581395349,
+    "up_f1": 0.13333333333333333,
+    "up_support": 43,
+    "down_precision": 0.125,
+    "down_recall": 0.01818181818181818,
+    "down_f1": 0.031746031746031744,
+    "down_support": 55,
+    "test_confusion_matrix": [
+      [
+        1,
+        52,
+        2
+      ],
+      [
+        7,
+        410,
+        11
+      ],
+      [
+        0,
+        39,
+        4
+      ]
+    ],
+    "finetune_train_loss": 2.8778758944469327e-05,
+    "finetune_best_train_loss": 2.8785506832431757e-05,
+    "finetune_best_val_loss": 1.6931460967612542e-05,
+    "finetune_epochs_run": 15
   }
 }

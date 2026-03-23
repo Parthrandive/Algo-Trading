@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-03-23T15:26:18.091744+00:00",
+  "timestamp": "2026-03-23T17:49:56.871769+00:00",
   "symbol": "INFY.NS",
   "trained_as_part_of_universe": true,
   "hyperparameters": {
     "window_size": 20,
     "learning_rate": 0.001,
     "epochs_requested": 15,
-    "confidence_threshold": 0.5499999999999999,
+    "confidence_threshold": 0.15,
     "use_binary": false
   },
   "split_counts": {
@@ -15,41 +15,42 @@
     "test": 517
   },
   "metrics": {
-    "test_accuracy": 0.6615087040618955,
-    "sharpe": 0.29850219110572335,
-    "max_drawdown": -0.07361102104187012,
-    "win_rate": 0.5433070866141733,
-    "up_precision": 0.0,
-    "up_recall": 0.0,
-    "up_f1": 0.0,
-    "up_support": 49,
-    "down_precision": 0.16535433070866143,
-    "down_recall": 0.3620689655172414,
-    "down_f1": 0.22702702702702704,
-    "down_support": 58,
-    "directional_accuracy": 0.19626168224299065,
+    "test_accuracy": 0.37524177949709864,
+    "sharpe": -0.07426822385564165,
+    "max_drawdown": -0.16548562049865723,
+    "win_rate": 0.491566265060241,
+    "up_precision": 0.2391304347826087,
+    "up_recall": 0.06432748538011696,
+    "up_f1": 0.10138248847926268,
+    "up_support": 171,
+    "down_precision": 0.4010840108401084,
+    "down_recall": 0.7081339712918661,
+    "down_f1": 0.5121107266435986,
+    "down_support": 209,
+    "directional_accuracy": 0.41842105263157897,
     "test_confusion_matrix": [
       [
-        0,
-        32,
-        17
+        11,
+        30,
+        130
       ],
       [
-        0,
-        321,
-        89
+        11,
+        35,
+        91
       ],
       [
-        0,
+        24,
         37,
-        21
+        148
       ]
     ],
-    "finetune_best_train_loss": 0.9931449633042178,
-    "finetune_best_val_loss": 1.0272804771282875,
-    "finetune_best_train_acc": 0.6238421264599275,
-    "finetune_best_val_acc": 0.6666666666666666,
-    "finetune_epochs_run": 11,
-    "finetune_best_val_f1": 0.7760427691336239
+    "finetune_best_train_loss": 1.020090498177217,
+    "finetune_best_val_loss": 1.1218858707782835,
+    "finetune_best_train_acc": 0.4377768828030608,
+    "finetune_best_val_acc": 0.374031007751938,
+    "finetune_epochs_run": 6,
+    "finetune_best_val_tune_score": 0.31022895091607866,
+    "finetune_val_predicted_directional_rate": 0.7306201550387597
   }
 }

@@ -1,0 +1,14 @@
+{
+  "arima_order": [
+    5,
+    1,
+    0
+  ],
+  "window_size": 10,
+  "learning_rate": 0.001,
+  "epochs_run": 40,
+  "batch_size": 128,
+  "patience": 15,
+  "seed": 42,
+  "class_threshold": 0.005
+}

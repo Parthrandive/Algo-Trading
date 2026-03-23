@@ -419,24 +419,50 @@ def choose_neutral_threshold(
     requested_threshold: float,
     use_binary: bool,
     min_neutral_ratio: float,
+    max_neutral_ratio: float,
+    target_neutral_ratio: float,
 ) -> Tuple[float, float]:
     if use_binary:
         return requested_threshold, 0.0
 
-    candidates = sorted({requested_threshold, 0.005, 0.0075, 0.01, 0.0125, 0.015, 0.02})
-    best_threshold = requested_threshold
-    best_ratio = 0.0
-    target_ratio = 0.175
+    abs_returns = np.abs(train_forward_returns[np.isfinite(train_forward_returns)])
+    if len(abs_returns) == 0:
+        return requested_threshold, 0.0
 
+    quantile_candidates = [float(np.quantile(abs_returns, q)) for q in [0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25, 0.30]]
+    static_candidates = [0.0002, 0.0005, 0.0010, 0.0015, 0.0020, 0.0025, 0.0030, 0.0040, 0.0050, 0.0075, 0.0100]
+    candidates = sorted({float(requested_threshold), *quantile_candidates, *static_candidates})
+
+    candidate_stats: List[Tuple[float, float]] = []
     for threshold in candidates:
-        neutral_ratio = float((np.abs(train_forward_returns) <= threshold).mean())
-        if abs(neutral_ratio - target_ratio) < abs(best_ratio - target_ratio):
-            best_threshold = threshold
-            best_ratio = neutral_ratio
-        if neutral_ratio >= min_neutral_ratio:
-            return threshold, neutral_ratio
+        threshold = max(float(threshold), 1e-6)
+        neutral_ratio = float((abs_returns <= threshold).mean())
+        candidate_stats.append((threshold, neutral_ratio))
 
-    return best_threshold, best_ratio
+    in_band = [
+        (threshold, ratio)
+        for threshold, ratio in candidate_stats
+        if float(min_neutral_ratio) <= ratio <= float(max_neutral_ratio)
+    ]
+    if in_band:
+        best_threshold, best_ratio = min(
+            in_band,
+            key=lambda item: (abs(item[1] - float(target_neutral_ratio)), item[0]),
+        )
+        return float(best_threshold), float(best_ratio)
+
+    best_threshold, best_ratio = min(
+        candidate_stats,
+        key=lambda item: (abs(item[1] - float(target_neutral_ratio)), item[0]),
+    )
+    logger.warning(
+        "Neutral threshold fallback selected %.4f with neutral share %.2f%% (outside requested band %.2f%% - %.2f%%).",
+        best_threshold,
+        best_ratio * 100.0,
+        float(min_neutral_ratio) * 100.0,
+        float(max_neutral_ratio) * 100.0,
+    )
+    return float(best_threshold), float(best_ratio)
 
 
 def build_labels(forward_returns: np.ndarray, threshold: float, use_binary: bool) -> np.ndarray:
@@ -773,16 +799,47 @@ def train_model(
     }
 
 
-def tune_threshold(y_val: np.ndarray, probs_val: np.ndarray, use_binary: bool) -> Tuple[float, float]:
+def tune_threshold(
+    y_val: np.ndarray,
+    probs_val: np.ndarray,
+    use_binary: bool,
+    min_directional_pred_rate: float,
+) -> Tuple[float, float, float]:
     best_threshold = 0.5
-    best_f1 = -1.0
-    for threshold in np.arange(0.3, 0.8, 0.05):
+    best_score = float("-inf")
+    best_directional_rate = 0.0
+    for threshold in np.arange(0.15, 0.85, 0.05):
         preds = apply_confidence_threshold(probs_val, float(threshold), use_binary=use_binary)
-        score = float(f1_score(y_val, preds, average="weighted"))
-        if score > best_f1:
-            best_f1 = score
+        weighted_f1 = float(f1_score(y_val, preds, average="weighted", zero_division=0))
+        if use_binary:
+            directional_f1 = float(f1_score(y_val, preds, average="macro", zero_division=0))
+            directional_pred_rate = 1.0
+            score = directional_f1
+        else:
+            directional_mask = np.isin(y_val, [0, 2])
+            if directional_mask.any():
+                directional_f1 = float(
+                    f1_score(
+                        y_val[directional_mask],
+                        preds[directional_mask],
+                        labels=[0, 2],
+                        average="macro",
+                        zero_division=0,
+                    )
+                )
+            else:
+                directional_f1 = 0.0
+
+            directional_pred_rate = float(np.mean(np.isin(preds, [0, 2])))
+            shortfall = max(0.0, float(min_directional_pred_rate) - directional_pred_rate)
+            # Prioritize directional quality while retaining some overall class-balance signal.
+            score = (0.85 * directional_f1) + (0.15 * weighted_f1) - (1.5 * shortfall)
+
+        if score > best_score or (np.isclose(score, best_score) and directional_pred_rate > best_directional_rate):
             best_threshold = float(threshold)
-    return best_threshold, best_f1
+            best_score = score
+            best_directional_rate = directional_pred_rate
+    return best_threshold, best_score, best_directional_rate
 
 
 def label_to_signal(labels: np.ndarray, use_binary: bool) -> np.ndarray:
@@ -902,6 +959,9 @@ def main() -> None:
     parser.add_argument("--neutral-threshold", type=float, default=0.005, help="Neutral band threshold.")
     parser.add_argument("--use-binary", action="store_true", help="Binary mode fallback.")
     parser.add_argument("--min-neutral-ratio", type=float, default=0.15, help="Minimum neutral class ratio.")
+    parser.add_argument("--max-neutral-ratio", type=float, default=0.45, help="Maximum neutral class ratio.")
+    parser.add_argument("--target-neutral-ratio", type=float, default=0.25, help="Target neutral class ratio for threshold selection.")
+    parser.add_argument("--min-directional-pred-rate", type=float, default=0.12, help="Minimum predicted non-neutral rate during threshold tuning.")
     parser.add_argument("--arima-order", default="5,1,0", help="ARIMA order, format p,d,q.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument("--output-dir", default="data/models/cnn_pattern", help="Output root directory.")
@@ -974,7 +1034,12 @@ def main() -> None:
     
     global_train_returns = pd.concat([symbol_data[s]["train"]["future_return"] for s in symbol_data], ignore_index=True).values
     effective_neutral_threshold, neutral_ratio = choose_neutral_threshold(
-        train_forward_returns=global_train_returns, requested_threshold=args.neutral_threshold, use_binary=args.use_binary, min_neutral_ratio=args.min_neutral_ratio
+        train_forward_returns=global_train_returns,
+        requested_threshold=args.neutral_threshold,
+        use_binary=args.use_binary,
+        min_neutral_ratio=args.min_neutral_ratio,
+        max_neutral_ratio=args.max_neutral_ratio,
+        target_neutral_ratio=args.target_neutral_ratio,
     )
     logger.info("GLOBAL Neutral Threshold selected: %.4f (train neutral share %.2f%%)", effective_neutral_threshold, neutral_ratio*100)
 
@@ -1033,8 +1098,18 @@ def main() -> None:
     )
 
     probs_val_global = predict_probabilities(model, X_val_global, device=device, batch_size=args.batch_size)
-    best_threshold, best_val_f1 = tune_threshold(y_val=y_val_global, probs_val=probs_val_global, use_binary=args.use_binary)
-    logger.info("GLOBAL Best Threshold: %.2f | Val F1: %.4f", best_threshold, best_val_f1)
+    best_threshold, best_val_tune_score, best_val_directional_rate = tune_threshold(
+        y_val=y_val_global,
+        probs_val=probs_val_global,
+        use_binary=args.use_binary,
+        min_directional_pred_rate=args.min_directional_pred_rate,
+    )
+    logger.info(
+        "GLOBAL Best Threshold: %.2f | Val tune score: %.4f | Val predicted directional rate: %.2f%%",
+        best_threshold,
+        best_val_tune_score,
+        best_val_directional_rate * 100.0,
+    )
 
     safe_torch_save(model, global_dir / "hybrid_cnn_lstm_weights.pt")
     with open(global_dir / "feature_scaler.pkl", "wb") as f:
@@ -1049,6 +1124,11 @@ def main() -> None:
         "neutral_threshold": effective_neutral_threshold,
         "use_binary": args.use_binary,
         "confidence_threshold": best_threshold,
+        "min_directional_pred_rate": args.min_directional_pred_rate,
+        "target_neutral_ratio": args.target_neutral_ratio,
+        "selected_neutral_ratio": neutral_ratio,
+        "threshold_tune_score": best_val_tune_score,
+        "val_predicted_directional_rate": best_val_directional_rate,
         "class_weight_dict": class_weight_dict,
     }
     safe_write_json(global_dir / "hyperparams.json", hyperparams)
@@ -1065,7 +1145,8 @@ def main() -> None:
         symbol_model.load_state_dict(global_state_dict)
         symbol_checkpoint_path = str(sym_dir / f"best_model_{sanitize_symbol(symbol)}.keras")
         symbol_threshold = float(best_threshold)
-        symbol_val_f1 = float("nan")
+        symbol_val_tune_score = float("nan")
+        symbol_val_directional_rate = 0.0
         fine_tune_applied = False
         symbol_train_stats: Dict[str, float] = {}
         symbol_class_weight_dict = {int(k): float(v) for k, v in class_weight_dict.items()}
@@ -1113,10 +1194,11 @@ def main() -> None:
             )
             probs_val_symbol = predict_probabilities(symbol_model, X_val_sym, device=device, batch_size=args.batch_size)
             if len(probs_val_symbol) > 0:
-                symbol_threshold, symbol_val_f1 = tune_threshold(
+                symbol_threshold, symbol_val_tune_score, symbol_val_directional_rate = tune_threshold(
                     y_val=y_val_sym,
                     probs_val=probs_val_symbol,
                     use_binary=args.use_binary,
+                    min_directional_pred_rate=args.min_directional_pred_rate,
                 )
             fine_tune_applied = True
         else:
@@ -1192,13 +1274,14 @@ def main() -> None:
             "use_binary": args.use_binary,
             "confidence_threshold": symbol_threshold,
             "class_weight_dict": symbol_class_weight_dict,
-            "finetune": {
-                "applied": fine_tune_applied,
-                "epochs_requested": int(args.finetune_epochs),
-                "patience": int(args.finetune_patience),
-                "best_val_f1": symbol_val_f1,
-            },
-        }
+                "finetune": {
+                    "applied": fine_tune_applied,
+                    "epochs_requested": int(args.finetune_epochs),
+                    "patience": int(args.finetune_patience),
+                    "best_val_tune_score": symbol_val_tune_score,
+                    "val_predicted_directional_rate": symbol_val_directional_rate,
+                },
+            }
         safe_write_json(sym_dir / "hyperparams.json", symbol_hyperparams)
 
         split_counts = {
@@ -1238,7 +1321,8 @@ def main() -> None:
                 "finetune_best_train_acc": symbol_train_stats.get("best_train_acc"),
                 "finetune_best_val_acc": symbol_train_stats.get("best_val_acc"),
                 "finetune_epochs_run": symbol_train_stats.get("epochs_run"),
-                "finetune_best_val_f1": symbol_val_f1,
+                "finetune_best_val_tune_score": symbol_val_tune_score,
+                "finetune_val_predicted_directional_rate": symbol_val_directional_rate,
             },
         }
         safe_write_json(sym_dir / "training_meta.json", meta)

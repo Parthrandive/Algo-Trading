@@ -1,0 +1,43 @@
+{
+  "symbol": "HDFCBANK.NS",
+  "trained_as_part_of_universe": true,
+  "base_model_symbol": "GLOBAL",
+  "arima_order": [
+    5,
+    1,
+    0
+  ],
+  "window_size": 10,
+  "learning_rate": 0.001,
+  "feature_columns": [
+    "open",
+    "high",
+    "low",
+    "volume",
+    "close_lag_1",
+    "close_lag_2",
+    "close_lag_3",
+    "close_lag_4",
+    "close_lag_5",
+    "close_roll_mean_7",
+    "close_roll_std_7",
+    "close_roll_mean_14",
+    "close_roll_std_14",
+    "rsi",
+    "macd",
+    "macd_signal",
+    "macd_hist",
+    "FX_RESERVES_z",
+    "INDIA_US_10Y_SPREAD_z",
+    "US_10Y_z",
+    "macro_coverage_ratio",
+    "macro_regime_index",
+    "macro_regime_shock",
+    "macro_directional_flag"
+  ],
+  "finetune": {
+    "applied": true,
+    "epochs_requested": 15,
+    "patience": 5
+  }
+}

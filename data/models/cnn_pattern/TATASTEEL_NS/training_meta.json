@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-03-23T15:26:07.764128+00:00",
+  "timestamp": "2026-03-23T17:49:51.478944+00:00",
   "symbol": "TATASTEEL.NS",
   "trained_as_part_of_universe": true,
   "hyperparameters": {
     "window_size": 20,
     "learning_rate": 0.001,
     "epochs_requested": 15,
-    "confidence_threshold": 0.49999999999999994,
+    "confidence_threshold": 0.15,
     "use_binary": false
   },
   "split_counts": {
@@ -15,41 +15,42 @@
     "test": 517
   },
   "metrics": {
-    "test_accuracy": 0.7640232108317214,
-    "sharpe": -0.6988363104650467,
-    "max_drawdown": -0.005600035190582275,
-    "win_rate": 0.0,
-    "up_precision": 0.0,
-    "up_recall": 0.0,
-    "up_f1": 0.0,
-    "up_support": 62,
-    "down_precision": 0.0,
-    "down_recall": 0.0,
-    "down_f1": 0.0,
-    "down_support": 60,
-    "directional_accuracy": 0.0,
+    "test_accuracy": 0.390715667311412,
+    "sharpe": -0.20041903214053558,
+    "max_drawdown": -0.18578892946243286,
+    "win_rate": 0.5049751243781094,
+    "up_precision": 0.3333333333333333,
+    "up_recall": 0.00510204081632653,
+    "up_f1": 0.010050251256281407,
+    "up_support": 196,
+    "down_precision": 0.40601503759398494,
+    "down_recall": 0.81,
+    "down_f1": 0.5409015025041736,
+    "down_support": 200,
+    "directional_accuracy": 0.4116161616161616,
     "test_confusion_matrix": [
       [
-        0,
-        61,
-        1
+        1,
+        40,
+        155
       ],
       [
         0,
-        395,
-        0
+        39,
+        82
       ],
       [
-        0,
-        60,
-        0
+        2,
+        36,
+        162
       ]
     ],
-    "finetune_best_train_loss": 1.0781558907612936,
-    "finetune_best_val_loss": 1.0535343395647152,
-    "finetune_best_train_acc": 0.4977849375755135,
-    "finetune_best_val_acc": 0.7054263565891473,
+    "finetune_best_train_loss": 1.043600082685522,
+    "finetune_best_val_loss": 1.0843825922455899,
+    "finetune_best_train_acc": 0.39790575916230364,
+    "finetune_best_val_acc": 0.3953488372093023,
     "finetune_epochs_run": 6,
-    "finetune_best_val_f1": 0.7223883945262842
+    "finetune_best_val_tune_score": 0.30599747490684776,
+    "finetune_val_predicted_directional_rate": 0.7034883720930233
   }
 }

@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
+from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_fscore_support
 from sklearn.utils.class_weight import compute_sample_weight
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -53,6 +54,7 @@ def parse_args():
     parser.add_argument("--output-dir", type=str, default="data/models/xgboost", help="XGBoost output directory")
     parser.add_argument("--interval", type=str, default=PRIMARY_FREQ, help="Candle interval")
     parser.add_argument("--limit", type=int, default=4000, help="Rows to load per symbol")
+    parser.add_argument("--class-threshold", type=float, default=0.005, help="Return threshold used to derive down/neutral/up labels.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     return parser.parse_args()
 
@@ -61,6 +63,47 @@ def first_existing(paths: list[Path]) -> Path | None:
         if path.exists():
             return path
     return None
+
+
+def safe_write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists() or path.is_symlink():
+        path.unlink()
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+
+
+def directional_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, Any]:
+    precision, recall, f1, support = precision_recall_fscore_support(
+        y_true,
+        y_pred,
+        labels=[CLASS_UP, CLASS_DOWN],
+        average=None,
+        zero_division=0,
+    )
+    directional_mask = np.isin(y_true, [CLASS_UP, CLASS_DOWN])
+    directional_accuracy = (
+        float(accuracy_score(y_true[directional_mask], y_pred[directional_mask]))
+        if directional_mask.any()
+        else 0.0
+    )
+    return {
+        "test_accuracy": float(accuracy_score(y_true, y_pred)),
+        "directional_accuracy": directional_accuracy,
+        "up_precision": float(precision[0]),
+        "up_recall": float(recall[0]),
+        "up_f1": float(f1[0]),
+        "up_support": int(support[0]),
+        "down_precision": float(precision[1]),
+        "down_recall": float(recall[1]),
+        "down_f1": float(f1[1]),
+        "down_support": int(support[1]),
+        "test_confusion_matrix": confusion_matrix(
+            y_true,
+            y_pred,
+            labels=[CLASS_DOWN, CLASS_NEUTRAL, CLASS_UP],
+        ).tolist(),
+    }
 
 def maybe_load_regime_labels(symbol: str, base_path: Path, frame: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     default_regime = np.full(len(frame), -1, dtype=np.int64)
@@ -152,7 +195,7 @@ def build_symbol_data(symbol: str, cnn_dir: Path, lstm_dir: Path, loader: DataLo
     meta_df["actual_next_log_return"] = next_returns
     
     meta_df["y_label"] = -1
-    threshold = 0.005
+    threshold = float(args.class_threshold)
     valid_mask = np.isfinite(next_returns)
     ret = next_returns[valid_mask]
     lbls = np.full(len(ret), CLASS_NEUTRAL, dtype=np.int64)
@@ -204,6 +247,7 @@ def main():
         train_df, val_df, test_df = splits["train"], splits["val"], splits["test"]
         valid_train = train_df[train_df["y_label"] >= 0]
         valid_val = val_df[val_df["y_label"] >= 0]
+        valid_test = test_df[test_df["y_label"] >= 0]
         
         feature_cols = [c for c in train_df.columns if c not in ("timestamp", "split", "y_label", "actual_next_log_return")]
         
@@ -211,6 +255,8 @@ def main():
         y_train = np.ascontiguousarray(valid_train["y_label"].to_numpy(dtype=np.int64))
         X_val = np.ascontiguousarray(valid_val[feature_cols].to_numpy(dtype=np.float32))
         y_val = np.ascontiguousarray(valid_val["y_label"].to_numpy(dtype=np.int64))
+        X_test = np.ascontiguousarray(valid_test[feature_cols].to_numpy(dtype=np.float32))
+        y_test = np.ascontiguousarray(valid_test["y_label"].to_numpy(dtype=np.int64))
         
         sample_weight = np.ascontiguousarray(compute_sample_weight(class_weight="balanced", y=y_train).astype(np.float32))
         
@@ -220,11 +266,91 @@ def main():
             random_state=args.seed, n_jobs=-1
         )
         xgb.fit(X_train, y_train, sample_weight=sample_weight, eval_set=[(X_val, y_val)], verbose=False)
-        
+
         sym_out = output_root / sanitize_symbol(symbol)
         sym_out.mkdir(parents=True, exist_ok=True)
         xgb.save_model(sym_out / "model.json")
-        
+
+        if len(X_test) > 0:
+            probs_test = xgb.predict_proba(X_test)
+            y_pred_test = xgb.predict(X_test).astype(np.int64)
+            cls_metrics = directional_metrics(y_true=y_test, y_pred=y_pred_test)
+            logger.info(
+                "[%s] XGBoost Test Acc: %.4f | up(P/R): %.4f / %.4f | down(P/R): %.4f / %.4f",
+                symbol,
+                cls_metrics["test_accuracy"],
+                cls_metrics["up_precision"],
+                cls_metrics["up_recall"],
+                cls_metrics["down_precision"],
+                cls_metrics["down_recall"],
+            )
+        else:
+            probs_test = np.empty((0, 3), dtype=np.float32)
+            y_pred_test = np.empty((0,), dtype=np.int64)
+            cls_metrics = {
+                "test_accuracy": 0.0,
+                "directional_accuracy": 0.0,
+                "up_precision": 0.0,
+                "up_recall": 0.0,
+                "up_f1": 0.0,
+                "up_support": 0,
+                "down_precision": 0.0,
+                "down_recall": 0.0,
+                "down_f1": 0.0,
+                "down_support": 0,
+                "test_confusion_matrix": [],
+            }
+
+        test_pred_df = pd.DataFrame(
+            {
+                "timestamp": valid_test["timestamp"].to_numpy() if len(valid_test) else np.array([], dtype="datetime64[ns]"),
+                "split": "test",
+                "xgb_prob_down": probs_test[:, 0] if len(probs_test) else np.array([], dtype=np.float32),
+                "xgb_prob_neutral": probs_test[:, 1] if len(probs_test) else np.array([], dtype=np.float32),
+                "xgb_prob_up": probs_test[:, 2] if len(probs_test) else np.array([], dtype=np.float32),
+                "predicted_label": y_pred_test,
+                "actual_label": y_test if len(y_test) else np.array([], dtype=np.int64),
+            }
+        )
+        test_pred_df.to_parquet(sym_out / "predictions.parquet", index=False)
+
+        split_counts = {
+            "train": int(len(valid_train)),
+            "val": int(len(valid_val)),
+            "test": int(len(valid_test)),
+        }
+        hyperparams = {
+            "symbol": symbol,
+            "class_threshold": float(args.class_threshold),
+            "seed": int(args.seed),
+            "features": feature_cols,
+            "model": {
+                "n_estimators": 500,
+                "max_depth": 4,
+                "learning_rate": 0.03,
+                "subsample": 0.8,
+                "colsample_bytree": 0.8,
+                "objective": "multi:softprob",
+                "num_class": 3,
+                "eval_metric": "mlogloss",
+                "early_stopping_rounds": 30,
+            },
+        }
+        safe_write_json(sym_out / "hyperparams.json", hyperparams)
+        safe_write_json(
+            sym_out / "training_meta.json",
+            {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "symbol": symbol,
+                "split_counts": split_counts,
+                "hyperparameters": hyperparams,
+                "metrics": {
+                    **cls_metrics,
+                    "best_iteration": int(getattr(xgb, "best_iteration", 0) or 0),
+                },
+            },
+        )
+
         logger.info("[%s] XGBoost trained. Best iteration: %s", symbol, getattr(xgb, "best_iteration", 0))
 
 if __name__ == "__main__":

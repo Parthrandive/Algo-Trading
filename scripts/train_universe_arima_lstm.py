@@ -6,11 +6,12 @@ import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
 import torch
+from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_fscore_support
 from sklearn.preprocessing import StandardScaler
 
 # Add project root to sys.path
@@ -36,6 +37,10 @@ from config.symbols import is_forex, validate_equity_symbol
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
+CLASS_DOWN = 0
+CLASS_NEUTRAL = 1
+CLASS_UP = 2
 
 def sanitize_symbol(symbol: str) -> str:
     return symbol.replace(".", "_")
@@ -65,6 +70,21 @@ def safe_link_or_copy(source: Path, target: Path) -> None:
         os.symlink(str(source), str(target))
     except OSError:
         shutil.copy2(source, target)
+
+
+def safe_write_json(path: Path, payload: Dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists() or path.is_symlink():
+        path.unlink()
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+
+
+def safe_torch_save(payload: Any, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists() or path.is_symlink():
+        path.unlink()
+    torch.save(payload, path)
 
 RAW_MACRO_COLUMNS = {
     "CPI",
@@ -184,7 +204,7 @@ def custom_train_lstm(
             best_val_loss = val_loss
             best_train_loss = train_loss
             epochs_no_improve = 0
-            torch.save(hybrid.lstm_model.state_dict(), best_weights_path)
+            safe_torch_save(hybrid.lstm_model.state_dict(), Path(best_weights_path))
         else:
             epochs_no_improve += 1
             if epochs_no_improve >= patience:
@@ -310,6 +330,61 @@ def predict_lstm_scores(model: torch.nn.Module, X: torch.Tensor, batch_size: int
     return np.array(preds)
 
 
+def returns_to_labels(returns: np.ndarray, threshold: float) -> np.ndarray:
+    labels = np.full(len(returns), CLASS_NEUTRAL, dtype=np.int64)
+    labels[np.asarray(returns) < -float(threshold)] = CLASS_DOWN
+    labels[np.asarray(returns) > float(threshold)] = CLASS_UP
+    return labels
+
+
+def directional_classification_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, Any]:
+    if len(y_true) == 0:
+        return {
+            "test_accuracy": 0.0,
+            "directional_accuracy": 0.0,
+            "up_precision": 0.0,
+            "up_recall": 0.0,
+            "up_f1": 0.0,
+            "up_support": 0,
+            "down_precision": 0.0,
+            "down_recall": 0.0,
+            "down_f1": 0.0,
+            "down_support": 0,
+            "test_confusion_matrix": [],
+        }
+
+    precision, recall, f1, support = precision_recall_fscore_support(
+        y_true,
+        y_pred,
+        labels=[CLASS_UP, CLASS_DOWN],
+        average=None,
+        zero_division=0,
+    )
+    directional_mask = np.isin(y_true, [CLASS_UP, CLASS_DOWN])
+    directional_accuracy = (
+        float(accuracy_score(y_true[directional_mask], y_pred[directional_mask]))
+        if directional_mask.any()
+        else 0.0
+    )
+    return {
+        "test_accuracy": float(accuracy_score(y_true, y_pred)),
+        "directional_accuracy": directional_accuracy,
+        "up_precision": float(precision[0]),
+        "up_recall": float(recall[0]),
+        "up_f1": float(f1[0]),
+        "up_support": int(support[0]),
+        "down_precision": float(precision[1]),
+        "down_recall": float(recall[1]),
+        "down_f1": float(f1[1]),
+        "down_support": int(support[1]),
+        "test_confusion_matrix": confusion_matrix(
+            y_true,
+            y_pred,
+            labels=[CLASS_DOWN, CLASS_NEUTRAL, CLASS_UP],
+        ).tolist(),
+    }
+
+
 def quality_gate_split_counts(df: pd.DataFrame) -> SplitCounts:
     n_rows = len(df)
     train_end = int(n_rows * 0.70)
@@ -345,9 +420,30 @@ def extract_symbol_features(symbol: str, df: pd.DataFrame, hybrid: ArimaLstmHybr
         and not train_raw[c].isna().all()
         and c not in RAW_MACRO_COLUMNS
     ]
+    if not feature_columns:
+        raise ValueError(f"{symbol}: no usable numeric feature columns after preprocessing.")
 
-    train_df = train_raw.dropna(subset=feature_columns + [target_col]).reset_index(drop=True)
-    medians = train_df[feature_columns].median()
+    # Drop highly sparse features first to avoid wiping out the full train split.
+    nan_ratio = train_raw[feature_columns].isna().mean()
+    sparse_cols = [c for c in feature_columns if float(nan_ratio[c]) > 0.40]
+    if sparse_cols:
+        logger.info(
+            "[%s] Dropping %s sparse feature(s) (>40%% NaN in train split).",
+            symbol,
+            len(sparse_cols),
+        )
+    feature_columns = [c for c in feature_columns if c not in sparse_cols]
+    if not feature_columns:
+        raise ValueError(f"{symbol}: all features dropped as sparse after NaN filtering.")
+
+    for part in (train_raw, val_raw, test_raw):
+        part.loc[:, feature_columns] = part[feature_columns].replace([np.inf, -np.inf], np.nan)
+
+    train_df = train_raw.copy()
+    train_df[feature_columns] = train_df[feature_columns].fillna(train_df[feature_columns].median(numeric_only=True))
+    train_df = train_df.dropna(subset=[target_col]).reset_index(drop=True)
+    medians = train_df[feature_columns].median(numeric_only=True).fillna(0.0)
+    train_df[feature_columns] = train_df[feature_columns].fillna(medians)
     
     val_df = val_raw.copy()
     val_df[feature_columns] = val_df[feature_columns].fillna(medians)
@@ -398,6 +494,7 @@ def main():
     parser.add_argument("--output-dir", default="data/models/arima_lstm/", help="Output directory")
     parser.add_argument("--use-nse", action="store_true", help="Fetch data natively from NSE if DB is empty/unavailable")
     parser.add_argument("--interval", default="1h", help="Candle interval, e.g. 1d, 1h. Default: 1h")
+    parser.add_argument("--class-threshold", type=float, default=0.005, help="Return threshold used to derive up/down/neutral labels for evaluation.")
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -474,15 +571,18 @@ def main():
     for symbol, splits in symbol_data.items():
         for s_name in ["train", "val", "test"]:
             df = splits[s_name].copy()
-            df.loc[:, global_feature_columns] = scaler.transform(df[global_feature_columns].values)
+            df = df.astype({col: np.float64 for col in global_feature_columns}, copy=False)
+            df.loc[:, global_feature_columns] = scaler.transform(df[global_feature_columns].to_numpy(dtype=np.float64))
             X, y = hybrid._prepare_lstm_data(df, df['residual'])
             timestamps = df["timestamp"].iloc[hybrid.window_size:].values if len(df) > hybrid.window_size else np.empty(0)
             arima_forecasts = df["arima_forecast"].iloc[hybrid.window_size:].values if len(df) > hybrid.window_size else np.empty(0)
+            actual_returns = df["log_return"].iloc[hybrid.window_size:].values if len(df) > hybrid.window_size else np.empty(0)
             
             splits[f"X_{s_name}"] = X
             splits[f"y_{s_name}"] = y
             splits[f"timestamps_{s_name}"] = timestamps
             splits[f"arima_forecast_{s_name}"] = arima_forecasts
+            splits[f"actual_return_{s_name}"] = actual_returns
             
             if s_name == "train":
                 X_train_list.append(X)
@@ -515,7 +615,7 @@ def main():
     )
     logger.info("Total epochs trained (early stopping aware): %s", metrics['epochs_run'])
 
-    torch.save(hybrid.lstm_model.state_dict(), global_dir / "best_model.pt")
+    safe_torch_save(hybrid.lstm_model.state_dict(), global_dir / "best_model.pt")
     with open(global_dir / "feature_scaler.pkl", "wb") as f:
         pickle.dump(scaler, f)
         
@@ -530,7 +630,8 @@ def main():
             "epochs_run": metrics["epochs_run"],
             "batch_size": args.batch_size,
             "patience": args.patience,
-            "seed": args.seed
+            "seed": args.seed,
+            "class_threshold": args.class_threshold,
         },
         "metrics": {
             "final_train_loss": metrics["train_loss"],
@@ -538,10 +639,8 @@ def main():
             "best_val_loss": metrics["val_loss"]
         }
     }
-    with open(global_dir / "training_meta.json", "w", encoding="utf-8") as f:
-        json.dump(meta, f, indent=2)
-    with open(global_dir / "hyperparams.json", "w", encoding="utf-8") as f:
-        json.dump(meta["hyperparameters"], f, indent=2)
+    safe_write_json(global_dir / "training_meta.json", meta)
+    safe_write_json(global_dir / "hyperparams.json", meta["hyperparameters"])
     global_state_dict = clone_state_dict(hybrid.lstm_model)
     global_scaler_path = global_dir / "feature_scaler.pkl"
 
@@ -605,12 +704,26 @@ def main():
 
         sym_dfs = []
         test_mse = float('nan')
+        class_metrics: Dict[str, Any] = {
+            "test_accuracy": 0.0,
+            "directional_accuracy": 0.0,
+            "up_precision": 0.0,
+            "up_recall": 0.0,
+            "up_f1": 0.0,
+            "up_support": 0,
+            "down_precision": 0.0,
+            "down_recall": 0.0,
+            "down_f1": 0.0,
+            "down_support": 0,
+            "test_confusion_matrix": [],
+        }
         
         for s_name in ["train", "val", "test"]:
             X_data = splits.get(f"X_{s_name}")
             y_data = splits.get(f"y_{s_name}")
             timestamps = splits.get(f"timestamps_{s_name}")
             arima_forecasts = splits.get(f"arima_forecast_{s_name}")
+            actual_returns = splits.get(f"actual_return_{s_name}")
             
             if X_data is None or len(X_data) == 0:
                 continue
@@ -626,7 +739,21 @@ def main():
                 
             lstm_res = predict_lstm_scores(symbol_hybrid.lstm_model, X_data.to(symbol_hybrid.device), batch_size=args.batch_size)
             final_scores = arima_forecasts + lstm_res
-            probs = scores_to_soft_probs(final_scores, std_dev=0.02)
+            probs = scores_to_soft_probs(final_scores, std_dev=max(float(args.class_threshold), 1e-4))
+            pred_labels = returns_to_labels(final_scores, threshold=args.class_threshold)
+
+            if s_name == "test" and isinstance(actual_returns, np.ndarray) and len(actual_returns) == len(pred_labels):
+                y_true_cls = returns_to_labels(actual_returns, threshold=args.class_threshold)
+                class_metrics = directional_classification_metrics(y_true=y_true_cls, y_pred=pred_labels)
+                logger.info(
+                    "[%s] Test Acc: %.4f | up(P/R): %.4f / %.4f | down(P/R): %.4f / %.4f",
+                    symbol,
+                    class_metrics["test_accuracy"],
+                    class_metrics["up_precision"],
+                    class_metrics["up_recall"],
+                    class_metrics["down_precision"],
+                    class_metrics["down_recall"],
+                )
             
             prob_df = pd.DataFrame({
                 "timestamp": timestamps,
@@ -634,6 +761,7 @@ def main():
                 "lstm_prob_down": probs[:, 0],
                 "lstm_prob_neutral": probs[:, 1],
                 "lstm_prob_up": probs[:, 2],
+                "predicted_label": pred_labels,
             })
             sym_dfs.append(prob_df)
         
@@ -641,7 +769,7 @@ def main():
             sym_prob_df = pd.concat(sym_dfs, ignore_index=True)
             sym_prob_df.to_parquet(sym_dir / "predictions.parquet", index=False)
 
-        torch.save(symbol_hybrid.lstm_model.state_dict(), sym_dir / "best_model.pt")
+        safe_torch_save(symbol_hybrid.lstm_model.state_dict(), sym_dir / "best_model.pt")
         safe_link_or_copy(global_scaler_path, sym_dir / "feature_scaler.pkl")
 
         symbol_hyperparams = {
@@ -658,8 +786,7 @@ def main():
                 "patience": int(args.finetune_patience),
             },
         }
-        with open(sym_dir / "hyperparams.json", "w", encoding="utf-8") as f:
-            json.dump(symbol_hyperparams, f, indent=2)
+        safe_write_json(sym_dir / "hyperparams.json", symbol_hyperparams)
 
         split_counts = {
             "train": int(len(X_train_sym)) if isinstance(X_train_sym, torch.Tensor) else 0,
@@ -675,18 +802,29 @@ def main():
                 "window_size": hybrid.window_size,
                 "learning_rate": hybrid.learning_rate,
                 "epochs_requested": int(args.finetune_epochs),
+                "class_threshold": args.class_threshold,
             },
             "split_counts": split_counts,
             "metrics": {
                 "test_mse": test_mse,
+                "test_accuracy": class_metrics["test_accuracy"],
+                "directional_accuracy": class_metrics["directional_accuracy"],
+                "up_precision": class_metrics["up_precision"],
+                "up_recall": class_metrics["up_recall"],
+                "up_f1": class_metrics["up_f1"],
+                "up_support": class_metrics["up_support"],
+                "down_precision": class_metrics["down_precision"],
+                "down_recall": class_metrics["down_recall"],
+                "down_f1": class_metrics["down_f1"],
+                "down_support": class_metrics["down_support"],
+                "test_confusion_matrix": class_metrics["test_confusion_matrix"],
                 "finetune_train_loss": finetune_stats.get("train_loss"),
                 "finetune_best_train_loss": finetune_stats.get("best_train_loss"),
                 "finetune_best_val_loss": finetune_stats.get("val_loss"),
                 "finetune_epochs_run": finetune_stats.get("epochs_run"),
             },
         }
-        with open(sym_dir / "training_meta.json", "w", encoding="utf-8") as f:
-            json.dump(sym_meta, f, indent=2)
+        safe_write_json(sym_dir / "training_meta.json", sym_meta)
 
     logger.info("Universe ARIMA-LSTM training pipeline complete.")
 

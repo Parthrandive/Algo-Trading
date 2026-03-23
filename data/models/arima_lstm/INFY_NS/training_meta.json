@@ -1,8 +1,55 @@
 {
-  "timestamp": "2026-03-23T13:46:01.879944+00:00",
+  "timestamp": "2026-03-23T17:46:03.133935+00:00",
   "symbol": "INFY.NS",
   "trained_as_part_of_universe": true,
+  "hyperparameters": {
+    "arima_order": [
+      5,
+      1,
+      0
+    ],
+    "window_size": 10,
+    "learning_rate": 0.001,
+    "epochs_requested": 15,
+    "class_threshold": 0.005
+  },
+  "split_counts": {
+    "train": 2492,
+    "val": 526,
+    "test": 527
+  },
   "metrics": {
-    "test_mse": 0.0013836883008480072
+    "test_mse": 0.00012904825807346713,
+    "test_accuracy": 0.5540796963946869,
+    "directional_accuracy": 0.2037037037037037,
+    "up_precision": 0.06060606060606061,
+    "up_recall": 0.08,
+    "up_f1": 0.06896551724137931,
+    "up_support": 50,
+    "down_precision": 0.13740458015267176,
+    "down_recall": 0.3103448275862069,
+    "down_f1": 0.19047619047619047,
+    "down_support": 58,
+    "test_confusion_matrix": [
+      [
+        18,
+        30,
+        10
+      ],
+      [
+        97,
+        270,
+        52
+      ],
+      [
+        16,
+        30,
+        4
+      ]
+    ],
+    "finetune_train_loss": 0.00017755819884547253,
+    "finetune_best_train_loss": 4.971721309089934e-05,
+    "finetune_best_val_loss": 4.244189765211925e-05,
+    "finetune_epochs_run": 6
   }
 }

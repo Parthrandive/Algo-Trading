@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-03-23T15:26:05.086086+00:00",
+  "timestamp": "2026-03-23T17:49:49.025220+00:00",
   "symbol": "RELIANCE.NS",
   "trained_as_part_of_universe": true,
   "hyperparameters": {
     "window_size": 20,
     "learning_rate": 0.001,
     "epochs_requested": 15,
-    "confidence_threshold": 0.49999999999999994,
+    "confidence_threshold": 0.15,
     "use_binary": false
   },
   "split_counts": {
@@ -15,41 +15,42 @@
     "test": 517
   },
   "metrics": {
-    "test_accuracy": 0.8549323017408124,
-    "sharpe": NaN,
-    "max_drawdown": 0.0,
-    "win_rate": NaN,
-    "up_precision": 0.0,
-    "up_recall": 0.0,
-    "up_f1": 0.0,
-    "up_support": 34,
-    "down_precision": 0.0,
-    "down_recall": 0.0,
-    "down_f1": 0.0,
-    "down_support": 41,
-    "directional_accuracy": 0.0,
+    "test_accuracy": 0.3694390715667311,
+    "sharpe": 0.7350063717265477,
+    "max_drawdown": -0.06512969732284546,
+    "win_rate": 0.5482758620689655,
+    "up_precision": 0.6,
+    "up_recall": 0.017142857142857144,
+    "up_f1": 0.03333333333333333,
+    "up_support": 175,
+    "down_precision": 0.42105263157894735,
+    "down_recall": 0.5970149253731343,
+    "down_f1": 0.49382716049382713,
+    "down_support": 201,
+    "directional_accuracy": 0.3271276595744681,
     "test_confusion_matrix": [
       [
-        0,
-        34,
-        0
+        3,
+        79,
+        93
       ],
       [
-        0,
-        442,
-        0
+        1,
+        68,
+        72
       ],
       [
-        0,
-        41,
-        0
+        1,
+        80,
+        120
       ]
     ],
-    "finetune_best_train_loss": 1.0731071444514102,
-    "finetune_best_val_loss": 1.0808643670969231,
-    "finetune_best_train_acc": 0.6105517519130085,
-    "finetune_best_val_acc": 0.7131782945736435,
+    "finetune_best_train_loss": 1.033110855521572,
+    "finetune_best_val_loss": 1.1106488404347914,
+    "finetune_best_train_acc": 0.4265002013693113,
+    "finetune_best_val_acc": 0.37209302325581395,
     "finetune_epochs_run": 6,
-    "finetune_best_val_f1": 0.8263877246345572
+    "finetune_best_val_tune_score": 0.2759593953399151,
+    "finetune_val_predicted_directional_rate": 0.5523255813953488
   }
 }
