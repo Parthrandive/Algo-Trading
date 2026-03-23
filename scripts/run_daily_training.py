@@ -65,12 +65,13 @@ def run_training_pipeline(symbols: list[str], mode: str) -> bool:
     
     # 1. GARCH VaR Training
     logger.info("--- Stage 1: GARCH VaR Training ---")
-    garch_cmd = [python_exec, str(scripts_dir / "train_garch_var.py"), "--symbols"] + symbols
-    if mode == "daily":
-        logger.info("GARCH: Performing incremental refit (on close prices)")
-        # If garch had an --incremental flag, we'd pass it here
-    if not run_cmd(garch_cmd):
-        all_success = False
+    for symbol in symbols:
+        garch_cmd = [python_exec, str(scripts_dir / "train_garch_var.py"), "--symbol", symbol]
+        if mode == "daily":
+            logger.info(f"[{symbol}] GARCH: Performing incremental refit (on close prices)")
+            # If garch had an --incremental flag, we'd pass it here
+        if not run_cmd(garch_cmd):
+            all_success = False
         
     # 2. Regime Model Training (Dependent on GARCH)
     logger.info("--- Stage 2: Regime Model Training ---")
@@ -86,24 +87,26 @@ def run_training_pipeline(symbols: list[str], mode: str) -> bool:
 
     # 3. ARIMA-LSTM Training (Dependent on Regime)
     logger.info("--- Stage 3: ARIMA-LSTM Agent ---")
-    arima_cmd = [python_exec, str(scripts_dir / "train_arima_lstm.py"), "--symbols"] + symbols
-    if mode == "daily":
-        # For daily, ideally just append to ARIMA and skip full LSTM retrain.
-        # But the default script currently fits on all available data. 
-        # We pass fewer epochs for a quick update/finetune.
-        arima_cmd.extend(["--epochs", "5"])
-    else:
-        arima_cmd.extend(["--epochs", "150"])
-    if not run_cmd(arima_cmd):
-        all_success = False
+    for symbol in symbols:
+        arima_cmd = [python_exec, str(scripts_dir / "train_arima_lstm.py"), "--symbol", symbol]
+        if mode == "daily":
+            # For daily, ideally just append to ARIMA and skip full LSTM retrain.
+            # But the default script currently fits on all available data. 
+            # We pass fewer epochs for a quick update/finetune.
+            arima_cmd.extend(["--epochs", "5"])
+        else:
+            arima_cmd.extend(["--epochs", "150"])
+        if not run_cmd(arima_cmd):
+            all_success = False
         
     # 4. CNN Pattern Training (Weekly Only due to expense)
     if mode == "weekly":
         logger.info("--- Stage 4: CNN Pattern Agent ---")
-        cnn_cmd = [python_exec, str(scripts_dir / "train_cnn_pattern.py"), "--symbols"] + symbols
-        cnn_cmd.extend(["--epochs", "100"])
-        if not run_cmd(cnn_cmd):
-            all_success = False
+        for symbol in symbols:
+            cnn_cmd = [python_exec, str(scripts_dir / "train_cnn_pattern.py"), "--symbol", symbol]
+            cnn_cmd.extend(["--epochs", "100"])
+            if not run_cmd(cnn_cmd):
+                all_success = False
     else:
         logger.info("--- Stage 4: CNN Pattern Agent (SKIPPED in daily mode) ---")
         

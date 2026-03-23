@@ -1,6 +1,6 @@
 {
-    "timestamp": "2026-03-20T18:08:00.868757+00:00",
-    "symbol": "HDFCBANK.NS",
+    "timestamp": "2026-03-23T12:54:53.377500+00:00",
+    "symbol": "TCS.NS",
     "input_rows": 2034,
     "hyperparameters": {
         "window_size": 252,
@@ -10,43 +10,21 @@
     "fit_results": {
         "convergence_flag": 0,
         "params": {
-            "mu": -0.011670352956259983,
-            "omega": 0.019793868647290918,
-            "alpha[1]": 0.07898042797105695,
-            "beta[1]": 0.9077060408244492
+            "mu": -0.11840735121369889,
+            "omega": 1.5893672032419441,
+            "alpha[1]": 0.1378821424623291,
+            "beta[1]": 0.0
         }
     },
     "forecasts": {
-        "volatility_forecast": 0.020128133626198905,
-        "parametric_var_95": -0.03322453712837975,
-        "parametric_es_95": -0.041635262551544,
-        "historical_var_95": -0.016569289443307232,
-        "historical_es_95": -0.02457116936417591,
-        "parametric_var_99": -0.04694174439928038,
-        "parametric_es_99": -0.05376249149912851,
-        "historical_var_99": -0.028341359761760793,
-        "historical_es_99": -0.039668736380291635
-    },
-    "backtest": {
-        "95": {
-            "observations": 1781,
-            "breaches": 81,
-            "breach_rate": 0.045480067377877596,
-            "expected_breach_rate": 0.050000000000000044,
-            "likelihood_ratio": 0.7889253632241662,
-            "p_value": 0.3744252699613001,
-            "total_windows": 1781,
-            "skipped_windows": 0
-        },
-        "99": {
-            "observations": 1781,
-            "breaches": 33,
-            "breach_rate": 0.018528916339135316,
-            "expected_breach_rate": 0.010000000000000009,
-            "likelihood_ratio": 10.456572927388663,
-            "p_value": 0.0012221380266085324,
-            "total_windows": 1781,
-            "skipped_windows": 0
-        }
+        "volatility_forecast": 0.013916292961027232,
+        "parametric_var_95": -0.02407433846280187,
+        "parametric_es_95": -0.029889389235873323,
+        "historical_var_95": -0.02145828380693361,
+        "historical_es_95": -0.03583206709919577,
+        "parametric_var_99": -0.033558212056552204,
+        "parametric_es_99": -0.038273975406365006,
+        "historical_var_99": -0.03901916305154879,
+        "historical_es_99": -0.05576837037249346
     }
 }
