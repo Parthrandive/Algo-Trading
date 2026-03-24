@@ -125,9 +125,11 @@ def train_for_symbol(symbol: str, args: argparse.Namespace) -> bool:
     logger.info(f"[{symbol}] Saved regime labels to {parquet_path}")
     
     # Save training metadata
+    run_timestamp = datetime.now(timezone.utc).isoformat()
     meta = {
+        "timestamp": run_timestamp,
         "symbol": symbol,
-        "run_timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "run_timestamp_utc": run_timestamp,
         "rows_trained": len(prepared),
         "start_timestamp": str(prepared.iloc[0]["timestamp"]),
         "end_timestamp": str(prepared.iloc[-1]["timestamp"]),
@@ -136,6 +138,12 @@ def train_for_symbol(symbol: str, args: argparse.Namespace) -> bool:
             "training_meta.json"
         ],
         "hmm_components": agent.hmm.n_components,
+        "hyperparameters": {
+            "interval": args.interval,
+            "limit": int(args.limit),
+            "warmup_rows": int(agent.warmup_rows),
+            "hmm_components": int(agent.hmm.n_components),
+        },
         "metrics": {
             "regime_distribution": results_df["hmm_regime"].value_counts(normalize=True).to_dict()
         }

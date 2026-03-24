@@ -44,6 +44,10 @@ INDEX_DDL = [
     "CREATE INDEX IF NOT EXISTS idx_consensus_sym_ts ON consensus_signals (symbol, timestamp DESC);",
     "CREATE INDEX IF NOT EXISTS idx_pred_log_agent_ts ON prediction_log (agent, timestamp DESC);",
     "CREATE INDEX IF NOT EXISTS idx_backtest_model ON backtest_runs (model_id, run_timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_observations_symbol_ts ON observations (symbol, timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_reward_logs_symbol_ts ON reward_logs (symbol, timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_rl_policies_policy_id ON rl_policies (policy_id, updated_at DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_rl_training_runs_policy_id ON rl_training_runs (policy_id, started_at DESC);",
 ]
 
 POSTGRES_SCHEMA_REPAIR_DDL = [

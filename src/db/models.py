@@ -327,3 +327,100 @@ class PredictionLogDB(Base):
     model_id = Column(String(128), nullable=False)
     latency_ms = Column(Float, nullable=True)
     data_snapshot_id = Column(String(128), nullable=True)
+
+
+class StrategicObservationDB(Base):
+    __tablename__ = "observations"
+    __table_args__ = (
+        UniqueConstraint("symbol", "timestamp", "schema_version", name="uq_observations_sym_ts_schema"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    symbol = Column(String(32), nullable=False)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    schema_version = Column(String(16), nullable=False, default="1.0")
+    observation_vector_json = Column(Text, nullable=False)
+    mapping_version = Column(String(32), nullable=False)
+    feature_names_json = Column(Text, nullable=False)
+    technical_model_id = Column(String(128), nullable=True)
+    regime_model_id = Column(String(128), nullable=True)
+    sentiment_model_id = Column(String(128), nullable=True)
+    consensus_model_id = Column(String(128), nullable=True)
+    alignment_tolerance_seconds = Column(Float, nullable=False, default=300.0)
+    source_timestamp_json = Column(Text, nullable=True)
+    metadata_json = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class RewardLogDB(Base):
+    __tablename__ = "reward_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    symbol = Column(String(32), nullable=False)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    episode_id = Column(String(128), nullable=False)
+    reward_name = Column(String(64), nullable=False)
+    reward_value = Column(Float, nullable=False)
+    portfolio_value = Column(Float, nullable=True)
+    gross_return = Column(Float, nullable=True)
+    net_return = Column(Float, nullable=True)
+    transaction_cost = Column(Float, nullable=True)
+    slippage_cost = Column(Float, nullable=True)
+    action = Column(Float, nullable=True)
+    position_before = Column(Float, nullable=True)
+    position_after = Column(Float, nullable=True)
+    metadata_json = Column(Text, nullable=True)
+    schema_version = Column(String(16), nullable=False, default="1.0")
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class RLPolicyDB(Base):
+    __tablename__ = "rl_policies"
+    __table_args__ = (
+        UniqueConstraint("policy_id", name="uq_rl_policy_policy_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    policy_id = Column(String(128), nullable=False)
+    algorithm = Column(String(32), nullable=False)
+    version = Column(String(16), nullable=False, default="1.0")
+    stage = Column(String(32), nullable=False, default="foundation")
+    training_status = Column(String(32), nullable=False, default="not_started")
+    observation_schema_version = Column(String(16), nullable=False)
+    action_space = Column(String(32), nullable=False)
+    checkpoint_path = Column(Text, nullable=True)
+    checkpoint_status = Column(String(32), nullable=False, default="not_available")
+    is_teacher_policy = Column(Boolean, nullable=False, default=True)
+    offline_only = Column(Boolean, nullable=False, default=True)
+    notes = Column(Text, nullable=True)
+    metadata_json = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+class RLTrainingRunDB(Base):
+    __tablename__ = "rl_training_runs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    policy_id = Column(String(128), nullable=False)
+    started_at = Column(DateTime(timezone=True), nullable=False)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    status = Column(String(32), nullable=False, default="planned")
+    split_label = Column(String(64), nullable=False, default="walk_forward")
+    train_start = Column(DateTime(timezone=True), nullable=True)
+    train_end = Column(DateTime(timezone=True), nullable=True)
+    validation_start = Column(DateTime(timezone=True), nullable=True)
+    validation_end = Column(DateTime(timezone=True), nullable=True)
+    test_start = Column(DateTime(timezone=True), nullable=True)
+    test_end = Column(DateTime(timezone=True), nullable=True)
+    reward_name = Column(String(64), nullable=True)
+    metrics_json = Column(Text, nullable=True)
+    params_json = Column(Text, nullable=True)
+    checkpoint_path = Column(Text, nullable=True)
+    notes = Column(Text, nullable=True)
+    schema_version = Column(String(16), nullable=False, default="1.0")
