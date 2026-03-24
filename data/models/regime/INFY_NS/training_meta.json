@@ -1,4 +1,5 @@
 {
+  "timestamp": "2026-03-23T12:54:55.587633+00:00",
   "symbol": "INFY.NS",
   "run_timestamp_utc": "2026-03-23T12:54:55.587633+00:00",
   "rows_trained": 238,
@@ -9,6 +10,9 @@
     "training_meta.json"
   ],
   "hmm_components": 4,
+  "hyperparameters": {
+    "hmm_components": 4
+  },
   "metrics": {
     "regime_distribution": {
       "2": 0.5254237288135594,
