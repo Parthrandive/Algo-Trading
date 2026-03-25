@@ -329,98 +329,118 @@ class PredictionLogDB(Base):
     data_snapshot_id = Column(String(128), nullable=True)
 
 
-class StrategicObservationDB(Base):
+class ObservationDB(Base):
     __tablename__ = "observations"
     __table_args__ = (
-        UniqueConstraint("symbol", "timestamp", "schema_version", name="uq_observations_sym_ts_schema"),
+        UniqueConstraint("symbol", "timestamp", "snapshot_id", name="uq_observations_sym_ts_snapshot"),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    symbol = Column(String(32), nullable=False)
     timestamp = Column(DateTime(timezone=True), nullable=False)
-    schema_version = Column(String(16), nullable=False, default="1.0")
-    observation_vector_json = Column(Text, nullable=False)
-    mapping_version = Column(String(32), nullable=False)
-    feature_names_json = Column(Text, nullable=False)
-    technical_model_id = Column(String(128), nullable=True)
-    regime_model_id = Column(String(128), nullable=True)
-    sentiment_model_id = Column(String(128), nullable=True)
-    consensus_model_id = Column(String(128), nullable=True)
-    alignment_tolerance_seconds = Column(Float, nullable=False, default=300.0)
-    source_timestamp_json = Column(Text, nullable=True)
-    metadata_json = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
-
-
-class RewardLogDB(Base):
-    __tablename__ = "reward_logs"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
     symbol = Column(String(32), nullable=False)
-    timestamp = Column(DateTime(timezone=True), nullable=False)
-    episode_id = Column(String(128), nullable=False)
-    reward_name = Column(String(64), nullable=False)
-    reward_value = Column(Float, nullable=False)
-    portfolio_value = Column(Float, nullable=True)
-    gross_return = Column(Float, nullable=True)
-    net_return = Column(Float, nullable=True)
-    transaction_cost = Column(Float, nullable=True)
-    slippage_cost = Column(Float, nullable=True)
-    action = Column(Float, nullable=True)
-    position_before = Column(Float, nullable=True)
-    position_after = Column(Float, nullable=True)
-    metadata_json = Column(Text, nullable=True)
-    schema_version = Column(String(16), nullable=False, default="1.0")
-    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    snapshot_id = Column(String(128), nullable=False)
+    technical_direction = Column(String(8), nullable=False)
+    technical_confidence = Column(Float, nullable=False)
+    price_forecast = Column(Float, nullable=False)
+    var_95 = Column(Float, nullable=False)
+    es_95 = Column(Float, nullable=False)
+    regime_state = Column(String(32), nullable=False)
+    regime_transition_prob = Column(Float, nullable=False)
+    sentiment_score = Column(Float, nullable=True)
+    sentiment_z_t = Column(Float, nullable=True)
+    consensus_direction = Column(String(8), nullable=False)
+    consensus_confidence = Column(Float, nullable=False)
+    crisis_mode = Column(Boolean, nullable=False, default=False)
+    agent_divergence = Column(Boolean, nullable=False, default=False)
+    orderbook_imbalance = Column(Float, nullable=True)
+    queue_pressure = Column(Float, nullable=True)
+    current_position = Column(Float, nullable=False, default=0.0)
+    unrealized_pnl = Column(Float, nullable=False, default=0.0)
+    notional_exposure = Column(Float, nullable=False, default=0.0)
+    portfolio_features_json = Column(Text, nullable=True)
+    observation_schema_version = Column(String(8), nullable=False, default="1.0")
+    quality_status = Column(String(8), nullable=False, default="pass")
+
+
+StrategicObservationDB = ObservationDB
 
 
 class RLPolicyDB(Base):
     __tablename__ = "rl_policies"
-    __table_args__ = (
-        UniqueConstraint("policy_id", name="uq_rl_policy_policy_id"),
-    )
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    policy_id = Column(String(128), nullable=False)
-    algorithm = Column(String(32), nullable=False)
-    version = Column(String(16), nullable=False, default="1.0")
-    stage = Column(String(32), nullable=False, default="foundation")
-    training_status = Column(String(32), nullable=False, default="not_started")
-    observation_schema_version = Column(String(16), nullable=False)
-    action_space = Column(String(32), nullable=False)
-    checkpoint_path = Column(Text, nullable=True)
-    checkpoint_status = Column(String(32), nullable=False, default="not_available")
-    is_teacher_policy = Column(Boolean, nullable=False, default=True)
-    offline_only = Column(Boolean, nullable=False, default=True)
-    notes = Column(Text, nullable=True)
-    metadata_json = Column(Text, nullable=True)
+    policy_id = Column(String(128), primary_key=True)
+    algorithm = Column(String(16), nullable=False)
+    version = Column(String(16), nullable=False)
+    status = Column(String(16), nullable=False, default="candidate")
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(
-        DateTime(timezone=True),
-        nullable=False,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
-    )
+    promoted_at = Column(DateTime(timezone=True), nullable=True)
+    retired_at = Column(DateTime(timezone=True), nullable=True)
+    artifact_path = Column(Text, nullable=False)
+    observation_schema_version = Column(String(8), nullable=False)
+    reward_function = Column(String(32), nullable=False)
+    hyperparams_json = Column(Text, nullable=False)
+    training_metrics_json = Column(Text, nullable=True)
+    compression_method = Column(String(32), nullable=True)
+    p99_inference_ms = Column(Float, nullable=True)
+    p999_inference_ms = Column(Float, nullable=True)
+    schema_version = Column(String(8), nullable=False, default="1.0")
 
 
 class RLTrainingRunDB(Base):
     __tablename__ = "rl_training_runs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    policy_id = Column(String(128), nullable=False)
-    started_at = Column(DateTime(timezone=True), nullable=False)
-    completed_at = Column(DateTime(timezone=True), nullable=True)
-    status = Column(String(32), nullable=False, default="planned")
-    split_label = Column(String(64), nullable=False, default="walk_forward")
-    train_start = Column(DateTime(timezone=True), nullable=True)
-    train_end = Column(DateTime(timezone=True), nullable=True)
-    validation_start = Column(DateTime(timezone=True), nullable=True)
-    validation_end = Column(DateTime(timezone=True), nullable=True)
-    test_start = Column(DateTime(timezone=True), nullable=True)
-    test_end = Column(DateTime(timezone=True), nullable=True)
-    reward_name = Column(String(64), nullable=True)
-    metrics_json = Column(Text, nullable=True)
-    params_json = Column(Text, nullable=True)
-    checkpoint_path = Column(Text, nullable=True)
+    policy_id = Column(String(128), ForeignKey("rl_policies.policy_id"), nullable=False)
+    run_timestamp = Column(DateTime(timezone=True), nullable=False)
+    training_start = Column(DateTime(timezone=True), nullable=False)
+    training_end = Column(DateTime(timezone=True), nullable=False)
+    episodes = Column(Integer, nullable=False)
+    total_steps = Column(BigInteger, nullable=False)
+    final_reward = Column(Float, nullable=True)
+    sharpe = Column(Float, nullable=True)
+    sortino = Column(Float, nullable=True)
+    max_drawdown = Column(Float, nullable=True)
+    win_rate = Column(Float, nullable=True)
+    dataset_snapshot_id = Column(String(128), nullable=True)
+    code_hash = Column(String(64), nullable=True)
+    duration_seconds = Column(Float, nullable=True)
     notes = Column(Text, nullable=True)
-    schema_version = Column(String(16), nullable=False, default="1.0")
+
+
+class TradeDecisionDB(Base):
+    __tablename__ = "trade_decisions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    symbol = Column(String(32), nullable=False)
+    observation_id = Column(Integer, ForeignKey("observations.id"), nullable=True)
+    policy_id = Column(String(128), nullable=False)
+    action = Column(String(16), nullable=False)
+    action_size = Column(Float, nullable=False)
+    confidence = Column(Float, nullable=False)
+    entropy = Column(Float, nullable=True)
+    sac_weight = Column(Float, nullable=True)
+    ppo_weight = Column(Float, nullable=True)
+    td3_weight = Column(Float, nullable=True)
+    risk_override = Column(String(16), nullable=True)
+    risk_override_reason = Column(Text, nullable=True)
+    decision_latency_ms = Column(Float, nullable=False, default=0.0)
+    loop_type = Column(String(8), nullable=False, default="slow")
+    policy_type = Column(String(16), nullable=False, default="teacher")
+    is_placeholder = Column(Boolean, nullable=False, default=True)
+    contract_version = Column(String(16), nullable=False, default="strat_exec_v1")
+    schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class RewardLogDB(Base):
+    __tablename__ = "reward_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    decision_id = Column(Integer, ForeignKey("trade_decisions.id"), nullable=True)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    symbol = Column(String(32), nullable=False)
+    policy_id = Column(String(128), nullable=False)
+    reward_name = Column(String(32), nullable=False)
+    reward_value = Column(Float, nullable=False)
+    components_json = Column(Text, nullable=True)
+    schema_version = Column(String(8), nullable=False, default="1.0")

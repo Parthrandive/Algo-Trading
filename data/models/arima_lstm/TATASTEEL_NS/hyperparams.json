@@ -35,9 +35,18 @@
     "macro_regime_shock",
     "macro_directional_flag"
   ],
+  "class_threshold": 0.005,
+  "effective_class_threshold": 0.0005323690233199764,
+  "threshold_selection": {
+    "min_neutral_ratio": 0.2,
+    "max_neutral_ratio": 0.3,
+    "target_neutral_ratio": 0.25,
+    "selected_train_neutral_ratio": 0.25
+  },
+  "recalibrate_only": true,
   "finetune": {
-    "applied": true,
-    "epochs_requested": 15,
-    "patience": 5
+    "applied": false,
+    "epochs_requested": 25,
+    "patience": 8
   }
 }
