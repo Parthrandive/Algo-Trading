@@ -1,0 +1,38 @@
+{
+  "timestamp": "2026-03-24T14:43:40.268783+00:00",
+  "mode": "dry_run",
+  "runtime_config": "/Users/juhi/Desktop/algo-trading/configs/sentiment_agent_runtime_v1.json",
+  "model_id": "ProsusAI/finbert",
+  "data_summary": {
+    "configured_datasets": [
+      "harixn/indian_news_sentiment",
+      "SEntFiN"
+    ],
+    "dataset_details": {
+      "harixn/indian_news_sentiment": {
+        "dataset_id": "harixn/indian_news_sentiment",
+        "split": "train",
+        "raw_rows": 5296,
+        "usable_rows": 5296,
+        "text_field": "text",
+        "label_field": "label",
+        "license": null,
+        "public_availability_justification": "Public dataset registry: https://huggingface.co/datasets/harixn/indian_news_sentiment"
+      }
+    },
+    "dataset_errors": {
+      "SEntFiN": "Dataset 'SEntFiN' doesn't exist on the Hub or cannot be accessed."
+    },
+    "total_examples": 5296
+  },
+  "split_summary": {
+    "train_examples": 4236,
+    "val_examples": 1060,
+    "total_examples": 5296,
+    "label_counts_total": {
+      "negative": 1156,
+      "neutral": 2008,
+      "positive": 2132
+    }
+  }
+}

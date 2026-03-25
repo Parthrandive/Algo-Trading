@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-23T17:46:04.638258+00:00",
+  "timestamp": "2026-03-24T13:58:21.598565+00:00",
   "symbol": "HDFCBANK.NS",
   "trained_as_part_of_universe": true,
   "hyperparameters": {
@@ -10,8 +10,13 @@
     ],
     "window_size": 10,
     "learning_rate": 0.001,
-    "epochs_requested": 15,
-    "class_threshold": 0.005
+    "epochs_requested": 25,
+    "class_threshold": 0.005,
+    "effective_class_threshold": 0.0004069351860826043,
+    "min_neutral_ratio": 0.2,
+    "max_neutral_ratio": 0.3,
+    "target_neutral_ratio": 0.25,
+    "recalibrate_only": true
   },
   "split_counts": {
     "train": 2467,
@@ -20,36 +25,78 @@
   },
   "metrics": {
     "test_mse": 4.0408277391702276e-05,
-    "test_accuracy": 0.7988505747126436,
-    "directional_accuracy": 0.043478260869565216,
-    "up_precision": 0.06521739130434782,
-    "up_recall": 0.1,
-    "up_f1": 0.07894736842105263,
-    "up_support": 30,
-    "down_precision": 0.0,
-    "down_recall": 0.0,
-    "down_f1": 0.0,
-    "down_support": 39,
+    "selected_train_neutral_ratio": 0.2501013376570734,
+    "prediction_distribution": {
+      "train": {
+        "total": 2467,
+        "counts": {
+          "down": 703,
+          "neutral": 617,
+          "up": 1147
+        },
+        "ratios": {
+          "down": 0.2849614916903121,
+          "neutral": 0.2501013376570734,
+          "up": 0.46493717065261453
+        }
+      },
+      "val": {
+        "total": 521,
+        "counts": {
+          "down": 261,
+          "neutral": 115,
+          "up": 145
+        },
+        "ratios": {
+          "down": 0.5009596928982726,
+          "neutral": 0.22072936660268713,
+          "up": 0.2783109404990403
+        }
+      },
+      "test": {
+        "total": 522,
+        "counts": {
+          "down": 75,
+          "neutral": 91,
+          "up": 356
+        },
+        "ratios": {
+          "down": 0.14367816091954022,
+          "neutral": 0.1743295019157088,
+          "up": 0.6819923371647509
+        }
+      }
+    },
+    "test_accuracy": 0.36015325670498083,
+    "directional_accuracy": 0.38288288288288286,
+    "up_precision": 0.3848314606741573,
+    "up_recall": 0.6748768472906403,
+    "up_f1": 0.49016100178890876,
+    "up_support": 203,
+    "down_precision": 0.44,
+    "down_recall": 0.13692946058091288,
+    "down_f1": 0.2088607594936709,
+    "down_support": 241,
     "test_confusion_matrix": [
       [
-        0,
-        32,
-        7
+        33,
+        43,
+        165
       ],
       [
-        3,
-        414,
-        36
+        6,
+        18,
+        54
       ],
       [
-        0,
-        27,
-        3
+        36,
+        30,
+        137
       ]
     ],
-    "finetune_train_loss": 2.3488473240187014e-05,
-    "finetune_best_train_loss": 2.185620759883096e-05,
-    "finetune_best_val_loss": 1.1231047020180038e-05,
-    "finetune_epochs_run": 15
+    "finetune_train_loss": null,
+    "finetune_best_train_loss": null,
+    "finetune_best_val_loss": null,
+    "finetune_epochs_run": null
   }
 }

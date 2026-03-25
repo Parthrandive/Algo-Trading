@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-23T17:46:01.028624+00:00",
+  "timestamp": "2026-03-24T13:58:21.366094+00:00",
   "symbol": "TATASTEEL.NS",
   "trained_as_part_of_universe": true,
   "hyperparameters": {
@@ -10,8 +10,13 @@
     ],
     "window_size": 10,
     "learning_rate": 0.001,
-    "epochs_requested": 15,
-    "class_threshold": 0.005
+    "epochs_requested": 25,
+    "class_threshold": 0.005,
+    "effective_class_threshold": 0.0005323690233199764,
+    "min_neutral_ratio": 0.2,
+    "max_neutral_ratio": 0.3,
+    "target_neutral_ratio": 0.25,
+    "recalibrate_only": true
   },
   "split_counts": {
     "train": 2492,
@@ -20,36 +25,78 @@
   },
   "metrics": {
     "test_mse": 5.651317545998333e-05,
-    "test_accuracy": 0.7552182163187856,
-    "directional_accuracy": 0.032,
-    "up_precision": 0.2,
-    "up_recall": 0.031746031746031744,
-    "up_f1": 0.0547945205479452,
-    "up_support": 63,
-    "down_precision": 0.3333333333333333,
-    "down_recall": 0.03225806451612903,
-    "down_f1": 0.058823529411764705,
-    "down_support": 62,
+    "selected_train_neutral_ratio": 0.25,
+    "prediction_distribution": {
+      "train": {
+        "total": 2492,
+        "counts": {
+          "down": 1264,
+          "neutral": 623,
+          "up": 605
+        },
+        "ratios": {
+          "down": 0.507223113964687,
+          "neutral": 0.25,
+          "up": 0.242776886035313
+        }
+      },
+      "val": {
+        "total": 526,
+        "counts": {
+          "down": 191,
+          "neutral": 167,
+          "up": 168
+        },
+        "ratios": {
+          "down": 0.36311787072243346,
+          "neutral": 0.31749049429657794,
+          "up": 0.3193916349809886
+        }
+      },
+      "test": {
+        "total": 527,
+        "counts": {
+          "down": 255,
+          "neutral": 127,
+          "up": 145
+        },
+        "ratios": {
+          "down": 0.4838709677419355,
+          "neutral": 0.2409867172675522,
+          "up": 0.27514231499051234
+        }
+      }
+    },
+    "test_accuracy": 0.35294117647058826,
+    "directional_accuracy": 0.37697516930022573,
+    "up_precision": 0.4413793103448276,
+    "up_recall": 0.28699551569506726,
+    "up_f1": 0.34782608695652173,
+    "up_support": 223,
+    "down_precision": 0.403921568627451,
+    "down_recall": 0.4681818181818182,
+    "down_f1": 0.4336842105263158,
+    "down_support": 220,
     "test_confusion_matrix": [
       [
-        2,
-        57,
-        3
+        103,
+        56,
+        61
       ],
       [
-        3,
-        394,
-        5
+        45,
+        19,
+        20
       ],
       [
-        1,
-        60,
-        2
+        107,
+        52,
+        64
       ]
     ],
-    "finetune_train_loss": 4.533283829463483e-05,
-    "finetune_best_train_loss": 4.533283829463483e-05,
-    "finetune_best_val_loss": 2.7935439781613378e-05,
-    "finetune_epochs_run": 15
+    "finetune_train_loss": null,
+    "finetune_best_train_loss": null,
+    "finetune_best_val_loss": null,
+    "finetune_epochs_run": null
   }
 }
