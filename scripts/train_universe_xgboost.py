@@ -308,12 +308,18 @@ def build_symbol_data(symbol: str, cnn_dir: Path, lstm_dir: Path, loader: DataLo
     meta_df["actual_next_log_return"] = next_returns
     
     meta_df["y_label"] = -1
-    threshold = float(args.class_threshold)
+    label_threshold = float(args.class_threshold)
+    if "class_threshold" in lstm_df.columns:
+        lstm_thresh = lstm_df["class_threshold"].dropna()
+        if not lstm_thresh.empty:
+            label_threshold = float(lstm_thresh.iloc[0])
+            logger.info("[%s] Using ARIMA label threshold: %.6f (eval static conf: %.6f)", symbol, label_threshold, float(args.class_threshold))
+
     valid_mask = np.isfinite(next_returns)
     ret = next_returns[valid_mask]
     lbls = np.full(len(ret), CLASS_NEUTRAL, dtype=np.int64)
-    lbls[ret > threshold] = CLASS_UP
-    lbls[ret < -threshold] = CLASS_DOWN
+    lbls[ret > label_threshold] = CLASS_UP
+    lbls[ret < -label_threshold] = CLASS_DOWN
     meta_df.loc[valid_mask, "y_label"] = lbls
     
     aligned = pd.merge(cnn_df, lstm_df, on=["timestamp", "split"], how="inner")

@@ -366,6 +366,7 @@ def choose_symbol_threshold(
         0.0075, 0.0100, 0.0150, 0.0200, 0.0250, 0.0300
     ]
     candidates = sorted({float(requested_threshold), *quantile_candidates, *static_candidates})
+    candidates = [c for c in candidates if c >= 0.0030]
 
     candidate_stats: List[Tuple[float, float]] = []
     for threshold in candidates:

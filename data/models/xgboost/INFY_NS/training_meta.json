@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-25T16:44:52.455485+00:00",
+  "timestamp": "2026-03-25T17:00:28.358213+00:00",
   "symbol": "INFY.NS",
   "split_counts": {
     "train": 2483,
@@ -82,33 +82,33 @@
     }
   },
   "metrics": {
-    "test_accuracy": 0.46808510638297873,
-    "directional_accuracy": 0.308411214953271,
-    "up_precision": 0.0896551724137931,
-    "up_recall": 0.2653061224489796,
-    "up_f1": 0.13402061855670103,
-    "up_support": 49,
-    "down_precision": 0.15748031496062992,
-    "down_recall": 0.3448275862068966,
-    "down_f1": 0.21621621621621623,
-    "down_support": 58,
+    "test_accuracy": 0.3365570599613153,
+    "directional_accuracy": 0.3739130434782609,
+    "up_precision": 0.17647058823529413,
+    "up_recall": 0.3113207547169811,
+    "up_f1": 0.22525597269624573,
+    "up_support": 106,
+    "down_precision": 0.292817679558011,
+    "down_recall": 0.4274193548387097,
+    "down_f1": 0.3475409836065574,
+    "down_support": 124,
     "test_confusion_matrix": [
       [
-        20,
-        18,
-        20
+        53,
+        31,
+        40
       ],
       [
-        89,
-        209,
-        112
+        85,
+        88,
+        114
       ],
       [
-        18,
-        18,
-        13
+        43,
+        30,
+        33
       ]
     ],
-    "best_iteration": 306
+    "best_iteration": 76
   }
 }

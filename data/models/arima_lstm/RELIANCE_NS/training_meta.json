@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-24T13:58:21.289335+00:00",
+  "timestamp": "2026-03-25T16:54:54.437925+00:00",
   "symbol": "RELIANCE.NS",
   "trained_as_part_of_universe": true,
   "hyperparameters": {
@@ -12,10 +12,10 @@
     "learning_rate": 0.001,
     "epochs_requested": 25,
     "class_threshold": 0.005,
-    "effective_class_threshold": 0.0014414885449647126,
-    "min_neutral_ratio": 0.2,
-    "max_neutral_ratio": 0.3,
-    "target_neutral_ratio": 0.25,
+    "effective_class_threshold": 0.0010782063150104894,
+    "min_neutral_ratio": 0.15,
+    "max_neutral_ratio": 0.2,
+    "target_neutral_ratio": 0.175,
     "recalibrate_only": true
   },
   "split_counts": {
@@ -25,73 +25,73 @@
   },
   "metrics": {
     "test_mse": 3.535494514174611e-05,
-    "selected_train_neutral_ratio": 0.25,
+    "selected_train_neutral_ratio": 0.18017656500802567,
     "prediction_distribution": {
       "train": {
         "total": 2492,
         "counts": {
-          "down": 213,
-          "neutral": 623,
-          "up": 1656
+          "down": 262,
+          "neutral": 449,
+          "up": 1781
         },
         "ratios": {
-          "down": 0.08547351524879615,
-          "neutral": 0.25,
-          "up": 0.6645264847512039
+          "down": 0.10513643659711075,
+          "neutral": 0.18017656500802567,
+          "up": 0.7146869983948636
         }
       },
       "val": {
         "total": 526,
         "counts": {
-          "down": 47,
-          "neutral": 255,
-          "up": 224
+          "down": 72,
+          "neutral": 205,
+          "up": 249
         },
         "ratios": {
-          "down": 0.08935361216730038,
-          "neutral": 0.4847908745247148,
-          "up": 0.42585551330798477
+          "down": 0.13688212927756654,
+          "neutral": 0.3897338403041825,
+          "up": 0.47338403041825095
         }
       },
       "test": {
         "total": 527,
         "counts": {
-          "down": 40,
-          "neutral": 104,
-          "up": 383
+          "down": 53,
+          "neutral": 64,
+          "up": 410
         },
         "ratios": {
-          "down": 0.07590132827324478,
-          "neutral": 0.19734345351043645,
-          "up": 0.7267552182163188
+          "down": 0.10056925996204934,
+          "neutral": 0.12144212523719165,
+          "up": 0.777988614800759
         }
       }
     },
-    "test_accuracy": 0.3225806451612903,
-    "directional_accuracy": 0.3961661341853035,
-    "up_precision": 0.2819843342036554,
-    "up_recall": 0.7297297297297297,
-    "up_f1": 0.4067796610169492,
-    "up_support": 148,
-    "down_precision": 0.4,
-    "down_recall": 0.09696969696969697,
-    "down_f1": 0.15609756097560976,
-    "down_support": 165,
+    "test_accuracy": 0.31499051233396586,
+    "directional_accuracy": 0.41761363636363635,
+    "up_precision": 0.3097560975609756,
+    "up_recall": 0.774390243902439,
+    "up_f1": 0.4425087108013937,
+    "up_support": 164,
+    "down_precision": 0.37735849056603776,
+    "down_recall": 0.10638297872340426,
+    "down_f1": 0.16597510373443983,
+    "down_support": 188,
     "test_confusion_matrix": [
       [
-        16,
-        27,
-        122
+        20,
+        22,
+        146
       ],
       [
-        15,
-        46,
-        153
+        19,
+        19,
+        137
       ],
       [
-        9,
-        31,
-        108
+        14,
+        23,
+        127
       ]
     ],
     "finetune_train_loss": null,

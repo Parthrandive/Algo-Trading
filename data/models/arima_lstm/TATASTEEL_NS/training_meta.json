@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-24T13:58:21.366094+00:00",
+  "timestamp": "2026-03-25T16:59:44.997977+00:00",
   "symbol": "TATASTEEL.NS",
   "trained_as_part_of_universe": true,
   "hyperparameters": {
@@ -12,10 +12,10 @@
     "learning_rate": 0.001,
     "epochs_requested": 25,
     "class_threshold": 0.005,
-    "effective_class_threshold": 0.0005323690233199764,
-    "min_neutral_ratio": 0.2,
-    "max_neutral_ratio": 0.3,
-    "target_neutral_ratio": 0.25,
+    "effective_class_threshold": 0.003,
+    "min_neutral_ratio": 0.15,
+    "max_neutral_ratio": 0.2,
+    "target_neutral_ratio": 0.175,
     "recalibrate_only": true
   },
   "split_counts": {
@@ -25,73 +25,73 @@
   },
   "metrics": {
     "test_mse": 5.651317545998333e-05,
-    "selected_train_neutral_ratio": 0.25,
+    "selected_train_neutral_ratio": 0.8832263242375602,
     "prediction_distribution": {
       "train": {
         "total": 2492,
         "counts": {
-          "down": 1264,
-          "neutral": 623,
-          "up": 605
+          "down": 203,
+          "neutral": 2201,
+          "up": 88
         },
         "ratios": {
-          "down": 0.507223113964687,
-          "neutral": 0.25,
-          "up": 0.242776886035313
+          "down": 0.08146067415730338,
+          "neutral": 0.8832263242375602,
+          "up": 0.03531300160513644
         }
       },
       "val": {
         "total": 526,
         "counts": {
-          "down": 191,
-          "neutral": 167,
-          "up": 168
+          "down": 10,
+          "neutral": 495,
+          "up": 21
         },
         "ratios": {
-          "down": 0.36311787072243346,
-          "neutral": 0.31749049429657794,
-          "up": 0.3193916349809886
+          "down": 0.019011406844106463,
+          "neutral": 0.94106463878327,
+          "up": 0.039923954372623575
         }
       },
       "test": {
         "total": 527,
         "counts": {
-          "down": 255,
-          "neutral": 127,
-          "up": 145
+          "down": 28,
+          "neutral": 467,
+          "up": 32
         },
         "ratios": {
-          "down": 0.4838709677419355,
-          "neutral": 0.2409867172675522,
-          "up": 0.27514231499051234
+          "down": 0.05313092979127135,
+          "neutral": 0.8861480075901328,
+          "up": 0.06072106261859583
         }
       }
     },
-    "test_accuracy": 0.35294117647058826,
-    "directional_accuracy": 0.37697516930022573,
-    "up_precision": 0.4413793103448276,
-    "up_recall": 0.28699551569506726,
-    "up_f1": 0.34782608695652173,
-    "up_support": 223,
-    "down_precision": 0.403921568627451,
-    "down_recall": 0.4681818181818182,
-    "down_f1": 0.4336842105263158,
-    "down_support": 220,
+    "test_accuracy": 0.538899430740038,
+    "directional_accuracy": 0.049773755656108594,
+    "up_precision": 0.0625,
+    "up_recall": 0.017857142857142856,
+    "up_f1": 0.027777777777777776,
+    "up_support": 112,
+    "down_precision": 0.32142857142857145,
+    "down_recall": 0.08256880733944955,
+    "down_f1": 0.13138686131386862,
+    "down_support": 109,
     "test_confusion_matrix": [
       [
-        103,
-        56,
-        61
+        9,
+        92,
+        8
       ],
       [
-        45,
-        19,
-        20
+        11,
+        273,
+        22
       ],
       [
-        107,
-        52,
-        64
+        8,
+        102,
+        2
       ]
     ],
     "finetune_train_loss": null,
