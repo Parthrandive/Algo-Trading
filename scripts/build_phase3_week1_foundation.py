@@ -1,14 +1,21 @@
 from __future__ import annotations
 
 import json
+import sys
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pandas as pd
 
-from src.agents.strategic import ObservationAssembler, StrategicTradingEnv, WalkForwardConfig
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.agents.strategic import ObservationAssembler, StrategicTradingEnv
+from src.agents.strategic.config import WalkForwardConfig
 from src.agents.strategic.policies import PPOPolicyFoundation, SACPolicyFoundation, TD3PolicyFoundation
 from src.agents.strategic.splits import build_planned_training_run
-from src.db.strategic_recorder import StrategicRecorder
+from src.db.phase3_recorder import Phase3Recorder
 
 
 def _sample_phase2_frames() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -74,7 +81,7 @@ def main() -> None:
     env.step(0.25)
     env.step(0.50)
 
-    recorder = StrategicRecorder()
+    recorder = Phase3Recorder()
     for observation in observations:
         recorder.save_observation(observation)
     for reward_log in env.reward_logs:

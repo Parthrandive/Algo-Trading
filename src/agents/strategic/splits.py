@@ -8,6 +8,15 @@ from src.agents.strategic.config import WalkForwardConfig
 from src.agents.strategic.schemas import RLTrainingRunRecord
 
 
+def _to_utc_datetime(value: datetime) -> datetime:
+    ts = pd.Timestamp(value)
+    if ts.tzinfo is None:
+        ts = ts.tz_localize("UTC")
+    else:
+        ts = ts.tz_convert("UTC")
+    return ts.to_pydatetime()
+
+
 def build_walk_forward_mask(frame: pd.DataFrame, config: WalkForwardConfig) -> pd.DataFrame:
     result = frame.copy()
     result["timestamp"] = pd.to_datetime(result["timestamp"], utc=True)
@@ -26,12 +35,12 @@ def build_planned_training_run(policy_id: str, config: WalkForwardConfig, *, rew
         policy_id=policy_id,
         started_at=datetime.now(UTC),
         status="planned",
-        train_start=pd.Timestamp(config.train_start, tz="UTC").to_pydatetime(),
-        train_end=pd.Timestamp(config.train_end, tz="UTC").to_pydatetime(),
-        validation_start=pd.Timestamp(config.validation_start, tz="UTC").to_pydatetime(),
-        validation_end=pd.Timestamp(config.validation_end, tz="UTC").to_pydatetime(),
-        test_start=pd.Timestamp(config.test_start, tz="UTC").to_pydatetime(),
-        test_end=pd.Timestamp(config.test_end, tz="UTC").to_pydatetime(),
+        train_start=_to_utc_datetime(config.train_start),
+        train_end=_to_utc_datetime(config.train_end),
+        validation_start=_to_utc_datetime(config.validation_start),
+        validation_end=_to_utc_datetime(config.validation_end),
+        test_start=_to_utc_datetime(config.test_start),
+        test_end=_to_utc_datetime(config.test_end),
         reward_name=reward_name,
         metrics={"status": "foundation_only"},
         params={"training_enabled": False},

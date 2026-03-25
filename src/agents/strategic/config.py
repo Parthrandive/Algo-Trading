@@ -43,6 +43,7 @@ class WalkForwardConfig:
     validation_months: float = 6.0
     test_months: float = 6.0
     min_train_rows: int = 500
+    # Foundation defaults for testing/splits
     train_start: datetime = field(default_factory=lambda: datetime(2020, 1, 1, tzinfo=timezone.utc))
     train_end: datetime = field(default_factory=lambda: datetime(2024, 1, 1, tzinfo=timezone.utc))
     validation_start: datetime = field(default_factory=lambda: datetime(2024, 1, 1, tzinfo=timezone.utc))

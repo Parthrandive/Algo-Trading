@@ -8,32 +8,45 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from src.db.connection import get_engine, get_session
-from src.db.models import ObservationDB, RLPolicyDB, RLTrainingRunDB, RewardLogDB, TradeDecisionDB
+from src.db.models import Base, ObservationDB, RLPolicyDB, RLTrainingRunDB, RewardLogDB, TradeDecisionDB
 
 
 class Phase3Recorder:
     """Persist Phase 3 strategic artifacts and operational records."""
 
-    def __init__(self, database_url: str | None = None, engine=None, session_factory=None):
+    def __init__(
+        self,
+        database_url: str | None = None,
+        engine=None,
+        session_factory=None,
+        bootstrap_tables: bool | None = None,
+    ):
         self.engine = engine or get_engine(database_url)
+        if bootstrap_tables is None:
+            bootstrap_tables = engine is not None
+        if bootstrap_tables:
+            Base.metadata.create_all(self.engine)
         self.Session = session_factory or get_session(self.engine)
 
-    def save_observation(self, observation: dict[str, Any]) -> None:
+    def save_observation(self, observation: Any) -> None:
+        observation = self._ensure_dict(observation)
         row = self._normalize_observation(observation)
         with self.Session() as session:
             self._upsert(session, ObservationDB, row, key_fields=("symbol", "timestamp", "snapshot_id"))
             session.commit()
 
-    def save_observation_batch(self, observations: list[dict[str, Any]]) -> None:
+    def save_observation_batch(self, observations: list[Any]) -> None:
         if not observations:
             return
         with self.Session() as session:
             for observation in observations:
+                observation = self._ensure_dict(observation)
                 row = self._normalize_observation(observation)
                 self._upsert(session, ObservationDB, row, key_fields=("symbol", "timestamp", "snapshot_id"))
             session.commit()
 
-    def save_rl_policy(self, policy: dict[str, Any]) -> None:
+    def save_rl_policy(self, policy: Any) -> None:
+        policy = self._ensure_dict(policy)
         now = datetime.now(timezone.utc)
         row = {
             "policy_id": str(policy["policy_id"]),
@@ -59,12 +72,13 @@ class Phase3Recorder:
             self._upsert(session, RLPolicyDB, row, key_fields=("policy_id",))
             session.commit()
 
-    def save_rl_training_run(self, run: dict[str, Any]) -> None:
+    def save_rl_training_run(self, run: Any) -> None:
+        run = self._ensure_dict(run)
         row = {
             "policy_id": str(run["policy_id"]),
-            "run_timestamp": self._coerce_datetime(run["run_timestamp"]),
-            "training_start": self._coerce_datetime(run["training_start"]),
-            "training_end": self._coerce_datetime(run["training_end"]),
+            "run_timestamp": self._coerce_datetime(run.get("started_at", datetime.now(timezone.utc))),
+            "training_start": self._coerce_datetime(run.get("train_start", run.get("started_at"))),
+            "training_end": self._coerce_datetime(run.get("train_end", run.get("completed_at"))),
             "episodes": int(run.get("episodes", 0)),
             "total_steps": int(run.get("total_steps", 0)),
             "final_reward": self._optional_float(run.get("final_reward")),
@@ -80,6 +94,10 @@ class Phase3Recorder:
         with self.Session() as session:
             session.add(RLTrainingRunDB(**row))
             session.commit()
+
+    def save_training_run(self, run: Any) -> None:
+        """Compatibility alias for legacy recorder call sites."""
+        self.save_rl_training_run(run)
 
     def save_trade_decision(self, decision: dict[str, Any]) -> None:
         row = {
@@ -107,11 +125,12 @@ class Phase3Recorder:
             session.add(TradeDecisionDB(**row))
             session.commit()
 
-    def save_trade_decision_batch(self, decisions: list[dict[str, Any]]) -> None:
+    def save_trade_decision_batch(self, decisions: list[Any]) -> None:
         if not decisions:
             return
         with self.Session() as session:
             for decision in decisions:
+                decision = self._ensure_dict(decision)
                 row = {
                     "timestamp": self._coerce_datetime(decision["timestamp"]),
                     "symbol": str(decision["symbol"]),
@@ -136,12 +155,13 @@ class Phase3Recorder:
                 session.add(TradeDecisionDB(**row))
             session.commit()
 
-    def save_reward_log(self, reward: dict[str, Any]) -> None:
+    def save_reward_log(self, reward: Any) -> None:
+        reward = self._ensure_dict(reward)
         row = {
             "decision_id": reward.get("decision_id"),
             "timestamp": self._coerce_datetime(reward["timestamp"]),
             "symbol": str(reward["symbol"]),
-            "policy_id": str(reward["policy_id"]),
+            "policy_id": str(reward.get("policy_id", "foundation")),
             "reward_name": str(reward["reward_name"]),
             "reward_value": float(reward["reward_value"]),
             "components_json": self._to_json(reward.get("components")) if reward.get("components") is not None else None,
@@ -151,16 +171,17 @@ class Phase3Recorder:
             session.add(RewardLogDB(**row))
             session.commit()
 
-    def save_reward_log_batch(self, rewards: list[dict[str, Any]]) -> None:
+    def save_reward_log_batch(self, rewards: list[Any]) -> None:
         if not rewards:
             return
         with self.Session() as session:
             for reward in rewards:
+                reward = self._ensure_dict(reward)
                 row = {
                     "decision_id": reward.get("decision_id"),
                     "timestamp": self._coerce_datetime(reward["timestamp"]),
                     "symbol": str(reward["symbol"]),
-                    "policy_id": str(reward["policy_id"]),
+                    "policy_id": str(reward.get("policy_id", "foundation")),
                     "reward_name": str(reward["reward_name"]),
                     "reward_value": float(reward["reward_value"]),
                     "components_json": self._to_json(reward.get("components"))
@@ -257,3 +278,15 @@ class Phase3Recorder:
     @staticmethod
     def _to_json(payload: Any) -> str:
         return json.dumps(payload, sort_keys=True, default=str)
+
+    def _ensure_dict(self, value: Any) -> dict[str, Any]:
+        if hasattr(value, "model_dump"):
+            return value.model_dump()
+        if hasattr(value, "dict"):
+            return value.dict()
+        if isinstance(value, dict):
+            return value
+        try:
+            return dict(value)
+        except (TypeError, ValueError):
+            return {}
