@@ -36,12 +36,12 @@
     "macro_directional_flag"
   ],
   "class_threshold": 0.005,
-  "effective_class_threshold": 0.0005323690233199764,
+  "effective_class_threshold": 0.003,
   "threshold_selection": {
-    "min_neutral_ratio": 0.2,
-    "max_neutral_ratio": 0.3,
-    "target_neutral_ratio": 0.25,
-    "selected_train_neutral_ratio": 0.25
+    "min_neutral_ratio": 0.15,
+    "max_neutral_ratio": 0.2,
+    "target_neutral_ratio": 0.175,
+    "selected_train_neutral_ratio": 0.8832263242375602
   },
   "recalibrate_only": true,
   "finetune": {

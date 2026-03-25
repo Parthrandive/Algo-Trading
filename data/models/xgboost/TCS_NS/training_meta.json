@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-25T16:44:54.620283+00:00",
+  "timestamp": "2026-03-25T17:00:29.097192+00:00",
   "symbol": "TCS.NS",
   "split_counts": {
     "train": 2480,
@@ -82,33 +82,33 @@
     }
   },
   "metrics": {
-    "test_accuracy": 0.7732558139534884,
-    "directional_accuracy": 0.10204081632653061,
-    "up_precision": 0.11764705882352941,
-    "up_recall": 0.046511627906976744,
-    "up_f1": 0.06666666666666667,
-    "up_support": 43,
-    "down_precision": 0.21621621621621623,
-    "down_recall": 0.14545454545454545,
-    "down_f1": 0.17391304347826086,
-    "down_support": 55,
+    "test_accuracy": 0.32751937984496127,
+    "directional_accuracy": 0.3821138211382114,
+    "up_precision": 0.1950207468879668,
+    "up_recall": 0.4351851851851852,
+    "up_f1": 0.2693409742120344,
+    "up_support": 108,
+    "down_precision": 0.29375,
+    "down_recall": 0.34057971014492755,
+    "down_f1": 0.31543624161073824,
+    "down_support": 138,
     "test_confusion_matrix": [
       [
-        8,
-        40,
-        7
+        47,
+        18,
+        73
       ],
       [
-        21,
-        389,
-        8
+        74,
+        75,
+        121
       ],
       [
-        8,
-        33,
-        2
+        39,
+        22,
+        47
       ]
     ],
-    "best_iteration": 495
+    "best_iteration": 41
   }
 }
