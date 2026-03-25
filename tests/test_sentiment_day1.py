@@ -146,4 +146,4 @@ def test_finbert_base_model_prediction_contract_on_indian_headline():
     }
     assert -1.0 <= prediction.score <= 1.0
     assert 0.0 <= prediction.confidence <= 1.0
-    assert "ProsusAI/finbert" in prediction.model_name
+    assert prediction.model_name in {"ProsusAI/finbert", "finbert_indian_v1"}

@@ -5,7 +5,7 @@ from datetime import timedelta
 from pathlib import Path
 
 OBSERVATION_SCHEMA_VERSION = "1.0"
-STRATEGIC_EXEC_CONTRACT_VERSION = "strategic_exec_v1"
+STRATEGIC_EXEC_CONTRACT_VERSION = "strat_exec_v1"
 WEEK2_ACTION_EXPORT_VERSION = "week2_action_space_v1"
 RUN_MANIFEST_VERSION = "phase3_run_manifest_v1"
 

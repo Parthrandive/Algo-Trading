@@ -1,0 +1,30 @@
+{
+  "timestamp_utc": "2026-03-22T15:05:36.573159+00:00",
+  "snapshot_id": "phase2_run_20260322_150536",
+  "db_url": null,
+  "persist_enabled": true,
+  "symbols": [
+    "USDINR=X",
+    "RELIANCE.NS",
+    "TATASTEEL.NS"
+  ],
+  "phase3_observation_emitted": true,
+  "results": [],
+  "failures": [
+    {
+      "symbol": "USDINR=X",
+      "agent": "phase2_pipeline",
+      "error": "technical agent returned no prediction for USDINR=X"
+    },
+    {
+      "symbol": "RELIANCE.NS",
+      "agent": "phase2_pipeline",
+      "error": "technical agent returned no prediction for RELIANCE.NS"
+    },
+    {
+      "symbol": "TATASTEEL.NS",
+      "agent": "phase2_pipeline",
+      "error": "technical agent returned no prediction for TATASTEEL.NS"
+    }
+  ]
+}

@@ -100,7 +100,7 @@ class Phase3Recorder:
             "loop_type": str(decision.get("loop_type", "slow")),
             "policy_type": str(decision.get("policy_type", "teacher")),
             "is_placeholder": bool(decision.get("is_placeholder", True)),
-            "contract_version": str(decision.get("contract_version", "strategic_exec_v1")),
+            "contract_version": str(decision.get("contract_version", "strat_exec_v1")),
             "schema_version": str(decision.get("schema_version", "1.0")),
         }
         with self.Session() as session:

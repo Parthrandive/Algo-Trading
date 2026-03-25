@@ -241,12 +241,20 @@ class SentimentScoreDB(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     symbol = Column(String(32), nullable=True)
     timestamp = Column(DateTime(timezone=True), nullable=False)
-    lane = Column(String(8), nullable=False)
+    lane = Column(String(16), nullable=False)
+    source_id = Column(String(256), nullable=True)
+    source_type = Column(String(32), nullable=True)
     sentiment_class = Column(String(12), nullable=False)
     sentiment_score = Column(Float, nullable=False)
     z_t = Column(Float, nullable=True)
     confidence = Column(Float, nullable=False)
     source_count = Column(Integer, nullable=False, default=0)
+    ttl_seconds = Column(Integer, nullable=True)
+    freshness_flag = Column(String(16), nullable=True)
+    headline_timestamp = Column(DateTime(timezone=True), nullable=True)
+    score_timestamp = Column(DateTime(timezone=True), nullable=True)
+    quality_status = Column(String(8), nullable=True)
+    metadata_json = Column(Text, nullable=True)
     model_id = Column(String(128), nullable=False)
     schema_version = Column(String(8), nullable=False, default="1.0")
 
@@ -417,7 +425,7 @@ class TradeDecisionDB(Base):
     loop_type = Column(String(8), nullable=False, default="slow")
     policy_type = Column(String(16), nullable=False, default="teacher")
     is_placeholder = Column(Boolean, nullable=False, default=True)
-    contract_version = Column(String(16), nullable=False, default="strategic_exec_v1")
+    contract_version = Column(String(16), nullable=False, default="strat_exec_v1")
     schema_version = Column(String(8), nullable=False, default="1.0")
 
 
@@ -433,3 +441,4 @@ class RewardLogDB(Base):
     reward_value = Column(Float, nullable=False)
     components_json = Column(Text, nullable=True)
     schema_version = Column(String(8), nullable=False, default="1.0")
+

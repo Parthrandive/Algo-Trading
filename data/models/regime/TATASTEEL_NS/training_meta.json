@@ -1,4 +1,5 @@
 {
+  "timestamp": "2026-03-23T12:54:56.647120+00:00",
   "symbol": "TATASTEEL.NS",
   "run_timestamp_utc": "2026-03-23T12:54:56.647120+00:00",
   "rows_trained": 172,
@@ -9,6 +10,9 @@
     "training_meta.json"
   ],
   "hmm_components": 4,
+  "hyperparameters": {
+    "hmm_components": 4
+  },
   "metrics": {
     "regime_distribution": {
       "1": 0.8653846153846154,

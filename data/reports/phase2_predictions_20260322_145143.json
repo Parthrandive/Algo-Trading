@@ -1,0 +1,38 @@
+{
+  "timestamp_utc": "2026-03-22T14:51:43.192530+00:00",
+  "snapshot_id": "phase2_run_20260322_145143",
+  "db_url": null,
+  "persist_enabled": true,
+  "symbols": [
+    "USDINR=X",
+    "RELIANCE.NS",
+    "TATASTEEL.NS"
+  ],
+  "phase3_observation_emitted": true,
+  "results": [],
+  "failures": [
+    {
+      "agent": "model_cards",
+      "error": "(psycopg2.errors.UndefinedTable) relation \"model_cards\" does not exist\nLINE 1: INSERT INTO model_cards (model_id, agent, model_family, vers...\n                    ^\n\n[SQL: INSERT INTO model_cards (model_id, agent, model_family, version, created_at, updated_at, metadata_json, performance_json, status) VALUES (%(model_id)s, %(agent)s, %(model_family)s, %(version)s, %(created_at)s, %(updated_at)s, %(metadata_json)s, %(performance_json)s, %(status)s) ON CONFLICT (model_id) DO UPDATE SET agent = excluded.agent, model_family = excluded.model_family, version = excluded.version, created_at = excluded.created_at, updated_at = excluded.updated_at, metadata_json = excluded.metadata_json, performance_json = excluded.performance_json, status = excluded.status]\n[parameters: {'model_id': 'finbert_indian_v1', 'agent': 'sentiment', 'model_family': 'dual_speed_sentiment', 'version': '1.0', 'created_at': datetime.datetime(2026, 3, 22, 14, 51, 43, 192530, tzinfo=datetime.timezone.utc), 'updated_at': datetime.datetime(2026, 3, 22, 14, 51, 43, 192530, tzinfo=datetime.timezone.utc), 'metadata_json': '{\"model_id\":\"finbert_indian_v1\",\"agent\":\"sentiment\",\"model_family\":\"dual_speed_sentiment\",\"version\":\"1.0\",\"created_at\":\"2026-03-22T14:51:43.192530+00 ... (2435 characters truncated) ... recall_ok\":false},\"negative\":{\"precision_ok\":false,\"recall_ok\":false}},\"all_pass\":false}},\"last_registered_snapshot_id\":\"phase2_run_20260322_145143\"}', 'performance_json': '{\"backend\":\"sklearn_logistic_regression\",\"train_size\":12,\"validation_size\":3,\"accuracy\":0.0,\"classes\":{\"negative\":{\"precision\":0.0,\"recall\":0.0,\"f1\": ... (594 characters truncated) ... text\":\"Rupee holds steady while investors watch global yields\",\"predicted_label\":\"positive\",\"true_label\":\"neutral\",\"confidence\":0.3509115528120731}]}', 'status': 'paper_ready'}]\n(Background on this error at: https://sqlalche.me/e/20/f405)"
+    },
+    {
+      "agent": "sentiment_batch",
+      "error": "(psycopg2.errors.UndefinedTable) relation \"model_cards\" does not exist\nLINE 1: INSERT INTO model_cards (model_id, agent, model_family, vers...\n                    ^\n\n[SQL: INSERT INTO model_cards (model_id, agent, model_family, version, created_at, updated_at, metadata_json, performance_json, status) VALUES (%(model_id)s, %(agent)s, %(model_family)s, %(version)s, %(created_at)s, %(updated_at)s, %(metadata_json)s, %(performance_json)s, %(status)s) ON CONFLICT (model_id) DO UPDATE SET agent = excluded.agent, model_family = excluded.model_family, version = excluded.version, created_at = excluded.created_at, updated_at = excluded.updated_at, metadata_json = excluded.metadata_json, performance_json = excluded.performance_json, status = excluded.status]\n[parameters: {'model_id': 'finbert_indian_v1', 'agent': 'sentiment', 'model_family': 'dual_speed_sentiment', 'version': '1.0', 'created_at': datetime.datetime(2026, 3, 22, 14, 51, 43, 384832, tzinfo=datetime.timezone.utc), 'updated_at': datetime.datetime(2026, 3, 22, 14, 51, 43, 384832, tzinfo=datetime.timezone.utc), 'metadata_json': '{\"model_id\":\"finbert_indian_v1\",\"agent\":\"sentiment\",\"model_family\":\"dual_speed_sentiment\",\"version\":\"1.0\",\"created_at\":\"2026-03-22T14:51:43.384832+00 ... (2379 characters truncated) ... :false,\"recall_ok\":false},\"neutral\":{\"precision_ok\":false,\"recall_ok\":false},\"negative\":{\"precision_ok\":false,\"recall_ok\":false}},\"all_pass\":false}}}', 'performance_json': '{\"backend\":\"sklearn_logistic_regression\",\"train_size\":12,\"validation_size\":3,\"accuracy\":0.0,\"classes\":{\"negative\":{\"precision\":0.0,\"recall\":0.0,\"f1\": ... (594 characters truncated) ... text\":\"Rupee holds steady while investors watch global yields\",\"predicted_label\":\"positive\",\"true_label\":\"neutral\",\"confidence\":0.3509115528120731}]}', 'status': 'research_ready'}]\n(Background on this error at: https://sqlalche.me/e/20/f405)"
+    },
+    {
+      "symbol": "USDINR=X",
+      "agent": "phase2_pipeline",
+      "error": "technical agent returned no prediction for USDINR=X"
+    },
+    {
+      "symbol": "RELIANCE.NS",
+      "agent": "phase2_pipeline",
+      "error": "technical agent returned no prediction for RELIANCE.NS"
+    },
+    {
+      "symbol": "TATASTEEL.NS",
+      "agent": "phase2_pipeline",
+      "error": "technical agent returned no prediction for TATASTEEL.NS"
+    }
+  ]
+}

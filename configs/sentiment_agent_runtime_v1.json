@@ -4,6 +4,7 @@
   "base_model": {
     "provider": "huggingface",
     "model_id": "ProsusAI/finbert",
+    "fine_tuned_model_dir": "data/models/sentiment/finbert_indian_v1",
     "enable_hf_pipeline": false,
     "local_files_only": true,
     "max_length": 96
@@ -71,7 +72,13 @@
   "cache_policy": {
     "fast_stale_after_seconds": 540,
     "slow_stale_after_seconds": 12960,
-    "stale_downweight_factor": 0.65
+    "stale_downweight_factor": 0.5,
+    "source_ttls_seconds": {
+      "news": 14400,
+      "social": 3600,
+      "transcript": 604800,
+      "rbi_report": 2592000
+    }
   },
   "robustness": {
     "price_mismatch_threshold": 0.02

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import math
+import pickle
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable
+
+from sklearn.pipeline import Pipeline
 
 from src.agents.sentiment.schemas import SentimentLabel
 
@@ -103,23 +107,20 @@ class FinBERTSentimentModel:
         model_id: str = "ProsusAI/finbert",
         enable_hf_pipeline: bool = False,
         local_files_only: bool = True,
+        artifact_dir: Path | str | None = None,
     ) -> "FinBERTSentimentModel":
         classifier: Callable[..., Any] | None = None
+        resolved_model_id = model_id
+        if artifact_dir is not None:
+            classifier, resolved_model_id = cls._load_local_artifact(Path(artifact_dir), fallback_model_id=model_id)
+            if classifier is not None:
+                return cls(model_id=resolved_model_id, classifier=classifier)
         if enable_hf_pipeline:
             try:
-                from transformers import pipeline  # type: ignore
-
-                classifier = pipeline(
-                    task="text-classification",
-                    model=model_id,
-                    tokenizer=model_id,
-                    truncation=True,
-                    top_k=1,
-                    local_files_only=local_files_only,
-                )
+                classifier = cls._build_hf_classifier(model_id, local_files_only=local_files_only)
             except Exception:
                 classifier = None
-        return cls(model_id=model_id, classifier=classifier)
+        return cls(model_id=resolved_model_id, classifier=classifier)
 
     def predict(self, text: str) -> ModelSentimentOutput:
         if self.classifier is None:
@@ -172,3 +173,74 @@ class FinBERTSentimentModel:
         if "neu" in normalized:
             return SentimentLabel.NEUTRAL
         return SentimentLabel.NEUTRAL
+
+    @staticmethod
+    def _load_local_artifact(
+        artifact_dir: Path,
+        *,
+        fallback_model_id: str,
+    ) -> tuple[Callable[..., Any] | None, str]:
+        classifier_path = artifact_dir / "classifier.pkl"
+        manifest_path = artifact_dir / "artifact_manifest.json"
+        config_path = artifact_dir / "config.json"
+
+        manifest: dict[str, Any] = {}
+        if manifest_path.exists():
+            try:
+                import json
+
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except Exception:
+                manifest = {}
+        model_id = str(manifest.get("model_id", fallback_model_id))
+
+        if classifier_path.exists():
+            try:
+                with classifier_path.open("rb") as handle:
+                    pipeline = pickle.load(handle)
+            except Exception:
+                return None, fallback_model_id
+            if not isinstance(pipeline, Pipeline):
+                return None, fallback_model_id
+            return SklearnArtifactClassifier(pipeline), model_id
+
+        try:
+            if config_path.exists():
+                classifier = FinBERTSentimentModel._build_hf_classifier(artifact_dir, local_files_only=True)
+                return classifier, model_id
+        except Exception:
+            return None, fallback_model_id
+        return None, fallback_model_id
+
+    @staticmethod
+    def _build_hf_classifier(
+        model_ref: str | Path,
+        *,
+        local_files_only: bool,
+    ) -> Callable[..., Any]:
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline  # type: ignore
+
+        model = AutoModelForSequenceClassification.from_pretrained(model_ref, local_files_only=local_files_only)
+        tokenizer = AutoTokenizer.from_pretrained(model_ref, local_files_only=local_files_only, use_fast=True)
+        return pipeline(
+            task="text-classification",
+            model=model,
+            tokenizer=tokenizer,
+            truncation=True,
+            top_k=1,
+        )
+
+
+class SklearnArtifactClassifier:
+    def __init__(self, pipeline: Pipeline):
+        self.pipeline = pipeline
+
+    def __call__(self, text: str, truncation: bool = True) -> dict[str, Any]:
+        _ = truncation
+        probabilities = self.pipeline.predict_proba([text])[0]
+        classes = [str(label) for label in self.pipeline.classes_]
+        best_idx = int(max(range(len(probabilities)), key=lambda idx: float(probabilities[idx])))
+        return {
+            "label": classes[best_idx],
+            "score": float(probabilities[best_idx]),
+        }

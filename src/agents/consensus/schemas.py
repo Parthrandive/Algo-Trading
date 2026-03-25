@@ -17,6 +17,12 @@ class ConsensusRiskMode(str, Enum):
     PROTECTIVE = "protective"
 
 
+class ConsensusRegimeRiskLevel(str, Enum):
+    FULL_RISK = "full_risk"
+    REDUCED_RISK = "reduced_risk"
+    NEUTRAL_CASH = "neutral_cash"
+
+
 class AgentSignal(BaseModel):
     name: str
     score: float = Field(ge=-1.0, le=1.0)
@@ -35,6 +41,11 @@ class ConsensusInput(BaseModel):
     rbi_signal: float = 0.0
     sentiment_quantile: float = Field(ge=0.0, le=1.0)
     crisis_probability: float = Field(default=0.0, ge=0.0, le=1.0)
+    sentiment_is_stale: bool = False
+    sentiment_is_missing: bool = False
+    regime_ood_warning: bool = False
+    regime_ood_alien: bool = False
+    regime_risk_level: ConsensusRegimeRiskLevel = ConsensusRegimeRiskLevel.FULL_RISK
     generated_at_utc: datetime
 
     model_config = ConfigDict(extra="forbid", frozen=True)

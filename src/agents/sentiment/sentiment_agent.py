@@ -1,25 +1,33 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
+from sqlalchemy import select
+
 from src.agents.sentiment.cache import InMemorySentimentCache, SentimentCacheBackend, build_cache_key
+from src.agents.sentiment.cache_policy import evaluate_cache_policy, resolve_ttl_seconds
+from src.agents.sentiment.fast_lane import FastLaneSentimentScorer
 from src.agents.sentiment.models import FinBERTSentimentModel, KeywordSentimentModel, ModelSentimentOutput
 from src.agents.sentiment.schemas import (
     CacheFreshnessState,
     DailySentimentAggregate,
-    SentimentCacheEntry,
+    NightlySentimentBatchResult,
     SentimentLabel,
     SentimentLane,
     SentimentPrediction,
     SentimentQualityStatus,
 )
+from src.agents.sentiment.slow_lane import SlowLaneSentimentScorer
 from src.agents.sentiment.text_utils import SentimentLanguageService, SentimentSafetyService
+from src.db.models import SentimentScoreDB, TextItemDB
+from src.db.phase2_recorder import Phase2Recorder
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
 DEFAULT_RUNTIME_CONFIG_PATH = ROOT_DIR / "configs" / "sentiment_agent_runtime_v1.json"
+DEFAULT_MODEL_CARD_PATH = ROOT_DIR / "data" / "models" / "sentiment" / "finbert_indian_v1" / "model_card.json"
 
 
 class SentimentAgent:
@@ -37,6 +45,10 @@ class SentimentAgent:
         price_mismatch_threshold: float = 0.02,
         language_service: SentimentLanguageService | None = None,
         safety_service: SentimentSafetyService | None = None,
+        phase2_recorder: Phase2Recorder | None = None,
+        persist_predictions: bool = False,
+        source_ttls: Mapping[str, int] | None = None,
+        model_card_path: Path | None = None,
     ):
         self.fast_model = fast_model
         self.slow_model = slow_model
@@ -49,10 +61,25 @@ class SentimentAgent:
         self.price_mismatch_threshold = max(price_mismatch_threshold, 0.0)
         self.language_service = language_service or SentimentLanguageService()
         self.safety_service = safety_service or SentimentSafetyService()
+        self.phase2_recorder = phase2_recorder
+        self.persist_predictions = bool(persist_predictions and phase2_recorder is not None)
+        self.source_ttls = {str(key): int(value) for key, value in dict(source_ttls or {}).items()}
+        self.model_card_path = model_card_path or DEFAULT_MODEL_CARD_PATH
+        self.fast_lane = FastLaneSentimentScorer(self, source_ttls=self.source_ttls)
+        self.slow_lane = SlowLaneSentimentScorer(self, source_ttls=self.source_ttls)
         self._seen_source_fingerprints: set[str] = set()
+        self._latest_aggregates: dict[str, DailySentimentAggregate] = {}
+        self._model_card_registered = False
 
     @classmethod
-    def from_default_components(cls, runtime_config_path: Path | None = None) -> "SentimentAgent":
+    def from_default_components(
+        cls,
+        runtime_config_path: Path | None = None,
+        *,
+        database_url: str | None = None,
+        phase2_recorder: Phase2Recorder | None = None,
+        persist_predictions: bool = False,
+    ) -> "SentimentAgent":
         config_path = runtime_config_path or DEFAULT_RUNTIME_CONFIG_PATH
         with config_path.open("r", encoding="utf-8") as handle:
             runtime_config = json.load(handle)
@@ -74,8 +101,14 @@ class SentimentAgent:
             model_id=str(model_config.get("model_id", "ProsusAI/finbert")),
             enable_hf_pipeline=bool(model_config.get("enable_hf_pipeline", False)),
             local_files_only=bool(model_config.get("local_files_only", True)),
+            artifact_dir=model_config.get("fine_tuned_model_dir"),
         )
 
+        recorder = phase2_recorder
+        if recorder is None and persist_predictions:
+            recorder = Phase2Recorder(database_url=database_url)
+
+        model_card_dir = Path(str(model_config.get("fine_tuned_model_dir", DEFAULT_MODEL_CARD_PATH.parent)))
         return cls(
             fast_model=fast_model,
             slow_model=slow_model,
@@ -86,6 +119,10 @@ class SentimentAgent:
             slow_stale_after_seconds=int(cache_policy.get("slow_stale_after_seconds", 12960)),
             stale_downweight_factor=float(cache_policy.get("stale_downweight_factor", 0.65)),
             price_mismatch_threshold=float(robustness.get("price_mismatch_threshold", 0.02)),
+            phase2_recorder=recorder,
+            persist_predictions=persist_predictions,
+            source_ttls=cache_policy.get("source_ttls_seconds", {}),
+            model_card_path=model_card_dir / "model_card.json",
         )
 
     def score(
@@ -195,6 +232,158 @@ class SentimentAgent:
             )
 
         return predictions
+    def score_realtime(
+        self,
+        headline: str | Mapping[str, Any],
+        *,
+        source_id: str | None = None,
+        symbol: str | None = None,
+        source_type: str = "rss_feed",
+        as_of_utc: datetime | None = None,
+    ) -> SentimentPrediction:
+        payload = self._coerce_realtime_payload(
+            headline,
+            source_id=source_id,
+            symbol=symbol,
+            source_type=source_type,
+            as_of_utc=as_of_utc,
+        )
+        prediction = self.fast_lane.score_headline(payload, as_of_utc=as_of_utc)
+        self._persist_prediction(prediction)
+        return prediction
+
+    def run_nightly_batch(
+        self,
+        text_items: Iterable[Mapping[str, Any]] | None = None,
+        *,
+        as_of_utc: datetime | None = None,
+        lookback_hours: int = 24,
+        macro_by_symbol: Mapping[str, Mapping[str, float]] | None = None,
+    ) -> NightlySentimentBatchResult:
+        as_of = (as_of_utc or datetime.now(UTC)).astimezone(UTC)
+        payloads = list(text_items) if text_items is not None else self._load_recent_text_items(as_of, lookback_hours)
+        batch = self.slow_lane.run_nightly_batch(
+            payloads,
+            macro_by_symbol=macro_by_symbol,
+            as_of_utc=as_of,
+            lookback_hours=lookback_hours,
+        )
+
+        for prediction in batch.document_predictions:
+            self._persist_prediction(prediction)
+
+        for aggregate in batch.symbol_aggregates:
+            self._persist_daily_aggregate(aggregate)
+            if aggregate.symbol is not None:
+                self._latest_aggregates[aggregate.symbol] = aggregate
+        if batch.market_aggregate is not None:
+            self._persist_daily_aggregate(batch.market_aggregate)
+            self._latest_aggregates["MARKET"] = batch.market_aggregate
+        return batch
+
+    def get_z_t(
+        self,
+        symbol: str | None = None,
+        *,
+        as_of_utc: datetime | None = None,
+    ) -> float:
+        key = symbol or "MARKET"
+        if key in self._latest_aggregates:
+            return float(self._latest_aggregates[key].z_t)
+
+        if self.phase2_recorder is None:
+            return 0.0
+
+        row = self._load_latest_sentiment_row(symbol=symbol, include_daily_agg=True, as_of_utc=as_of_utc)
+        if row is None or row.z_t is None:
+            return 0.0
+        return float(row.z_t)
+
+    def get_cached_sentiment(
+        self,
+        symbol: str | None,
+        *,
+        as_of_utc: datetime | None = None,
+    ) -> SentimentPrediction:
+        as_of = (as_of_utc or datetime.now(UTC)).astimezone(UTC)
+        row = self._load_latest_sentiment_row(symbol=symbol, include_daily_agg=False, as_of_utc=as_of)
+        if row is None:
+            return self._failure_prediction(
+                source_id=symbol or "MARKET",
+                text_hash=(symbol or "MARKET").lower(),
+                lane=SentimentLane.FAST,
+                decision_time=as_of,
+                ttl_seconds=self.fast_ttl_seconds,
+                model_name="cached_sentiment_missing",
+                freshness_state=CacheFreshnessState.EXPIRED,
+            )
+
+        score_time = row.score_timestamp or row.timestamp
+        if score_time.tzinfo is None:
+            score_time = score_time.replace(tzinfo=UTC)
+        else:
+            score_time = score_time.astimezone(UTC)
+        ttl_seconds = row.ttl_seconds or resolve_ttl_seconds(
+            {"source_type": row.source_type, "lane": row.lane},
+            fallback_seconds=self.fast_ttl_seconds if row.lane == SentimentLane.FAST.value else self.slow_ttl_seconds,
+            source_ttls=self.source_ttls,
+        )
+        age_seconds = max(0.0, (as_of - score_time).total_seconds())
+        decision = evaluate_cache_policy(age_seconds=age_seconds, ttl_seconds=ttl_seconds)
+        base_prediction = self._row_to_prediction(row)
+        base_prediction = base_prediction.model_copy(update={"freshness_state": decision.freshness_state})
+        if decision.freshness_state == CacheFreshnessState.FRESH:
+            return base_prediction
+        if decision.freshness_state == CacheFreshnessState.STALE:
+            return self._downweight_prediction(base_prediction)
+        return self._failure_prediction(
+            source_id=base_prediction.source_id,
+            text_hash=base_prediction.text_hash,
+            lane=base_prediction.lane,
+            decision_time=as_of,
+            ttl_seconds=ttl_seconds,
+            model_name=base_prediction.model_name,
+            freshness_state=CacheFreshnessState.EXPIRED,
+        )
+
+    def register_model_card(self, *, extra_metadata: Mapping[str, Any] | None = None) -> dict[str, Any]:
+        now = datetime.now(UTC)
+        training_meta = self._load_training_meta()
+        performance = dict(training_meta.get("validation_metrics", {}))
+        card = {
+            "model_id": str(training_meta.get("model_id", "finbert_indian_v1")),
+            "agent": "sentiment",
+            "model_family": "dual_speed_sentiment",
+            "version": str(training_meta.get("version", "1.0")),
+            "created_at": now,
+            "updated_at": now,
+            "status": str(training_meta.get("status", "research_ready")),
+            "performance": performance,
+            "training_data_snapshot_hash": training_meta.get("training_data_snapshot_hash", "pending_external_dataset"),
+            "code_hash": training_meta.get("code_hash", "workspace_current"),
+            "feature_schema_version": "1.0",
+            "hyperparameters": training_meta.get("hyperparameters", {}),
+            "validation_metrics": performance,
+            "baseline_comparison": training_meta.get("baseline_comparison", {}),
+            "plan_version": "v1.3.7",
+            "created_by": "Codex",
+            "reviewed_by": "pending",
+            "promotion_gate_checklist": {
+                "timestamp_alignment": True,
+                "cache_in_execution_path": False,
+                "manipulation_detection": True,
+                "thresholds_met": training_meta.get("threshold_status", {}),
+            },
+        }
+        if extra_metadata:
+            card.update(dict(extra_metadata))
+
+        self.model_card_path.parent.mkdir(parents=True, exist_ok=True)
+        self.model_card_path.write_text(json.dumps(card, indent=2, default=str), encoding="utf-8")
+        if self.phase2_recorder is not None:
+            self.phase2_recorder.save_model_card(card)
+        self._model_card_registered = True
+        return card
 
     def compute_daily_z_t(
         self,
@@ -202,6 +391,7 @@ class SentimentAgent:
         *,
         macro_features: Mapping[str, float] | None = None,
         as_of_utc: datetime | None = None,
+        symbol: str | None = None,
     ) -> DailySentimentAggregate:
         decision_time = (as_of_utc or datetime.now(UTC)).astimezone(UTC)
         prediction_list = list(predictions)
@@ -230,6 +420,7 @@ class SentimentAgent:
 
         return DailySentimentAggregate(
             generated_at_utc=decision_time,
+            symbol=symbol,
             sample_size=sample_size,
             weighted_sentiment_score=self._clamp(weighted_sentiment_score, -1.0, 1.0),
             macro_adjustment=self._clamp(macro_adjustment, -1.0, 1.0),
@@ -241,7 +432,6 @@ class SentimentAgent:
                 "macro_feature_count": 0 if macro_features is None else len(macro_features),
             },
         )
-
     def _score_lane(
         self,
         *,
@@ -330,6 +520,7 @@ class SentimentAgent:
             score=new_entry.score,
             confidence=new_entry.confidence,
             generated_at_utc=new_entry.generated_at_utc,
+            score_timestamp_utc=new_entry.generated_at_utc,
             ttl_seconds=new_entry.ttl_seconds,
             model_name=new_entry.model_name,
             cache_hit=False,
@@ -349,7 +540,9 @@ class SentimentAgent:
         model_output: ModelSentimentOutput,
         generated_at_utc: datetime,
         ttl_seconds: int,
-    ) -> SentimentCacheEntry:
+    ):
+        from src.agents.sentiment.schemas import SentimentCacheEntry
+
         return SentimentCacheEntry(
             cache_key=cache_key,
             source_id=source_id,
@@ -377,7 +570,7 @@ class SentimentAgent:
         self,
         *,
         source_id: str,
-        cache_entry: SentimentCacheEntry,
+        cache_entry,
         freshness_state: CacheFreshnessState,
         cache_hit: bool,
     ) -> SentimentPrediction:
@@ -389,6 +582,7 @@ class SentimentAgent:
             score=cache_entry.score,
             confidence=cache_entry.confidence,
             generated_at_utc=cache_entry.generated_at_utc,
+            score_timestamp_utc=cache_entry.generated_at_utc,
             ttl_seconds=cache_entry.ttl_seconds,
             model_name=cache_entry.model_name,
             cache_hit=cache_hit,
@@ -423,6 +617,7 @@ class SentimentAgent:
             score=0.0,
             confidence=0.0,
             generated_at_utc=decision_time,
+            score_timestamp_utc=decision_time,
             ttl_seconds=ttl_seconds,
             model_name=model_name,
             cache_hit=False,
@@ -494,9 +689,25 @@ class SentimentAgent:
             )
 
         effective_prediction = self._apply_price_mismatch_circuit_breaker(effective_prediction, payload, flags)
+        headline_timestamp = payload.get("timestamp")
+        if isinstance(headline_timestamp, datetime) and headline_timestamp.tzinfo is not None:
+            headline_timestamp = headline_timestamp.astimezone(UTC)
+        else:
+            headline_timestamp = None
+
+        ttl_seconds = resolve_ttl_seconds(
+            payload,
+            fallback_seconds=self.fast_ttl_seconds if effective_prediction.lane == SentimentLane.FAST else self.slow_ttl_seconds,
+            source_ttls=self.source_ttls,
+        )
 
         return effective_prediction.model_copy(
             update={
+                "symbol": payload.get("symbol"),
+                "source_type": payload.get("source_type"),
+                "headline_timestamp_utc": headline_timestamp,
+                "score_timestamp_utc": effective_prediction.generated_at_utc,
+                "ttl_seconds": ttl_seconds,
                 "quality_status": quality_status,
                 "manipulation_risk_score": manipulation_risk,
                 "manipulation_flags": tuple(dict.fromkeys(flags)),
@@ -507,7 +718,6 @@ class SentimentAgent:
                 },
             }
         )
-
     def _apply_price_mismatch_circuit_breaker(
         self,
         prediction: SentimentPrediction,
@@ -561,3 +771,198 @@ class SentimentAgent:
         if not values:
             return 0.0
         return sum(values) / len(values)
+
+    def _coerce_realtime_payload(
+        self,
+        headline: str | Mapping[str, Any],
+        *,
+        source_id: str | None,
+        symbol: str | None,
+        source_type: str,
+        as_of_utc: datetime | None,
+    ) -> Mapping[str, Any]:
+        if isinstance(headline, Mapping):
+            payload = dict(headline)
+            payload.setdefault("source_id", source_id or "realtime_headline")
+            payload.setdefault("symbol", symbol)
+            payload.setdefault("source_type", source_type)
+            payload.setdefault("timestamp", (as_of_utc or datetime.now(UTC)).astimezone(UTC))
+            return payload
+
+        return {
+            "source_id": source_id or "realtime_headline",
+            "headline": str(headline),
+            "symbol": symbol,
+            "source_type": source_type,
+            "timestamp": (as_of_utc or datetime.now(UTC)).astimezone(UTC),
+        }
+
+    def _load_recent_text_items(self, as_of_utc: datetime, lookback_hours: int) -> list[dict[str, Any]]:
+        if self.phase2_recorder is None:
+            return []
+
+        start = as_of_utc - timedelta(hours=lookback_hours)
+        with self.phase2_recorder.Session() as session:
+            rows = session.execute(
+                select(TextItemDB)
+                .where(TextItemDB.timestamp >= start, TextItemDB.timestamp <= as_of_utc)
+                .order_by(TextItemDB.timestamp.asc())
+            ).scalars().all()
+        return [self._text_item_to_payload(row) for row in rows]
+
+    @staticmethod
+    def _text_item_to_payload(row: TextItemDB) -> dict[str, Any]:
+        return {
+            "source_id": row.source_id,
+            "timestamp": row.timestamp,
+            "headline": row.headline or row.content[:160],
+            "content": row.content,
+            "symbol": row.symbol,
+            "source_type": row.source_type,
+            "item_type": row.item_type,
+            "language": row.language,
+            "publisher": row.publisher,
+            "platform": row.platform,
+            "author": row.author,
+        }
+
+    def _persist_prediction(self, prediction: SentimentPrediction) -> None:
+        if not self.persist_predictions or self.phase2_recorder is None:
+            return
+        self._ensure_model_card_registered()
+        self.phase2_recorder.save_sentiment_score(self._prediction_to_row(prediction))
+
+    def _persist_daily_aggregate(self, aggregate: DailySentimentAggregate) -> None:
+        if not self.persist_predictions or self.phase2_recorder is None:
+            return
+        self._ensure_model_card_registered()
+        self.phase2_recorder.save_sentiment_score(self._aggregate_to_row(aggregate))
+
+    def _ensure_model_card_registered(self) -> None:
+        if not self._model_card_registered:
+            self.register_model_card()
+
+    def _prediction_to_row(self, prediction: SentimentPrediction) -> dict[str, Any]:
+        timestamp = prediction.score_timestamp_utc or prediction.generated_at_utc
+        return {
+            "symbol": prediction.symbol,
+            "timestamp": timestamp,
+            "lane": prediction.lane.value,
+            "source_id": prediction.source_id,
+            "source_type": prediction.source_type,
+            "sentiment_class": prediction.label.value,
+            "sentiment_score": prediction.score,
+            "z_t": None,
+            "confidence": prediction.confidence,
+            "source_count": 1,
+            "ttl_seconds": prediction.ttl_seconds,
+            "freshness_flag": prediction.freshness_state.value,
+            "headline_timestamp": prediction.headline_timestamp_utc,
+            "score_timestamp": timestamp,
+            "quality_status": prediction.quality_status.value,
+            "metadata": {
+                "cache_hit": prediction.cache_hit,
+                "downweighted": prediction.downweighted,
+                "manipulation_flags": list(prediction.manipulation_flags),
+                "manipulation_risk_score": prediction.manipulation_risk_score,
+                "reduced_risk_mode": prediction.reduced_risk_mode,
+                "fallback_mode": prediction.fallback_mode,
+                "provenance": prediction.provenance,
+                "latency_ms": prediction.latency_ms,
+            },
+            "model_id": prediction.model_name,
+            "schema_version": prediction.schema_version,
+        }
+
+    def _aggregate_to_row(self, aggregate: DailySentimentAggregate) -> dict[str, Any]:
+        return {
+            "symbol": aggregate.symbol,
+            "timestamp": aggregate.generated_at_utc,
+            "lane": aggregate.lane.value,
+            "source_id": aggregate.symbol or "MARKET",
+            "source_type": "aggregate",
+            "sentiment_class": self._score_to_label(aggregate.weighted_sentiment_score).value,
+            "sentiment_score": aggregate.weighted_sentiment_score,
+            "z_t": aggregate.z_t,
+            "confidence": aggregate.sentiment_confidence,
+            "source_count": aggregate.sample_size,
+            "ttl_seconds": 24 * 60 * 60,
+            "freshness_flag": CacheFreshnessState.FRESH.value,
+            "headline_timestamp": None,
+            "score_timestamp": aggregate.generated_at_utc,
+            "quality_status": aggregate.quality_status.value,
+            "metadata": {"provenance": aggregate.provenance},
+            "model_id": "sentiment_daily_agg_v1",
+            "schema_version": "1.0",
+        }
+
+    @staticmethod
+    def _score_to_label(score: float) -> SentimentLabel:
+        if score >= 0.1:
+            return SentimentLabel.POSITIVE
+        if score <= -0.1:
+            return SentimentLabel.NEGATIVE
+        return SentimentLabel.NEUTRAL
+
+    def _load_latest_sentiment_row(
+        self,
+        *,
+        symbol: str | None,
+        include_daily_agg: bool,
+        as_of_utc: datetime | None,
+    ) -> SentimentScoreDB | None:
+        if self.phase2_recorder is None:
+            return None
+
+        cutoff = (as_of_utc or datetime.now(UTC)).astimezone(UTC)
+        with self.phase2_recorder.Session() as session:
+            stmt = select(SentimentScoreDB).where(SentimentScoreDB.timestamp <= cutoff)
+            if symbol is None:
+                stmt = stmt.where(SentimentScoreDB.symbol.is_(None))
+            else:
+                stmt = stmt.where(SentimentScoreDB.symbol == symbol)
+            if not include_daily_agg:
+                stmt = stmt.where(SentimentScoreDB.lane != SentimentLane.DAILY_AGG.value)
+            stmt = stmt.order_by(SentimentScoreDB.timestamp.desc(), SentimentScoreDB.id.desc())
+            return session.execute(stmt).scalars().first()
+
+    def _row_to_prediction(self, row: SentimentScoreDB) -> SentimentPrediction:
+        timestamp = row.score_timestamp or row.timestamp
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=UTC)
+        else:
+            timestamp = timestamp.astimezone(UTC)
+        headline_timestamp = row.headline_timestamp
+        if headline_timestamp is not None:
+            if headline_timestamp.tzinfo is None:
+                headline_timestamp = headline_timestamp.replace(tzinfo=UTC)
+            else:
+                headline_timestamp = headline_timestamp.astimezone(UTC)
+        lane = self._coerce_lane(row.lane)
+        text_hash = build_cache_key(lane=lane, text=f"{row.source_id}:{row.timestamp.isoformat()}")[1]
+        return SentimentPrediction(
+            source_id=row.source_id or (row.symbol or "MARKET"),
+            text_hash=text_hash,
+            lane=lane,
+            label=SentimentLabel(str(row.sentiment_class).lower()),
+            symbol=row.symbol,
+            source_type=row.source_type,
+            score=float(row.sentiment_score),
+            confidence=float(row.confidence),
+            generated_at_utc=timestamp,
+            headline_timestamp_utc=headline_timestamp,
+            score_timestamp_utc=timestamp,
+            ttl_seconds=int(row.ttl_seconds or self.fast_ttl_seconds),
+            model_name=row.model_id,
+            freshness_state=CacheFreshnessState(str(row.freshness_flag or CacheFreshnessState.MISS.value)),
+            quality_status=SentimentQualityStatus(str(row.quality_status or SentimentQualityStatus.PASS.value)),
+        )
+
+    def _load_training_meta(self) -> dict[str, Any]:
+        training_meta_path = self.model_card_path.parent / "training_meta.json"
+        if training_meta_path.exists():
+            try:
+                return json.loads(training_meta_path.read_text(encoding="utf-8"))
+            except Exception:
+                return {}
+        return {}

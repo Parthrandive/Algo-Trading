@@ -10,18 +10,8 @@ from sqlalchemy import text
 
 from src.db.connection import get_engine
 
-
 FOREX_SYMBOLS = ["USDINR=X"]
-# This list is fixed - forex pairs never change role.
-# USDINR is always an external feature, never a target.
-# Add other forex pairs here if needed in future.
-
 EQUITY_SYMBOLS: list[str] = []
-# This list is intentionally empty in the config file.
-# It is populated dynamically at runtime from the data pipeline.
-# Whatever equity symbols are available and have sufficient data are included automatically.
-# No symbol is ever hardcoded here.
-
 INDEX_SYMBOLS = ["^NSEI"]
 SENTINEL_CORE_SYMBOLS = [
     "RELIANCE.NS",
@@ -77,7 +67,7 @@ MIN_VAL_ROWS = 50
 MIN_TEST_ROWS = 50
 MAX_ZERO_PCT = 0.05
 MAX_GAP_COUNT = 100
-FX_RESULTS_NOTE = "USDINR=X — external feature only, not a prediction target"
+FX_RESULTS_NOTE = "USDINR=X - external feature only, not a prediction target"
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,177 @@
+{
+  "model_id": "consensus_weighted_v1",
+  "agent": "consensus",
+  "model_family": "weighted_consensus",
+  "version": "1.0",
+  "created_at": "2026-03-22 15:05:36.606570+00:00",
+  "updated_at": "2026-03-22 15:05:36.606570+00:00",
+  "status": "paper_ready",
+  "performance": {
+    "accuracy": 0.16666666666666666,
+    "balanced_accuracy": 0.4296296296296296,
+    "macro_f1": 0.15810393925011865,
+    "confusion_matrix": [
+      [
+        4,
+        0,
+        0
+      ],
+      [
+        31,
+        4,
+        10
+      ],
+      [
+        4,
+        0,
+        1
+      ]
+    ],
+    "per_class": {
+      "down": {
+        "precision": 0.10256410256410256,
+        "recall": 1.0,
+        "f1": 0.18604651162790697,
+        "support": 4
+      },
+      "neutral": {
+        "precision": 1.0,
+        "recall": 0.08888888888888889,
+        "f1": 0.16326530612244897,
+        "support": 45
+      },
+      "up": {
+        "precision": 0.09090909090909091,
+        "recall": 0.2,
+        "f1": 0.125,
+        "support": 5
+      }
+    },
+    "confidence_brier": 0.2692748128866568,
+    "slice_accuracy": {
+      "high_volatility": 0.14285714285714285,
+      "stale_or_missing_sentiment": 0.16666666666666666,
+      "strong_disagreement": null,
+      "normal": 0.175
+    },
+    "proxy_utility_after_costs": 0.0011560364191983254,
+    "proxy_utility_mean_per_bar": 2.1408081837006026e-05,
+    "robust_disagreement_neutral_rate": 0.0
+  },
+  "training_data_snapshot_hash": "data\\reports\\training_runs\\phase2_consensus_20260319_162445",
+  "code_hash": "workspace_current",
+  "feature_schema_version": "1.0",
+  "hyperparameters": {
+    "transition": {
+      "volatility_switch_threshold": 0.35,
+      "lstar_logistic_gain": 4.0
+    },
+    "routing": {
+      "max_crisis_weight": 0.7,
+      "safety_bias_boost": 0.1
+    },
+    "risk_modes": {
+      "divergence_warn_threshold": 0.45,
+      "divergence_protective_threshold": 0.75,
+      "reduced_mode_scale": 0.5
+    },
+    "weights": {
+      "technical_base": 0.42,
+      "regime_base": 0.35,
+      "sentiment_base": 0.23
+    },
+    "freshness": {
+      "stale_sentiment_weight_multiplier": 0.4,
+      "missing_sentiment_weight_multiplier": 0.05,
+      "stale_confidence_penalty": 0.05,
+      "missing_confidence_penalty": 0.1
+    },
+    "ood": {
+      "warning_regime_weight_multiplier": 1.1,
+      "warning_technical_weight_multiplier": 0.9,
+      "warning_confidence_penalty": 0.15,
+      "alien_regime_weight_multiplier": 1.2,
+      "alien_technical_weight_multiplier": 0.8,
+      "alien_sentiment_weight_multiplier": 0.6,
+      "alien_confidence_penalty": 0.2
+    }
+  },
+  "validation_metrics": {
+    "accuracy": 0.16666666666666666,
+    "balanced_accuracy": 0.4296296296296296,
+    "macro_f1": 0.15810393925011865,
+    "confusion_matrix": [
+      [
+        4,
+        0,
+        0
+      ],
+      [
+        31,
+        4,
+        10
+      ],
+      [
+        4,
+        0,
+        1
+      ]
+    ],
+    "per_class": {
+      "down": {
+        "precision": 0.10256410256410256,
+        "recall": 1.0,
+        "f1": 0.18604651162790697,
+        "support": 4
+      },
+      "neutral": {
+        "precision": 1.0,
+        "recall": 0.08888888888888889,
+        "f1": 0.16326530612244897,
+        "support": 45
+      },
+      "up": {
+        "precision": 0.09090909090909091,
+        "recall": 0.2,
+        "f1": 0.125,
+        "support": 5
+      }
+    },
+    "confidence_brier": 0.2692748128866568,
+    "slice_accuracy": {
+      "high_volatility": 0.14285714285714285,
+      "stale_or_missing_sentiment": 0.16666666666666666,
+      "strong_disagreement": null,
+      "normal": 0.175
+    },
+    "proxy_utility_after_costs": 0.0011560364191983254,
+    "proxy_utility_mean_per_bar": 2.1408081837006026e-05,
+    "robust_disagreement_neutral_rate": 0.0
+  },
+  "baseline_comparison": {
+    "recommended_model": "challenger_lstar_estar_bayesian",
+    "reason": "Challenger shows clear out-of-sample uplift with no major instability on high-vol slices."
+  },
+  "plan_version": "v1.3.7",
+  "created_by": "Codex",
+  "reviewed_by": "pending",
+  "promotion_gate_checklist": {
+    "leakage_checks": {
+      "macro_asof_safe_violations": 0,
+      "text_timestamp_alignment_violations": 0,
+      "consensus_train_rows_from_oos_only": true,
+      "chronological_order_pass": true,
+      "future_label_join_violations": 0
+    },
+    "divergence_protocol_tested": true,
+    "schema_versioned": true,
+    "stale_sentiment_controls": true,
+    "ood_protective_routing": true
+  },
+  "training_artifacts": {
+    "run_dir": "data\\reports\\training_runs\\phase2_consensus_20260319_162445",
+    "report_path": "data\\reports\\training_runs\\phase2_consensus_20260319_162445\\phase2_consensus_report.md",
+    "metrics_path": "data\\reports\\training_runs\\phase2_consensus_20260319_162445\\metrics.json"
+  },
+  "last_registered_snapshot_id": "phase2_run_20260322_150536"
+}

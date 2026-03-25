@@ -114,7 +114,16 @@ def is_symbol_train_ready(symbol: str, interval: str, dataset_type: str = "histo
 def _read_dataframe(stmt) -> pd.DataFrame:
     engine = get_engine()
     df = pd.read_sql(stmt, engine)
-    for column in ("timestamp", "run_timestamp", "backtest_start", "backtest_end", "created_at", "updated_at"):
+    for column in (
+        "timestamp",
+        "run_timestamp",
+        "backtest_start",
+        "backtest_end",
+        "created_at",
+        "updated_at",
+        "headline_timestamp",
+        "score_timestamp",
+    ):
         if column in df.columns and not df.empty:
             df[column] = pd.to_datetime(df[column], utc=True, errors="coerce")
     return df
@@ -166,7 +175,7 @@ def get_sentiment_scores(
         filters.append(SentimentScoreDB.lane == lane)
 
     stmt = select(SentimentScoreDB).where(and_(*filters)).order_by(SentimentScoreDB.timestamp.asc())
-    return _read_dataframe(stmt)
+    return _parse_json_column(_read_dataframe(stmt), "metadata_json")
 
 
 def get_consensus_signals(symbol: str, start: datetime, end: datetime) -> pd.DataFrame:

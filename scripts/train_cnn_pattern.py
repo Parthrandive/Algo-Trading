@@ -960,6 +960,7 @@ def train_single_symbol(
     training_meta = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "symbol": symbol,
+        "hyperparameters": hyperparams,
         "epochs_requested": epochs,
         "epochs_run": train_stats["epochs_run"],
         "split_counts": {"train": int(len(X_train)), "val": int(len(X_val)), "test": int(len(X_test))},
