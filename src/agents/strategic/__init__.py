@@ -1,7 +1,9 @@
 from src.agents.strategic.action_space import export_week2_action_space
 from src.agents.strategic.contracts import StrategicContractEnvelope
+from src.agents.strategic.environment import StrategicTradingEnv
 from src.agents.strategic.observation import MaterializationSummary, ObservationAssembler
 from src.agents.strategic.placeholder_teacher import generate_placeholder_teacher_actions
+from src.agents.strategic.reward import sharpe_ratio
 from src.agents.strategic.schemas import StrategicObservation, StrategicToExecutiveContract, Week2ActionSpaceRecord
 
 __all__ = [
@@ -12,5 +14,7 @@ __all__ = [
     "StrategicContractEnvelope",
     "StrategicObservation",
     "StrategicToExecutiveContract",
+    "StrategicTradingEnv",
+    "sharpe_ratio",
     "Week2ActionSpaceRecord",
 ]

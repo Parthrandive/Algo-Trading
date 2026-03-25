@@ -362,6 +362,9 @@ class ObservationDB(Base):
     quality_status = Column(String(8), nullable=False, default="pass")
 
 
+StrategicObservationDB = ObservationDB
+
+
 class RLPolicyDB(Base):
     __tablename__ = "rl_policies"
 
@@ -441,4 +444,3 @@ class RewardLogDB(Base):
     reward_value = Column(Float, nullable=False)
     components_json = Column(Text, nullable=True)
     schema_version = Column(String(8), nullable=False, default="1.0")
-

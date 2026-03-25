@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -58,8 +58,36 @@ class StrategicObservation(BaseModel):
     unrealized_pnl: float = 0.0
     notional_exposure: float = 0.0
     portfolio_features: dict[str, Any] | None = None
-    observation_schema_version: str = OBSERVATION_SCHEMA_VERSION
     quality_status: str = "pass"
+    observation_schema_version: str = OBSERVATION_SCHEMA_VERSION
+
+    @property
+    def observation_vector(self) -> list[float]:
+        # Mapping helpers
+        tech_map = {"up": 1.0, "down": -1.0, "neutral": 0.0}
+        regime_map = {"bull": 1.0, "bear": -1.0, "sideways": 0.0, "unknown": 0.0}
+        cons_map = {"up": 1.0, "down": -1.0, "neutral": 0.0, "hold": 0.0, "buy": 1.0, "sell": -1.0}
+
+        return [
+            float(self.technical_confidence),
+            float(tech_map.get(self.technical_direction.lower(), 0.0)),
+            float(self.price_forecast),
+            float(self.var_95),
+            float(regime_map.get(self.regime_state.lower(), 0.0)),
+            float(self.regime_transition_prob),
+            float(self.sentiment_score or 0.0),
+            float(self.sentiment_z_t or 0.0),
+            float(cons_map.get(self.consensus_direction.lower(), 0.0)),
+            float(self.consensus_confidence),
+            1.0 if self.crisis_mode else 0.0,
+            1.0 if self.agent_divergence else 0.0,
+            float(self.orderbook_imbalance or 0.0),
+            float(self.queue_pressure or 0.0),
+            float(self.current_position),
+            float(self.unrealized_pnl),
+            float(self.notional_exposure),
+            float(len(self.portfolio_features or {})),
+        ]
 
     @field_validator("technical_direction")
     @classmethod
@@ -138,3 +166,80 @@ class Week2ActionSpaceRecord(BaseModel):
         if self.policy_type == TEACHER_POLICY_TYPE and self.loop_type == "fast":
             raise ValueError("Week 2 export cannot contain teacher actions for Fast Loop.")
         return self
+
+
+class StepResult(BaseModel):
+    reward: float
+    gross_return: float
+    net_return: float
+    transaction_cost: float
+    slippage_cost: float
+    position_before: float
+    position_after: float
+    portfolio_value: float
+    done: bool
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="allow", frozen=True)
+
+
+class RewardLog(BaseModel):
+    symbol: str
+    timestamp: datetime
+    episode_id: str
+    reward_name: str
+    reward_value: float
+    portfolio_value: float | None = None
+    gross_return: float | None = None
+    net_return: float | None = None
+    transaction_cost: float | None = None
+    slippage_cost: float | None = None
+    action: float | None = None
+    position_before: float | None = None
+    position_after: float | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    schema_version: str = "1.0"
+
+    model_config = ConfigDict(extra="allow", frozen=True)
+
+
+class EnsembleEvaluationResult(BaseModel):
+    policy_ids: tuple[str, ...]
+    equal_weight_action: float
+    action_dispersion: float
+    mean_confidence: float
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="allow", frozen=True)
+
+
+class RLPolicyRegistryEntry(BaseModel):
+    policy_id: str
+    algorithm: str
+    version: str = "1.0"
+    training_status: str = "foundation"
+    observation_schema_version: str = OBSERVATION_SCHEMA_VERSION
+    action_space: str = "continuous"
+    checkpoint_status: str = "not_available"
+    checkpoint_path: str | None = None
+    offline_only: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="allow", frozen=True)
+
+
+class RLTrainingRunRecord(BaseModel):
+    policy_id: str
+    started_at: datetime
+    completed_at: datetime | None = None
+    status: str = "planned"
+    reward_name: str | None = None
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    params: dict[str, Any] = Field(default_factory=dict)
+    checkpoint_path: str | None = None
+    notes: str | None = None
+    schema_version: str = "1.0"
+
+    model_config = ConfigDict(extra="allow", frozen=True)
