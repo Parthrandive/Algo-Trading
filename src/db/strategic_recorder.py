@@ -23,7 +23,8 @@ STRATEGIC_TABLES = (
 STRATEGIC_INDEX_DDL = (
     "CREATE INDEX IF NOT EXISTS idx_observations_symbol_ts ON observations (symbol, timestamp DESC);",
     "CREATE INDEX IF NOT EXISTS idx_reward_logs_symbol_ts ON reward_logs (symbol, timestamp DESC);",
-    "CREATE INDEX IF NOT EXISTS idx_rl_policies_policy_id ON rl_policies (policy_id, updated_at DESC);",
+    # Keep bootstrap compatible with older rl_policies tables that may not have updated_at yet.
+    "CREATE INDEX IF NOT EXISTS idx_rl_policies_policy_id ON rl_policies (policy_id);",
     "CREATE INDEX IF NOT EXISTS idx_rl_training_runs_policy_id ON rl_training_runs (policy_id, started_at DESC);",
 )
 

@@ -2,7 +2,7 @@ import json
 from typing import Optional
 from datetime import datetime
 import pandas as pd
-from sqlalchemy import select, func, and_
+from sqlalchemy import MetaData, Table, select, func, and_
 
 from src.db.connection import get_engine
 from src.db.models import (
@@ -158,19 +158,28 @@ def get_sentiment_scores(
     end: datetime,
     lane: str | None = None,
 ) -> pd.DataFrame:
-    filters = [
-        SentimentScoreDB.timestamp >= start,
-        SentimentScoreDB.timestamp <= end,
-    ]
-    if symbol is None:
-        filters.append(SentimentScoreDB.symbol.is_(None))
-    else:
-        filters.append(SentimentScoreDB.symbol == symbol)
-    if lane is not None:
-        filters.append(SentimentScoreDB.lane == lane)
+    engine = get_engine()
+    table = Table(SentimentScoreDB.__tablename__, MetaData(), autoload_with=engine)
 
-    stmt = select(SentimentScoreDB).where(and_(*filters)).order_by(SentimentScoreDB.timestamp.asc())
-    return _parse_json_column(_read_dataframe(stmt), "metadata_json")
+    filters = [
+        table.c.timestamp >= start,
+        table.c.timestamp <= end,
+    ]
+    if "symbol" in table.c:
+        if symbol is None:
+            filters.append(table.c.symbol.is_(None))
+        else:
+            filters.append(table.c.symbol == symbol)
+    if lane is not None and "lane" in table.c:
+        filters.append(table.c.lane == lane)
+
+    stmt = select(table).where(and_(*filters)).order_by(table.c.timestamp.asc())
+    df = pd.read_sql(stmt, engine)
+    if not df.empty and "timestamp" in df.columns:
+        df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+    if lane is not None and "lane" not in df.columns:
+        df["lane"] = lane
+    return _parse_json_column(df, "metadata_json")
 
 
 def get_consensus_signals(symbol: str, start: datetime, end: datetime) -> pd.DataFrame:
