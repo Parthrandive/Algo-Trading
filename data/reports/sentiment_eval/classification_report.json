@@ -1,158 +1,38 @@
 {
-  "sample_size": 15,
-  "accuracy": 0.7333333333333333,
-  "macro_f1": 0.7388888888888889,
-  "class_order": [
-    "negative",
-    "neutral",
-    "positive"
-  ],
-  "confusion_matrix": [
-    [
-      4,
-      1,
-      0
+  "timestamp": "2026-03-24T14:43:40.268783+00:00",
+  "mode": "dry_run",
+  "runtime_config": "/Users/juhi/Desktop/algo-trading/configs/sentiment_agent_runtime_v1.json",
+  "model_id": "ProsusAI/finbert",
+  "data_summary": {
+    "configured_datasets": [
+      "harixn/indian_news_sentiment",
+      "SEntFiN"
     ],
-    [
-      1,
-      4,
-      0
-    ],
-    [
-      2,
-      0,
-      3
-    ]
-  ],
-  "classes": {
-    "negative": {
-      "precision": 0.5714285714285714,
-      "recall": 0.8,
-      "f1": 0.6666666666666666,
-      "support": 5
-    },
-    "neutral": {
-      "precision": 0.8,
-      "recall": 0.8,
-      "f1": 0.8,
-      "support": 5
-    },
-    "positive": {
-      "precision": 1.0,
-      "recall": 0.6,
-      "f1": 0.75,
-      "support": 5
-    }
-  },
-  "predictions": [
-    {
-      "text": "RBI rate cut boosts banking stocks and Nifty closes higher",
-      "predicted_label": "positive",
-      "true_label": "positive",
-      "confidence": 0.44251766259901
-    },
-    {
-      "text": "Strong earnings beat lifts Infosys and improves market mood",
-      "predicted_label": "positive",
-      "true_label": "positive",
-      "confidence": 0.4538100470571751
-    },
-    {
-      "text": "SEBI clears compliance issue and shares rally on relief",
-      "predicted_label": "negative",
-      "true_label": "positive",
-      "confidence": 0.42829350159809404
-    },
-    {
-      "text": "FII inflows strengthen rupee sentiment across Indian equities",
-      "predicted_label": "positive",
-      "true_label": "positive",
-      "confidence": 0.45024943506641507
-    },
-    {
-      "text": "Government capex push supports infrastructure names and market breadth",
-      "predicted_label": "negative",
-      "true_label": "positive",
-      "confidence": 0.3576907383846938
-    },
-    {
-      "text": "Crude spike hurts rupee outlook and drags import-heavy sectors",
-      "predicted_label": "negative",
-      "true_label": "negative",
-      "confidence": 0.524846120936651
-    },
-    {
-      "text": "SEBI investigation weighs on promoter credibility and stock demand",
-      "predicted_label": "negative",
-      "true_label": "negative",
-      "confidence": 0.5354910892838769
-    },
-    {
-      "text": "Guidance cut triggers selloff in IT stocks after weak quarter",
-      "predicted_label": "negative",
-      "true_label": "negative",
-      "confidence": 0.5289523698166017
-    },
-    {
-      "text": "RBI tightening surprise pressures rate-sensitive lenders and NBFCs",
-      "predicted_label": "negative",
-      "true_label": "negative",
-      "confidence": 0.5269818656705129
-    },
-    {
-      "text": "Adverse audit finding raises fraud concerns around the small-cap rally",
-      "predicted_label": "neutral",
-      "true_label": "negative",
-      "confidence": 0.4054291408672686
-    },
-    {
-      "text": "Markets close mixed as traders wait for RBI commentary",
-      "predicted_label": "neutral",
-      "true_label": "neutral",
-      "confidence": 0.53316174381965
-    },
-    {
-      "text": "Sensex trades range-bound with no clear directional catalyst",
-      "predicted_label": "neutral",
-      "true_label": "neutral",
-      "confidence": 0.5432388932477042
-    },
-    {
-      "text": "Management reiterates prior outlook and analysts stay cautious",
-      "predicted_label": "neutral",
-      "true_label": "neutral",
-      "confidence": 0.5232316968747577
-    },
-    {
-      "text": "Headline flow remains balanced with sector rotation across the index",
-      "predicted_label": "neutral",
-      "true_label": "neutral",
-      "confidence": 0.5401684935819232
-    },
-    {
-      "text": "Rupee holds steady while investors watch global yields",
-      "predicted_label": "negative",
-      "true_label": "neutral",
-      "confidence": 0.3779612879448112
-    }
-  ],
-  "threshold_status": {
-    "per_class": {
-      "positive": {
-        "precision_ok": true,
-        "recall_ok": false
-      },
-      "neutral": {
-        "precision_ok": true,
-        "recall_ok": true
-      },
-      "negative": {
-        "precision_ok": false,
-        "recall_ok": true
+    "dataset_details": {
+      "harixn/indian_news_sentiment": {
+        "dataset_id": "harixn/indian_news_sentiment",
+        "split": "train",
+        "raw_rows": 5296,
+        "usable_rows": 5296,
+        "text_field": "text",
+        "label_field": "label",
+        "license": null,
+        "public_availability_justification": "Public dataset registry: https://huggingface.co/datasets/harixn/indian_news_sentiment"
       }
     },
-    "all_pass": false
+    "dataset_errors": {
+      "SEntFiN": "Dataset 'SEntFiN' doesn't exist on the Hub or cannot be accessed."
+    },
+    "total_examples": 5296
   },
-  "synthetic_data_only": true,
-  "bootstrap_rows": 15
+  "split_summary": {
+    "train_examples": 4236,
+    "val_examples": 1060,
+    "total_examples": 5296,
+    "label_counts_total": {
+      "negative": 1156,
+      "neutral": 2008,
+      "positive": 2132
+    }
+  }
 }

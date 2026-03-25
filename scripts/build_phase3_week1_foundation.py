@@ -17,7 +17,7 @@ from src.agents.strategic import ObservationAssembler, StrategicTradingEnv
 from src.agents.strategic.config import WalkForwardConfig
 from src.agents.strategic.policies import PPOPolicyFoundation, SACPolicyFoundation, TD3PolicyFoundation
 from src.agents.strategic.splits import build_planned_training_run
-from src.db.strategic_recorder import StrategicRecorder
+from src.db.phase3_recorder import Phase3Recorder
 
 
 def _sample_phase2_frames() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -84,7 +84,7 @@ def main() -> None:
     env.step(0.50)
 
     engine = create_engine("sqlite:///:memory:")
-    recorder = StrategicRecorder(engine=engine, session_factory=sessionmaker(bind=engine))
+    recorder = Phase3Recorder(engine=engine, session_factory=sessionmaker(bind=engine))
     for observation in observations:
         recorder.save_observation(observation)
     for reward_log in env.reward_logs:

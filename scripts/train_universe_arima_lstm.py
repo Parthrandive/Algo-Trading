@@ -6,7 +6,7 @@ import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -85,6 +85,13 @@ def safe_torch_save(payload: Any, path: Path) -> None:
     if path.exists() or path.is_symlink():
         path.unlink()
     torch.save(payload, path)
+
+
+def first_existing(paths: List[Path]) -> Optional[Path]:
+    for path in paths:
+        if path.exists():
+            return path
+    return None
 
 RAW_MACRO_COLUMNS = {
     "CPI",
@@ -303,13 +310,14 @@ def evaluate_mse(
     return total_loss / max(total_count, 1)
 
 
-def scores_to_soft_probs(scores: np.ndarray, std_dev: float = 0.02) -> np.ndarray:
-    """Heuristic soft prob mapper mimicking the XGBoost layer expectations."""
+def scores_to_soft_probs(scores: np.ndarray, threshold: float = 0.02) -> np.ndarray:
+    """Heuristic soft prob mapper aligned to the active symbol threshold."""
     probs = np.zeros((len(scores), 3), dtype=np.float64)
+    band = max(float(threshold), 1e-6)
     for i, s in enumerate(scores):
-        if s > std_dev:
+        if s > band:
             probs[i] = [0.05, 0.10, 0.85]
-        elif s < -std_dev:
+        elif s < -band:
             probs[i] = [0.85, 0.10, 0.05]
         else:
             probs[i] = [0.10, 0.80, 0.10]
@@ -335,6 +343,82 @@ def returns_to_labels(returns: np.ndarray, threshold: float) -> np.ndarray:
     labels[np.asarray(returns) < -float(threshold)] = CLASS_DOWN
     labels[np.asarray(returns) > float(threshold)] = CLASS_UP
     return labels
+
+
+def choose_symbol_threshold(
+    train_scores: np.ndarray,
+    requested_threshold: float,
+    min_neutral_ratio: float,
+    max_neutral_ratio: float,
+    target_neutral_ratio: float,
+) -> Tuple[float, float]:
+    abs_scores = np.abs(np.asarray(train_scores, dtype=np.float64))
+    abs_scores = abs_scores[np.isfinite(abs_scores)]
+    if len(abs_scores) == 0:
+        return float(requested_threshold), 0.0
+
+    quantile_candidates = [
+        float(np.quantile(abs_scores, q))
+        for q in [0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25, 0.30, 0.35]
+    ]
+    static_candidates = [0.0002, 0.0005, 0.0010, 0.0015, 0.0020, 0.0025, 0.0030, 0.0040, 0.0050, 0.0075, 0.0100]
+    candidates = sorted({float(requested_threshold), *quantile_candidates, *static_candidates})
+
+    candidate_stats: List[Tuple[float, float]] = []
+    for threshold in candidates:
+        threshold = max(float(threshold), 1e-6)
+        neutral_ratio = float((abs_scores <= threshold).mean())
+        candidate_stats.append((threshold, neutral_ratio))
+
+    in_band = [
+        (threshold, ratio)
+        for threshold, ratio in candidate_stats
+        if float(min_neutral_ratio) <= ratio <= float(max_neutral_ratio)
+    ]
+    if in_band:
+        best_threshold, best_ratio = min(
+            in_band,
+            key=lambda item: (abs(item[1] - float(target_neutral_ratio)), item[0]),
+        )
+        return float(best_threshold), float(best_ratio)
+
+    best_threshold, best_ratio = min(
+        candidate_stats,
+        key=lambda item: (abs(item[1] - float(target_neutral_ratio)), item[0]),
+    )
+    logger.warning(
+        "Symbol threshold fallback selected %.6f with neutral share %.2f%% (outside requested band %.2f%% - %.2f%%).",
+        best_threshold,
+        best_ratio * 100.0,
+        float(min_neutral_ratio) * 100.0,
+        float(max_neutral_ratio) * 100.0,
+    )
+    return float(best_threshold), float(best_ratio)
+
+
+def label_distribution(labels: np.ndarray) -> Dict[str, Any]:
+    arr = np.asarray(labels, dtype=np.int64)
+    if len(arr) == 0:
+        return {
+            "total": 0,
+            "counts": {"down": 0, "neutral": 0, "up": 0},
+            "ratios": {"down": 0.0, "neutral": 0.0, "up": 0.0},
+        }
+    counts = np.bincount(arr, minlength=3)
+    total = int(counts.sum())
+    return {
+        "total": total,
+        "counts": {
+            "down": int(counts[CLASS_DOWN]),
+            "neutral": int(counts[CLASS_NEUTRAL]),
+            "up": int(counts[CLASS_UP]),
+        },
+        "ratios": {
+            "down": float(counts[CLASS_DOWN] / total),
+            "neutral": float(counts[CLASS_NEUTRAL] / total),
+            "up": float(counts[CLASS_UP] / total),
+        },
+    }
 
 
 def directional_classification_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, Any]:
@@ -495,6 +579,14 @@ def main():
     parser.add_argument("--use-nse", action="store_true", help="Fetch data natively from NSE if DB is empty/unavailable")
     parser.add_argument("--interval", default="1h", help="Candle interval, e.g. 1d, 1h. Default: 1h")
     parser.add_argument("--class-threshold", type=float, default=0.005, help="Return threshold used to derive up/down/neutral labels for evaluation.")
+    parser.add_argument("--min-neutral-ratio", type=float, default=0.20, help="Minimum target neutral prediction ratio for per-symbol thresholding.")
+    parser.add_argument("--max-neutral-ratio", type=float, default=0.30, help="Maximum target neutral prediction ratio for per-symbol thresholding.")
+    parser.add_argument("--target-neutral-ratio", type=float, default=0.25, help="Target neutral prediction ratio for per-symbol thresholding.")
+    parser.add_argument(
+        "--recalibrate-only",
+        action="store_true",
+        help="Skip training/fine-tuning and only regenerate per-symbol ARIMA-LSTM probabilities using stored model weights with adaptive thresholds.",
+    )
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -555,13 +647,25 @@ def main():
         
     hybrid.feature_columns = global_feature_columns
 
-    # --- Phase 2: Fit Global Scaler ---
-    logger.info("Fitting GLOBAL scaler...")
-    global_train_df = pd.concat(all_train_dfs, ignore_index=True)
-    
+    global_dir = output_root / "GLOBAL"
+    global_dir.mkdir(parents=True, exist_ok=True)
+    global_scaler_path = global_dir / "feature_scaler.pkl"
+
     import pickle
-    scaler = StandardScaler()
-    scaler.fit(global_train_df[global_feature_columns].values)
+
+    # --- Phase 2: Build / Load Global Scaler ---
+    if args.recalibrate_only:
+        if not global_scaler_path.exists():
+            logger.error("Recalibrate-only mode requested but scaler is missing: %s", global_scaler_path)
+            sys.exit(1)
+        with open(global_scaler_path, "rb") as f:
+            scaler = pickle.load(f)
+        logger.info("Loaded existing GLOBAL scaler from %s (recalibration mode).", global_scaler_path)
+    else:
+        logger.info("Fitting GLOBAL scaler...")
+        global_train_df = pd.concat(all_train_dfs, ignore_index=True)
+        scaler = StandardScaler()
+        scaler.fit(global_train_df[global_feature_columns].values)
 
     # --- Phase 3: Build Windows ---
     X_train_list, y_train_list = [], []
@@ -601,48 +705,64 @@ def main():
 
     logger.info("GLOBAL Train shape: %s | Val shape: %s", X_train_global.shape, X_val_global.shape)
 
-    # --- Phase 4: Train Global Model ---
-    global_dir = output_root / "GLOBAL"
-    global_dir.mkdir(parents=True, exist_ok=True)
+    # --- Phase 4: Train (or Load) Global Model ---
     global_checkpoint_path = str(global_dir / "best_model_GLOBAL.pt")
-    
-    logger.info("========== Training GLOBAL Base Model ==========")
-    metrics = custom_train_lstm(
-        hybrid, X_train_global, y_train_global, X_val_global, y_val_global, 
-        epochs=args.epochs, batch_size=args.batch_size, 
-        patience=args.patience, output_dir=str(global_dir), symbol="GLOBAL",
-        checkpoint_path=global_checkpoint_path,
-    )
-    logger.info("Total epochs trained (early stopping aware): %s", metrics['epochs_run'])
+    metrics: Dict[str, Any] = {}
 
-    safe_torch_save(hybrid.lstm_model.state_dict(), global_dir / "best_model.pt")
-    with open(global_dir / "feature_scaler.pkl", "wb") as f:
-        pickle.dump(scaler, f)
-        
-    meta = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "symbol": "GLOBAL",
-        "trained_on": list(symbol_data.keys()),
-        "hyperparameters": {
-            "arima_order": hybrid.arima_order,
-            "window_size": hybrid.window_size,
-            "learning_rate": hybrid.learning_rate,
-            "epochs_run": metrics["epochs_run"],
-            "batch_size": args.batch_size,
-            "patience": args.patience,
-            "seed": args.seed,
-            "class_threshold": args.class_threshold,
-        },
-        "metrics": {
-            "final_train_loss": metrics["train_loss"],
-            "best_train_loss": metrics["best_train_loss"],
-            "best_val_loss": metrics["val_loss"]
+    if args.recalibrate_only:
+        existing_global_model = first_existing([global_dir / "best_model.pt", global_dir / "best_model_GLOBAL.pt"])
+        if existing_global_model is None:
+            logger.error("Recalibrate-only mode requested but GLOBAL model weights were not found in %s", global_dir)
+            sys.exit(1)
+        hybrid.lstm_model = LSTMResidualModel(
+            input_size=len(hybrid.feature_columns),
+            hidden_size=hybrid.lstm_hidden_size,
+            num_layers=hybrid.lstm_layers,
+        ).to(hybrid.device)
+        hybrid.lstm_model.load_state_dict(torch.load(existing_global_model, map_location=hybrid.device))
+        hybrid.lstm_model.eval()
+        hybrid.is_trained = True
+        logger.info("Loaded existing GLOBAL model weights from %s (recalibration mode).", existing_global_model)
+    else:
+        logger.info("========== Training GLOBAL Base Model ==========")
+        metrics = custom_train_lstm(
+            hybrid, X_train_global, y_train_global, X_val_global, y_val_global, 
+            epochs=args.epochs, batch_size=args.batch_size, 
+            patience=args.patience, output_dir=str(global_dir), symbol="GLOBAL",
+            checkpoint_path=global_checkpoint_path,
+        )
+        logger.info("Total epochs trained (early stopping aware): %s", metrics['epochs_run'])
+
+        safe_torch_save(hybrid.lstm_model.state_dict(), global_dir / "best_model.pt")
+        with open(global_scaler_path, "wb") as f:
+            pickle.dump(scaler, f)
+            
+        meta = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "symbol": "GLOBAL",
+            "trained_on": list(symbol_data.keys()),
+            "hyperparameters": {
+                "arima_order": hybrid.arima_order,
+                "window_size": hybrid.window_size,
+                "learning_rate": hybrid.learning_rate,
+                "epochs_run": metrics["epochs_run"],
+                "batch_size": args.batch_size,
+                "patience": args.patience,
+                "seed": args.seed,
+                "class_threshold": args.class_threshold,
+                "min_neutral_ratio": args.min_neutral_ratio,
+                "max_neutral_ratio": args.max_neutral_ratio,
+                "target_neutral_ratio": args.target_neutral_ratio,
+            },
+            "metrics": {
+                "final_train_loss": metrics["train_loss"],
+                "best_train_loss": metrics["best_train_loss"],
+                "best_val_loss": metrics["val_loss"]
+            }
         }
-    }
-    safe_write_json(global_dir / "training_meta.json", meta)
-    safe_write_json(global_dir / "hyperparams.json", meta["hyperparameters"])
+        safe_write_json(global_dir / "training_meta.json", meta)
+        safe_write_json(global_dir / "hyperparams.json", meta["hyperparameters"])
     global_state_dict = clone_state_dict(hybrid.lstm_model)
-    global_scaler_path = global_dir / "feature_scaler.pkl"
 
     # --- Phase 5: Evaluate Per Symbol ---
     logger.info("========== Evaluating Per Symbol ==========")
@@ -669,39 +789,58 @@ def main():
 
         finetune_applied = False
         finetune_stats: Dict[str, float] = {}
-        can_finetune = (
-            isinstance(X_train_sym, torch.Tensor)
-            and isinstance(y_train_sym, torch.Tensor)
-            and isinstance(X_val_sym, torch.Tensor)
-            and isinstance(y_val_sym, torch.Tensor)
-            and len(X_train_sym) > 0
-            and len(y_train_sym) > 0
-            and len(X_val_sym) > 0
-            and len(y_val_sym) > 0
-        )
-        if can_finetune:
-            symbol_checkpoint_path = str(sym_dir / f"best_model_{sanitize_symbol(symbol)}.pt")
-            finetune_stats = custom_train_lstm(
-                symbol_hybrid,
-                X_train_sym.to(symbol_hybrid.device),
-                y_train_sym.to(symbol_hybrid.device),
-                X_val_sym.to(symbol_hybrid.device),
-                y_val_sym.to(symbol_hybrid.device),
-                epochs=max(1, int(args.finetune_epochs)),
-                batch_size=args.batch_size,
-                patience=max(1, int(args.finetune_patience)),
-                output_dir=str(sym_dir),
-                symbol=symbol,
-                init_state_dict=global_state_dict,
-                checkpoint_path=symbol_checkpoint_path,
+        if args.recalibrate_only:
+            existing_symbol_model = first_existing(
+                [
+                    sym_dir / "best_model.pt",
+                    sym_dir / f"best_model_{sanitize_symbol(symbol)}.pt",
+                ]
             )
-            finetune_applied = True
+            if existing_symbol_model is not None:
+                symbol_hybrid.lstm_model.load_state_dict(torch.load(existing_symbol_model, map_location=symbol_hybrid.device))
+                symbol_hybrid.lstm_model.eval()
+                symbol_hybrid.is_trained = True
+                logger.info("[%s] Loaded existing symbol model for recalibration: %s", symbol, existing_symbol_model)
+            else:
+                logger.warning(
+                    "[%s] Symbol model not found in recalibration mode. Falling back to GLOBAL weights only.",
+                    symbol,
+                )
         else:
-            logger.warning(
-                "[%s] Skipping fine-tune (insufficient train/val windows). Using GLOBAL base model.",
-                symbol,
+            can_finetune = (
+                isinstance(X_train_sym, torch.Tensor)
+                and isinstance(y_train_sym, torch.Tensor)
+                and isinstance(X_val_sym, torch.Tensor)
+                and isinstance(y_val_sym, torch.Tensor)
+                and len(X_train_sym) > 0
+                and len(y_train_sym) > 0
+                and len(X_val_sym) > 0
+                and len(y_val_sym) > 0
             )
+            if can_finetune:
+                symbol_checkpoint_path = str(sym_dir / f"best_model_{sanitize_symbol(symbol)}.pt")
+                finetune_stats = custom_train_lstm(
+                    symbol_hybrid,
+                    X_train_sym.to(symbol_hybrid.device),
+                    y_train_sym.to(symbol_hybrid.device),
+                    X_val_sym.to(symbol_hybrid.device),
+                    y_val_sym.to(symbol_hybrid.device),
+                    epochs=max(1, int(args.finetune_epochs)),
+                    batch_size=args.batch_size,
+                    patience=max(1, int(args.finetune_patience)),
+                    output_dir=str(sym_dir),
+                    symbol=symbol,
+                    init_state_dict=global_state_dict,
+                    checkpoint_path=symbol_checkpoint_path,
+                )
+                finetune_applied = True
+            else:
+                logger.warning(
+                    "[%s] Skipping fine-tune (insufficient train/val windows). Using GLOBAL base model.",
+                    symbol,
+                )
 
+        split_payloads: Dict[str, Dict[str, np.ndarray]] = {}
         sym_dfs = []
         test_mse = float('nan')
         class_metrics: Dict[str, Any] = {
@@ -717,7 +856,8 @@ def main():
             "down_support": 0,
             "test_confusion_matrix": [],
         }
-        
+        split_prediction_distribution: Dict[str, Dict[str, Any]] = {}
+
         for s_name in ["train", "val", "test"]:
             X_data = splits.get(f"X_{s_name}")
             y_data = splits.get(f"y_{s_name}")
@@ -736,14 +876,45 @@ def main():
                     args.batch_size,
                 )
                 logger.info("[%s] Test MSE: %.6f", symbol, test_mse)
-                
+
             lstm_res = predict_lstm_scores(symbol_hybrid.lstm_model, X_data.to(symbol_hybrid.device), batch_size=args.batch_size)
             final_scores = arima_forecasts + lstm_res
-            probs = scores_to_soft_probs(final_scores, std_dev=max(float(args.class_threshold), 1e-4))
-            pred_labels = returns_to_labels(final_scores, threshold=args.class_threshold)
+            split_payloads[s_name] = {
+                "timestamps": timestamps,
+                "actual_returns": actual_returns if isinstance(actual_returns, np.ndarray) else np.empty((0,), dtype=np.float64),
+                "final_scores": final_scores,
+            }
 
-            if s_name == "test" and isinstance(actual_returns, np.ndarray) and len(actual_returns) == len(pred_labels):
-                y_true_cls = returns_to_labels(actual_returns, threshold=args.class_threshold)
+        train_scores = split_payloads.get("train", {}).get("final_scores", np.empty((0,), dtype=np.float64))
+        symbol_threshold, train_neutral_ratio = choose_symbol_threshold(
+            train_scores=train_scores,
+            requested_threshold=float(args.class_threshold),
+            min_neutral_ratio=float(args.min_neutral_ratio),
+            max_neutral_ratio=float(args.max_neutral_ratio),
+            target_neutral_ratio=float(args.target_neutral_ratio),
+        )
+        logger.info(
+            "[%s] Adaptive class threshold selected: %.6f (train neutral share %.2f%%)",
+            symbol,
+            symbol_threshold,
+            train_neutral_ratio * 100.0,
+        )
+
+        for s_name in ["train", "val", "test"]:
+            payload = split_payloads.get(s_name)
+            if payload is None:
+                continue
+            final_scores = payload["final_scores"]
+            timestamps = payload["timestamps"]
+            actual_returns = payload["actual_returns"]
+
+            probs = scores_to_soft_probs(final_scores, threshold=symbol_threshold)
+            pred_labels = returns_to_labels(final_scores, threshold=symbol_threshold)
+            pred_dist = label_distribution(pred_labels)
+            split_prediction_distribution[s_name] = pred_dist
+
+            if s_name == "test" and len(actual_returns) == len(pred_labels):
+                y_true_cls = returns_to_labels(actual_returns, threshold=symbol_threshold)
                 class_metrics = directional_classification_metrics(y_true=y_true_cls, y_pred=pred_labels)
                 logger.info(
                     "[%s] Test Acc: %.4f | up(P/R): %.4f / %.4f | down(P/R): %.4f / %.4f",
@@ -754,7 +925,22 @@ def main():
                     class_metrics["down_precision"],
                     class_metrics["down_recall"],
                 )
-            
+                logger.info(
+                    "[%s] Test prediction distribution: neutral=%d/%d (%.2f%%) | up=%d | down=%d",
+                    symbol,
+                    pred_dist["counts"]["neutral"],
+                    pred_dist["total"],
+                    pred_dist["ratios"]["neutral"] * 100.0,
+                    pred_dist["counts"]["up"],
+                    pred_dist["counts"]["down"],
+                )
+                if pred_dist["ratios"]["neutral"] > 0.70:
+                    logger.warning(
+                        "[%s] Neutral prediction share %.2f%% exceeds 70%%. Threshold may still be too wide.",
+                        symbol,
+                        pred_dist["ratios"]["neutral"] * 100.0,
+                    )
+
             prob_df = pd.DataFrame({
                 "timestamp": timestamps,
                 "split": s_name,
@@ -762,6 +948,9 @@ def main():
                 "lstm_prob_neutral": probs[:, 1],
                 "lstm_prob_up": probs[:, 2],
                 "predicted_label": pred_labels,
+                "lstm_final_score": final_scores,
+                "actual_return": actual_returns if len(actual_returns) == len(pred_labels) else np.full(len(pred_labels), np.nan),
+                "class_threshold": symbol_threshold,
             })
             sym_dfs.append(prob_df)
         
@@ -769,7 +958,8 @@ def main():
             sym_prob_df = pd.concat(sym_dfs, ignore_index=True)
             sym_prob_df.to_parquet(sym_dir / "predictions.parquet", index=False)
 
-        safe_torch_save(symbol_hybrid.lstm_model.state_dict(), sym_dir / "best_model.pt")
+        if not args.recalibrate_only:
+            safe_torch_save(symbol_hybrid.lstm_model.state_dict(), sym_dir / "best_model.pt")
         safe_link_or_copy(global_scaler_path, sym_dir / "feature_scaler.pkl")
 
         symbol_hyperparams = {
@@ -780,6 +970,15 @@ def main():
             "window_size": hybrid.window_size,
             "learning_rate": hybrid.learning_rate,
             "feature_columns": list(global_feature_columns),
+            "class_threshold": float(args.class_threshold),
+            "effective_class_threshold": symbol_threshold,
+            "threshold_selection": {
+                "min_neutral_ratio": float(args.min_neutral_ratio),
+                "max_neutral_ratio": float(args.max_neutral_ratio),
+                "target_neutral_ratio": float(args.target_neutral_ratio),
+                "selected_train_neutral_ratio": float(train_neutral_ratio),
+            },
+            "recalibrate_only": bool(args.recalibrate_only),
             "finetune": {
                 "applied": finetune_applied,
                 "epochs_requested": int(args.finetune_epochs),
@@ -802,11 +1001,18 @@ def main():
                 "window_size": hybrid.window_size,
                 "learning_rate": hybrid.learning_rate,
                 "epochs_requested": int(args.finetune_epochs),
-                "class_threshold": args.class_threshold,
+                "class_threshold": float(args.class_threshold),
+                "effective_class_threshold": symbol_threshold,
+                "min_neutral_ratio": float(args.min_neutral_ratio),
+                "max_neutral_ratio": float(args.max_neutral_ratio),
+                "target_neutral_ratio": float(args.target_neutral_ratio),
+                "recalibrate_only": bool(args.recalibrate_only),
             },
             "split_counts": split_counts,
             "metrics": {
                 "test_mse": test_mse,
+                "selected_train_neutral_ratio": float(train_neutral_ratio),
+                "prediction_distribution": split_prediction_distribution,
                 "test_accuracy": class_metrics["test_accuracy"],
                 "directional_accuracy": class_metrics["directional_accuracy"],
                 "up_precision": class_metrics["up_precision"],

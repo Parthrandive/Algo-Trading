@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-23T17:51:47.933823+00:00",
+  "timestamp": "2026-03-24T13:59:42.884438+00:00",
   "symbol": "HDFCBANK.NS",
   "split_counts": {
     "train": 2458,
@@ -18,6 +18,9 @@
       "lstm_prob_neutral",
       "lstm_prob_up",
       "predicted_label",
+      "lstm_final_score",
+      "actual_return",
+      "class_threshold",
       "tech_open",
       "tech_high",
       "tech_low",
@@ -79,33 +82,33 @@
     }
   },
   "metrics": {
-    "test_accuracy": 0.66015625,
-    "directional_accuracy": 0.2608695652173913,
-    "up_precision": 0.06666666666666667,
-    "up_recall": 0.03333333333333333,
-    "up_f1": 0.044444444444444446,
+    "test_accuracy": 0.728515625,
+    "directional_accuracy": 0.18840579710144928,
+    "up_precision": 0.0967741935483871,
+    "up_recall": 0.1,
+    "up_f1": 0.09836065573770492,
     "up_support": 30,
-    "down_precision": 0.12318840579710146,
-    "down_recall": 0.4358974358974359,
-    "down_f1": 0.192090395480226,
+    "down_precision": 0.13513513513513514,
+    "down_recall": 0.2564102564102564,
+    "down_f1": 0.17699115044247787,
     "down_support": 39,
     "test_confusion_matrix": [
       [
-        17,
-        21,
-        1
+        10,
+        27,
+        2
       ],
       [
-        110,
-        320,
-        13
+        57,
+        360,
+        26
       ],
       [
-        11,
-        18,
-        1
+        7,
+        20,
+        3
       ]
     ],
-    "best_iteration": 281
+    "best_iteration": 441
   }
 }

@@ -27,6 +27,7 @@ env/
 ENV/
 .env
 .venv
+.venv-pip312/
 
 # IDEs
 .vscode/
@@ -80,3 +81,6 @@ secrets.json
 data/test_tmp/
 data/e2e_test/
 data/backfill/
+
+# HuggingFace Cache
+.hf_cache/

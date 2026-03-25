@@ -45,15 +45,11 @@ INDEX_DDL = [
     "CREATE INDEX IF NOT EXISTS idx_pred_log_agent_ts ON prediction_log (agent, timestamp DESC);",
     "CREATE INDEX IF NOT EXISTS idx_backtest_model ON backtest_runs (model_id, run_timestamp DESC);",
     "CREATE INDEX IF NOT EXISTS idx_observations_symbol_ts ON observations (symbol, timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_rl_policies_status ON rl_policies (status, created_at DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_rl_training_runs_policy_ts ON rl_training_runs (policy_id, run_timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_trade_decisions_symbol_ts ON trade_decisions (symbol, timestamp DESC);",
     "CREATE INDEX IF NOT EXISTS idx_reward_logs_symbol_ts ON reward_logs (symbol, timestamp DESC);",
-    "CREATE INDEX IF NOT EXISTS idx_rl_policies_policy_id ON rl_policies (policy_id, updated_at DESC);",
-    "CREATE INDEX IF NOT EXISTS idx_rl_training_runs_policy_id ON rl_training_runs (policy_id, started_at DESC);",
 ]
-
-POSTGRES_SCHEMA_REPAIR_DDL = [
-    "ALTER TABLE IF EXISTS sentiment_scores ALTER COLUMN lane TYPE VARCHAR(16);",
-]
-
 
 def _execute_statement(conn, statement: str, *, optional: bool) -> None:
     try:
@@ -98,11 +94,6 @@ def init_database(database_url: str | None = None):
                 _execute_statement(conn, stmt, optional=True)
         else:
             logger.info("Plain PostgreSQL detected; skipping TimescaleDB DDL.")
-
-        if conn.dialect.name == "postgresql":
-            logger.info("Applying schema repair DDL...")
-            for stmt in POSTGRES_SCHEMA_REPAIR_DDL:
-                _execute_statement(conn, stmt, optional=False)
 
         logger.info("Creating indexes...")
         for stmt in INDEX_DDL:

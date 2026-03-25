@@ -1,0 +1,39 @@
+{
+  "manifest_version": "phase3_run_manifest_v1",
+  "run_id": "phase3_week1_dry_run_20260325T143830Z",
+  "phase": "phase_3",
+  "component": "strategic",
+  "started_at_utc": "2026-03-25T14:38:30.676766Z",
+  "finished_at_utc": "2026-03-25T14:38:31.573133Z",
+  "symbols": [
+    "RELIANCE.NS"
+  ],
+  "observation_schema_version": "1.0",
+  "contract_version": "strat_exec_v1",
+  "export_schema_version": "week2_action_space_v1",
+  "rows_materialized": 0,
+  "actions_generated": 2,
+  "code_hash": "e2e9c15872fdeef6aca1eda2b2243aa3dab642dc",
+  "dataset_snapshot": {
+    "phase2_window": {
+      "start": "2020-01-01T00:00:00+00:00",
+      "end": "2030-01-01T00:00:00+00:00"
+    },
+    "per_symbol_observation_rows": {
+      "RELIANCE.NS": 2
+    },
+    "warn_quality_rows": 0
+  },
+  "artifacts": {
+    "action_export_jsonl": "data/reports/phase3/week1/phase3_week1_dry_run_20260325T143830Z/week2_action_space_export.jsonl",
+    "write_decisions": false,
+    "materialized_observations": false,
+    "reward_logs_written": 2,
+    "training_runs_written": 0,
+    "registered_policy_ids": []
+  },
+  "notes": [
+    "Teacher actions are placeholder-only and restricted to offline/slow-loop usage.",
+    "Fast Loop exclusion for teacher inference remains enforced by contract schema."
+  ]
+}

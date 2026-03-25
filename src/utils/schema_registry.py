@@ -2,6 +2,7 @@ from typing import Any, Dict, Type
 
 from pydantic import BaseModel
 
+from src.agents.strategic.schemas import StrategicObservation, StrategicToExecutiveContract, Week2ActionSpaceRecord
 from src.schemas.macro_data import MacroIndicator
 from src.schemas.market_data import Bar, CorporateAction, Tick
 from src.schemas.text_data import EarningsTranscript, NewsArticle, SocialPost
@@ -55,7 +56,10 @@ def _register_default_schemas():
         ("MacroIndicator_v1.1", MacroIndicator),
         ("NewsArticle_v1.0", NewsArticle),
         ("SocialPost_v1.0", SocialPost),
-        ("EarningsTranscript_v1.0", EarningsTranscript)
+        ("EarningsTranscript_v1.0", EarningsTranscript),
+        ("StrategicObservation_v1.0", StrategicObservation),
+        ("StrategicToExecutiveContract_v1", StrategicToExecutiveContract),
+        ("Week2ActionSpaceRecord_v1", Week2ActionSpaceRecord),
     ]
     for key, model in schemas:
         SchemaRegistry.register(key, model)
