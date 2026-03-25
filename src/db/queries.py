@@ -11,11 +11,16 @@ from src.db.models import (
     CorporateActionDB,
     MarketDataQualityDB,
     ModelCardDB,
+    ObservationDB,
     OHLCVBar,
     PredictionLogDB,
     RegimePredictionDB,
+    RLPolicyDB,
+    RLTrainingRunDB,
+    RewardLogDB,
     SentimentScoreDB,
     TechnicalPredictionDB,
+    TradeDecisionDB,
 )
 
 def get_latest_timestamp(symbol: str) -> Optional[datetime]:
@@ -207,3 +212,84 @@ def get_backtest_runs(model_id: str) -> pd.DataFrame:
         BacktestRunDB.id.desc(),
     )
     return _parse_json_column(_read_dataframe(stmt), "params_json")
+
+
+def get_observations(symbol: str, start: datetime, end: datetime) -> pd.DataFrame:
+    stmt = select(ObservationDB).where(
+        and_(
+            ObservationDB.symbol == symbol,
+            ObservationDB.timestamp >= start,
+            ObservationDB.timestamp <= end,
+        )
+    ).order_by(ObservationDB.timestamp.asc(), ObservationDB.id.asc())
+    return _parse_json_column(_read_dataframe(stmt), "portfolio_features_json")
+
+
+def get_trade_decisions(symbol: str, start: datetime, end: datetime) -> pd.DataFrame:
+    stmt = select(TradeDecisionDB).where(
+        and_(
+            TradeDecisionDB.symbol == symbol,
+            TradeDecisionDB.timestamp >= start,
+            TradeDecisionDB.timestamp <= end,
+        )
+    ).order_by(TradeDecisionDB.timestamp.asc(), TradeDecisionDB.id.asc())
+    return _read_dataframe(stmt)
+
+
+def get_reward_logs(symbol: str, start: datetime, end: datetime) -> pd.DataFrame:
+    stmt = select(RewardLogDB).where(
+        and_(
+            RewardLogDB.symbol == symbol,
+            RewardLogDB.timestamp >= start,
+            RewardLogDB.timestamp <= end,
+        )
+    ).order_by(RewardLogDB.timestamp.asc(), RewardLogDB.id.asc())
+    return _parse_json_column(_read_dataframe(stmt), "components_json")
+
+
+def get_rl_policy(policy_id: str) -> dict | None:
+    engine = get_engine()
+    stmt = select(RLPolicyDB).where(RLPolicyDB.policy_id == policy_id)
+    df = pd.read_sql(stmt, engine)
+    if df.empty:
+        return None
+    row = df.iloc[0].to_dict()
+    for column in ("created_at", "promoted_at", "retired_at"):
+        if row.get(column) is not None:
+            row[column] = pd.to_datetime(row[column], utc=True, errors="coerce")
+    for column in ("hyperparams_json", "training_metrics_json"):
+        if row.get(column):
+            row[column] = json.loads(row[column])
+    return row
+
+
+def get_rl_training_runs(policy_id: str) -> pd.DataFrame:
+    stmt = select(RLTrainingRunDB).where(RLTrainingRunDB.policy_id == policy_id).order_by(
+        RLTrainingRunDB.run_timestamp.desc(),
+        RLTrainingRunDB.id.desc(),
+    )
+    return _read_dataframe(stmt)
+
+
+def get_phase2_signal_bundle(
+    symbol: str,
+    start: datetime,
+    end: datetime,
+    *,
+    sentiment_lane: str = "slow",
+) -> dict[str, pd.DataFrame]:
+    """
+    Production-read helper for Phase 3:
+    fetches all Phase 2 sources needed to materialize observation batches.
+    """
+    sentiment = get_sentiment_scores(symbol=symbol, start=start, end=end, lane=sentiment_lane)
+    if sentiment.empty:
+        # Fallback to market-level sentiment if symbol-level lane data is missing.
+        sentiment = get_sentiment_scores(symbol=None, start=start, end=end, lane=sentiment_lane)
+
+    return {
+        "technical": get_technical_predictions(symbol, start, end),
+        "regime": get_regime_predictions(symbol, start, end),
+        "sentiment": sentiment,
+        "consensus": get_consensus_signals(symbol, start, end),
+    }
