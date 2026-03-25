@@ -361,7 +361,10 @@ def choose_symbol_threshold(
         float(np.quantile(abs_scores, q))
         for q in [0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25, 0.30, 0.35]
     ]
-    static_candidates = [0.0002, 0.0005, 0.0010, 0.0015, 0.0020, 0.0025, 0.0030, 0.0040, 0.0050, 0.0075, 0.0100]
+    static_candidates = [
+        0.0002, 0.0005, 0.0010, 0.0015, 0.0020, 0.0025, 0.0030, 0.0040, 0.0050, 
+        0.0075, 0.0100, 0.0150, 0.0200, 0.0250, 0.0300
+    ]
     candidates = sorted({float(requested_threshold), *quantile_candidates, *static_candidates})
 
     candidate_stats: List[Tuple[float, float]] = []
@@ -579,9 +582,9 @@ def main():
     parser.add_argument("--use-nse", action="store_true", help="Fetch data natively from NSE if DB is empty/unavailable")
     parser.add_argument("--interval", default="1h", help="Candle interval, e.g. 1d, 1h. Default: 1h")
     parser.add_argument("--class-threshold", type=float, default=0.005, help="Return threshold used to derive up/down/neutral labels for evaluation.")
-    parser.add_argument("--min-neutral-ratio", type=float, default=0.20, help="Minimum target neutral prediction ratio for per-symbol thresholding.")
-    parser.add_argument("--max-neutral-ratio", type=float, default=0.30, help="Maximum target neutral prediction ratio for per-symbol thresholding.")
-    parser.add_argument("--target-neutral-ratio", type=float, default=0.25, help="Target neutral prediction ratio for per-symbol thresholding.")
+    parser.add_argument("--min-neutral-ratio", type=float, default=0.15, help="Minimum target neutral prediction ratio for per-symbol thresholding.")
+    parser.add_argument("--max-neutral-ratio", type=float, default=0.20, help="Maximum target neutral prediction ratio for per-symbol thresholding.")
+    parser.add_argument("--target-neutral-ratio", type=float, default=0.175, help="Target neutral prediction ratio for per-symbol thresholding.")
     parser.add_argument(
         "--recalibrate-only",
         action="store_true",

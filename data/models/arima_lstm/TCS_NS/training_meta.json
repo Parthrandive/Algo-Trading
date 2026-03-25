@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-24T13:58:21.436916+00:00",
+  "timestamp": "2026-03-25T16:30:05.734282+00:00",
   "symbol": "TCS.NS",
   "trained_as_part_of_universe": true,
   "hyperparameters": {
@@ -12,10 +12,10 @@
     "learning_rate": 0.001,
     "epochs_requested": 25,
     "class_threshold": 0.005,
-    "effective_class_threshold": 0.002518658072996188,
-    "min_neutral_ratio": 0.2,
-    "max_neutral_ratio": 0.3,
-    "target_neutral_ratio": 0.25,
+    "effective_class_threshold": 0.002,
+    "min_neutral_ratio": 0.15,
+    "max_neutral_ratio": 0.2,
+    "target_neutral_ratio": 0.175,
     "recalibrate_only": true
   },
   "split_counts": {
@@ -25,73 +25,73 @@
   },
   "metrics": {
     "test_mse": 4.394538490324788e-05,
-    "selected_train_neutral_ratio": 0.25030132583366815,
+    "selected_train_neutral_ratio": 0.1799919646444355,
     "prediction_distribution": {
       "train": {
         "total": 2489,
         "counts": {
-          "down": 12,
-          "neutral": 623,
-          "up": 1854
+          "down": 15,
+          "neutral": 448,
+          "up": 2026
         },
         "ratios": {
-          "down": 0.004821213338690237,
-          "neutral": 0.25030132583366815,
-          "up": 0.7448774608276416
+          "down": 0.006026516673362796,
+          "neutral": 0.1799919646444355,
+          "up": 0.8139815186822017
         }
       },
       "val": {
         "total": 526,
         "counts": {
-          "down": 7,
-          "neutral": 482,
-          "up": 37
+          "down": 16,
+          "neutral": 440,
+          "up": 70
         },
         "ratios": {
-          "down": 0.013307984790874524,
-          "neutral": 0.9163498098859315,
-          "up": 0.07034220532319392
+          "down": 0.030418250950570342,
+          "neutral": 0.8365019011406845,
+          "up": 0.13307984790874525
         }
       },
       "test": {
         "total": 526,
         "counts": {
-          "down": 25,
-          "neutral": 356,
-          "up": 145
+          "down": 28,
+          "neutral": 287,
+          "up": 211
         },
         "ratios": {
-          "down": 0.04752851711026616,
-          "neutral": 0.6768060836501901,
-          "up": 0.27566539923954375
+          "down": 0.053231939163498096,
+          "neutral": 0.5456273764258555,
+          "up": 0.4011406844106464
         }
       }
     },
-    "test_accuracy": 0.4505703422053232,
-    "directional_accuracy": 0.1380952380952381,
-    "up_precision": 0.15172413793103448,
-    "up_recall": 0.24175824175824176,
-    "up_f1": 0.1864406779661017,
-    "up_support": 91,
-    "down_precision": 0.28,
-    "down_recall": 0.058823529411764705,
-    "down_f1": 0.09722222222222222,
-    "down_support": 119,
+    "test_accuracy": 0.3840304182509506,
+    "directional_accuracy": 0.2217741935483871,
+    "up_precision": 0.22274881516587677,
+    "up_recall": 0.42727272727272725,
+    "up_f1": 0.29283489096573206,
+    "up_support": 110,
+    "down_precision": 0.2857142857142857,
+    "down_recall": 0.057971014492753624,
+    "down_f1": 0.0963855421686747,
+    "down_support": 138,
     "test_confusion_matrix": [
       [
-        7,
-        81,
-        31
+        8,
+        79,
+        51
       ],
       [
-        16,
-        208,
-        92
+        18,
+        147,
+        113
       ],
       [
         2,
-        67,
-        22
+        61,
+        47
       ]
     ],
     "finetune_train_loss": null,

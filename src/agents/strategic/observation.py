@@ -36,7 +36,7 @@ class ObservationAssembler:
     ) -> None:
         self.config = config or StrategicAssemblerConfig()
         self.database_url = database_url
-        self.recorder = recorder or Phase3Recorder(database_url=database_url)
+        self.recorder = recorder
 
     def build_symbol_observations(
         self,
@@ -145,9 +145,10 @@ class ObservationAssembler:
 
             if dry_run or not observations:
                 continue
+            recorder = self._get_recorder()
             for chunk in _chunked(observations, size=batch_size):
                 payload = [item.model_dump(mode="python") for item in chunk]
-                self.recorder.save_observation_batch(payload)
+                recorder.save_observation_batch(payload)
                 materialized_total += len(chunk)
 
         return MaterializationSummary(
@@ -247,6 +248,11 @@ class ObservationAssembler:
             if name not in merged.columns:
                 merged[name] = default
         return merged
+
+    def _get_recorder(self) -> Phase3Recorder:
+        if self.recorder is None:
+            self.recorder = Phase3Recorder(database_url=self.database_url)
+        return self.recorder
 
 
 def _prepare_frame(df: pd.DataFrame | None, mapping: dict[str, str]) -> pd.DataFrame:
