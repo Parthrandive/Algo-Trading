@@ -4,7 +4,7 @@ Date: March 25, 2026
 Scope: Week 1 lock for Phase 3 handoff
 
 ## 1) Contract Decision
-The final integration contract is `strategic_exec_v1`, implemented in:
+The final integration contract is `strat_exec_v1`, implemented in:
 - `src/agents/strategic/schemas.py` (`StrategicToExecutiveContract`)
 - `src/agents/strategic/contracts.py` (`StrategicContractEnvelope`)
 
@@ -31,7 +31,7 @@ This is aligned with AGENTS.md hard rules and Execution/Fast Loop skill guidance
 
 ## 4) Compatibility Rules
 - Observation payloads must use `observation_schema_version=1.0` for Week 1.
-- Contract payloads must use `contract_version=strategic_exec_v1`.
+- Contract payloads must use `contract_version=strat_exec_v1`.
 - Any field addition/removal requires contract version bump.
 
 ## 5) Serialization

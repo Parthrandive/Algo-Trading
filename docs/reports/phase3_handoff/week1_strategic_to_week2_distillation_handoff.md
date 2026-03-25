@@ -5,7 +5,7 @@ Scope: Phase 3 Week 1 -> Week 2 handoff
 
 ## 1) What Is Delivered
 - Real DB-backed observation materialization from Phase 2 outputs.
-- Finalized strategic -> strategic_executive contract (`strategic_exec_v1`).
+- Finalized strategic -> strategic_executive contract (`strat_exec_v1`).
 - Locked Week 2 action-space export format (`week2_action_space_v1`).
 - Standard run manifest (`phase3_run_manifest_v1`) for future checkpoints.
 - Optional model-registry wiring for placeholder teacher policies.

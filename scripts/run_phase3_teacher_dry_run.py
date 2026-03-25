@@ -120,6 +120,27 @@ def main() -> int:
 
     actions = generate_placeholder_teacher_actions(observations, policy_id=args.policy_id)
 
+    rewards = []
+    for action in actions:
+        action_name = action.action.value
+        directional_bonus = 1.0 if action_name in {"buy", "sell"} else 0.0
+        reward_value = float(action.confidence) * directional_bonus - (0.01 * float(action.action_size))
+        rewards.append(
+            {
+                "timestamp": action.timestamp,
+                "symbol": action.symbol,
+                "policy_id": action.policy_id,
+                "reward_name": "ra_drl_composite_placeholder",
+                "reward_value": reward_value,
+                "components": {
+                    "confidence": float(action.confidence),
+                    "directional_bonus": directional_bonus,
+                    "size_penalty": 0.01 * float(action.action_size),
+                    "placeholder": True,
+                },
+            }
+        )
+
     if args.write_decisions and actions:
         payload = []
         for action in actions:
@@ -128,9 +149,13 @@ def main() -> int:
             payload.append(row)
         recorder.save_trade_decision_batch(payload)
 
+    if rewards:
+        recorder.save_reward_log_batch(rewards)
+
     export_path = export_week2_action_space(output_root / args.action_export_file, actions)
 
     policy_ids = []
+    training_runs_written = 0
     if args.register_teacher_model_cards:
         policy_ids = register_placeholder_teacher_policies(
             database_url=args.database_url,
@@ -139,6 +164,24 @@ def main() -> int:
             export_path=export_path,
             register_model_cards=True,
         )
+        for policy_id in policy_ids:
+            elapsed = max(0.0, (utc_now() - run_started).total_seconds())
+            recorder.save_rl_training_run(
+                {
+                    "policy_id": policy_id,
+                    "run_timestamp": run_started,
+                    "training_start": start,
+                    "training_end": end,
+                    "episodes": max(1, len(observations)),
+                    "total_steps": max(1, len(observations)),
+                    "final_reward": 0.0,
+                    "dataset_snapshot_id": run_id,
+                    "code_hash": resolve_code_hash(),
+                    "duration_seconds": elapsed,
+                    "notes": "placeholder week1 dry-run training registration",
+                }
+            )
+            training_runs_written += 1
 
     run_finished = utc_now()
     manifest = Phase3RunManifest(
@@ -161,6 +204,8 @@ def main() -> int:
             "action_export_jsonl": str(export_path),
             "write_decisions": bool(args.write_decisions),
             "materialized_observations": not args.no_materialize_observations,
+            "reward_logs_written": len(rewards),
+            "training_runs_written": training_runs_written,
             "registered_policy_ids": policy_ids,
         },
         notes=[
@@ -176,6 +221,8 @@ def main() -> int:
         "rows_built": len(observations),
         "rows_materialized": 0 if args.no_materialize_observations else len(observations),
         "actions_generated": len(actions),
+        "reward_logs_written": len(rewards),
+        "training_runs_written": training_runs_written,
         "action_export": str(export_path),
         "manifest": str(manifest_path),
         "registered_policy_ids": policy_ids,

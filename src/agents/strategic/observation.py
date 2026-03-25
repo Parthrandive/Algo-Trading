@@ -209,10 +209,14 @@ class ObservationAssembler:
             ("es_95", 0.0),
             ("regime_state", "UNKNOWN"),
             ("regime_transition_prob", 0.0),
+            ("sentiment_score", None),
+            ("sentiment_z_t", None),
             ("consensus_direction", "HOLD"),
             ("consensus_confidence", 0.0),
             ("crisis_mode", False),
             ("agent_divergence", False),
+            ("orderbook_imbalance", None),
+            ("queue_pressure", None),
         ):
             if name not in merged.columns:
                 merged[name] = default
