@@ -6,6 +6,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -81,7 +83,8 @@ def main() -> None:
     env.step(0.25)
     env.step(0.50)
 
-    recorder = Phase3Recorder()
+    engine = create_engine("sqlite:///:memory:")
+    recorder = Phase3Recorder(engine=engine, session_factory=sessionmaker(bind=engine))
     for observation in observations:
         recorder.save_observation(observation)
     for reward_log in env.reward_logs:
