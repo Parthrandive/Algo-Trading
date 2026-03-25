@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 import json
+import sys
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pandas as pd
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
-from src.agents.strategic import ObservationAssembler, StrategicTradingEnv, WalkForwardConfig
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.agents.strategic import ObservationAssembler, StrategicTradingEnv
+from src.agents.strategic.config import WalkForwardConfig
 from src.agents.strategic.policies import PPOPolicyFoundation, SACPolicyFoundation, TD3PolicyFoundation
 from src.agents.strategic.splits import build_planned_training_run
 from src.db.strategic_recorder import StrategicRecorder
@@ -74,7 +83,8 @@ def main() -> None:
     env.step(0.25)
     env.step(0.50)
 
-    recorder = StrategicRecorder()
+    engine = create_engine("sqlite:///:memory:")
+    recorder = StrategicRecorder(engine=engine, session_factory=sessionmaker(bind=engine))
     for observation in observations:
         recorder.save_observation(observation)
     for reward_log in env.reward_logs:
