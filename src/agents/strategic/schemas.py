@@ -8,7 +8,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from src.agents.strategic.config import (
     OBSERVATION_SCHEMA_VERSION,
+    STRATEGIC_ENSEMBLE_VERSION,
     STRATEGIC_EXEC_CONTRACT_VERSION,
+    STRATEGIC_POLICY_SNAPSHOT_VERSION,
     TEACHER_POLICY_TYPE,
     WEEK2_ACTION_EXPORT_VERSION,
 )
@@ -31,6 +33,32 @@ class LoopType(str, Enum):
 class PolicyType(str, Enum):
     TEACHER = "teacher"
     STUDENT = "student"
+
+
+class RiskMode(str, Enum):
+    NORMAL = "normal"
+    REDUCE_ONLY = "reduce_only"
+    CLOSE_ONLY = "close_only"
+    KILL_SWITCH = "kill_switch"
+
+
+class OrderType(str, Enum):
+    LIMIT = "LIMIT"
+    MARKET = "MARKET"
+    SL = "SL"
+    SL_M = "SL-M"
+
+
+class PolicySnapshotSource(str, Enum):
+    SCHEDULED = "scheduled"
+    ASYNC_COMPLETION = "async_completion"
+    EMERGENCY_SWAP = "emergency_swap"
+
+
+class QualityStatus(str, Enum):
+    PASS = "pass"
+    WARN = "warn"
+    FAIL = "fail"
 
 
 class StrategicObservation(BaseModel):
@@ -243,3 +271,228 @@ class RLTrainingRunRecord(BaseModel):
     schema_version: str = "1.0"
 
     model_config = ConfigDict(extra="allow", frozen=True)
+
+
+class PolicyAction(BaseModel):
+    policy_id: str
+    policy_type: PolicyType
+    loop_type: LoopType
+    action: ActionType
+    action_size: float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    latency_ms: float | None = Field(default=None, ge=0.0)
+    reasoning: str = ""
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class PolicyWeight(BaseModel):
+    policy_id: str
+    weight: float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    diversity_score: float = Field(ge=0.0)
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class ThresholdCandidate(BaseModel):
+    candidate_id: str
+    buy_threshold: float = Field(ge=0.0, le=1.0)
+    sell_threshold: float = Field(ge=-1.0, le=0.0)
+    reduce_threshold: float = Field(ge=0.0, le=1.0)
+    hold_threshold: float = Field(ge=0.0, le=1.0)
+    fitness: float = 0.0
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    @model_validator(mode="after")
+    def _validate_thresholds(self):
+        if self.buy_threshold <= self.sell_threshold:
+            raise ValueError("buy_threshold must be greater than sell_threshold")
+        return self
+
+
+class EnsembleDecision(BaseModel):
+    timestamp: datetime
+    symbol: str
+    observation_snapshot_id: str
+    action: ActionType
+    action_size: float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    mode: str = "default"
+    dominant_policy_id: str
+    policy_weights: tuple[PolicyWeight, ...]
+    threshold_candidate_id: str | None = None
+    rationale: str = ""
+    risk_mode: RiskMode = RiskMode.NORMAL
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    ensemble_version: str = STRATEGIC_ENSEMBLE_VERSION
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class DistillationSample(BaseModel):
+    observation: StrategicObservation
+    teacher_actions: tuple[PolicyAction, ...]
+    teacher_decision: EnsembleDecision
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class StudentPolicyArtifact(BaseModel):
+    policy_id: str
+    version: str
+    generated_at: datetime
+    input_dim: int = Field(ge=1)
+    output_dim: int = Field(ge=1)
+    weights: tuple[float, ...]
+    bias: float = 0.0
+    action_map: dict[str, float] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    @field_validator("generated_at")
+    @classmethod
+    def _normalize_generated_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            raise ValueError("generated_at must be timezone-aware")
+        return value.astimezone(UTC)
+
+
+class AgreementReport(BaseModel):
+    policy_id: str
+    agreement_rate: float = Field(ge=0.0, le=1.0)
+    crisis_agreement_rate: float = Field(ge=0.0, le=1.0)
+    average_latency_ms: float = Field(ge=0.0)
+    p99_latency_ms: float = Field(ge=0.0)
+    drift_score: float = Field(ge=0.0)
+    demotion_triggered: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class PolicySnapshot(BaseModel):
+    snapshot_id: str
+    generated_at: datetime
+    expires_at: datetime
+    schema_version: str = STRATEGIC_POLICY_SNAPSHOT_VERSION
+    quality_status: QualityStatus = QualityStatus.PASS
+    source_type: PolicySnapshotSource
+    active_policy_id: str
+    fallback_policy_id: str | None = None
+    risk_mode: RiskMode = RiskMode.NORMAL
+    observation_schema_version: str = OBSERVATION_SCHEMA_VERSION
+    policy: StudentPolicyArtifact
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    @field_validator("generated_at", "expires_at")
+    @classmethod
+    def _normalize_snapshot_timestamps(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            raise ValueError("snapshot timestamps must be timezone-aware")
+        return value.astimezone(UTC)
+
+    @model_validator(mode="after")
+    def _validate_snapshot_window(self):
+        if self.expires_at <= self.generated_at:
+            raise ValueError("expires_at must be later than generated_at")
+        return self
+
+
+class SnapshotRefreshResult(BaseModel):
+    previous_snapshot_id: str | None = None
+    active_snapshot_id: str
+    changed: bool
+    degraded: bool = False
+    risk_mode: RiskMode
+    reason: str = ""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class DeliberationOutcome(BaseModel):
+    timestamp: datetime
+    symbol: str | None = None
+    bypass_active: bool = False
+    bypass_reason: str | None = None
+    trade_rejections: tuple[str, ...] = ()
+    selected_snapshot: PolicySnapshot | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class PortfolioIntent(BaseModel):
+    symbol: str
+    decision: EnsembleDecision
+    target_notional: float
+    target_quantity: float
+    hedge_required: bool = False
+    hedge_symbol: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class PortfolioCheckResult(BaseModel):
+    approved: bool
+    risk_mode: RiskMode
+    adjusted_quantity: float
+    adjusted_notional: float
+    rejection_reasons: tuple[str, ...] = ()
+    warnings: tuple[str, ...] = ()
+    hedge_actions: tuple[str, ...] = ()
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class ComplianceCheckResult(BaseModel):
+    passed: bool
+    reasons: tuple[str, ...] = ()
+    warnings: tuple[str, ...] = ()
+    risk_mode: RiskMode = RiskMode.NORMAL
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class OrderInstruction(BaseModel):
+    event_id: str
+    timestamp: datetime
+    symbol: str
+    direction: str
+    quantity: int = Field(ge=0)
+    order_type: OrderType
+    limit_price: float | None = None
+    stop_price: float | None = None
+    participation_limit: float = Field(ge=0.0, le=1.0)
+    risk_mode: RiskMode = RiskMode.NORMAL
+    rationale: str = ""
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    @field_validator("timestamp")
+    @classmethod
+    def _normalize_order_timestamp(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            raise ValueError("timestamp must be timezone-aware")
+        return value.astimezone(UTC)
+
+
+class ExecutionPlan(BaseModel):
+    instruction: OrderInstruction
+    compliance: ComplianceCheckResult
+    audit_events: tuple[dict[str, Any], ...]
+    estimated_slippage_bps: float = Field(ge=0.0)
+    routing_status: str = "healthy"
+    partial_fill_plan: tuple[int, ...] = ()
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
