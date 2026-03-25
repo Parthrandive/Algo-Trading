@@ -27,6 +27,7 @@ env/
 ENV/
 .env
 .venv
+.venv-pip312/
 
 # IDEs
 .vscode/

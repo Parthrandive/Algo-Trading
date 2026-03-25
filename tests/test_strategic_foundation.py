@@ -12,7 +12,7 @@ from src.agents.strategic.model_cards import build_teacher_model_card
 from src.agents.strategic.policies import PPOPolicyFoundation, SACPolicyFoundation, TD3PolicyFoundation
 from src.agents.strategic.splits import build_planned_training_run, build_walk_forward_mask
 from src.db.models import RLPolicyDB, RLTrainingRunDB, RewardLogDB, StrategicObservationDB
-from src.db.strategic_recorder import StrategicRecorder
+from src.db.phase3_recorder import Phase3Recorder as StrategicRecorder
 
 
 def _sample_frames():

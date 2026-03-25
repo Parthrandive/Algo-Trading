@@ -1,0 +1,43 @@
+{
+  "manifest_version": "phase3_run_manifest_v1",
+  "run_id": "phase3_week1_dry_run_20260325T132607Z",
+  "phase": "phase_3",
+  "component": "strategic",
+  "started_at_utc": "2026-03-25T13:26:07.768456Z",
+  "finished_at_utc": "2026-03-25T13:26:08.410394Z",
+  "symbols": [
+    "RELIANCE.NS",
+    "TCS.NS"
+  ],
+  "observation_schema_version": "1.0",
+  "contract_version": "strat_exec_v1",
+  "export_schema_version": "week2_action_space_v1",
+  "rows_materialized": 3,
+  "actions_generated": 3,
+  "code_hash": "510435c0a8fbde3b43b87ca3c53d73174c33e12d",
+  "dataset_snapshot": {
+    "phase2_window": {
+      "start": "2026-03-01T00:00:00+00:00",
+      "end": "2026-03-25T00:00:00+00:00"
+    },
+    "per_symbol_observation_rows": {
+      "RELIANCE.NS": 2,
+      "TCS.NS": 1
+    },
+    "warn_quality_rows": 0
+  },
+  "artifacts": {
+    "action_export_jsonl": "data/reports/phase3/week1/phase3_week1_dry_run_20260325T132607Z/week2_action_space_export.jsonl",
+    "write_decisions": true,
+    "materialized_observations": true,
+    "registered_policy_ids": [
+      "sac_teacher_phase3_week1_dry_run_20260325T132607Z",
+      "ppo_teacher_phase3_week1_dry_run_20260325T132607Z",
+      "td3_teacher_phase3_week1_dry_run_20260325T132607Z"
+    ]
+  },
+  "notes": [
+    "Teacher actions are placeholder-only and restricted to offline/slow-loop usage.",
+    "Fast Loop exclusion for teacher inference remains enforced by contract schema."
+  ]
+}

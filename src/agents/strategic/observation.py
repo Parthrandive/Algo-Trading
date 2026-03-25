@@ -57,6 +57,32 @@ class ObservationAssembler:
             sentiment_lane=self.config.sentiment_lane,
         )
         merged = self._merge_bundle(bundle)
+        return self._build_from_merged(merged, symbol)
+
+    def assemble_from_frames(
+        self,
+        *,
+        technical: pd.DataFrame,
+        regime: pd.DataFrame,
+        sentiment: pd.DataFrame,
+        consensus: pd.DataFrame,
+        portfolio: pd.DataFrame | None = None,
+    ) -> list[StrategicObservation]:
+        """Convenience method to build observations from already-loaded DataFrames."""
+        bundle = {
+            "technical": technical,
+            "regime": regime,
+            "sentiment": sentiment,
+            "consensus": consensus,
+        }
+        if portfolio is not None:
+            bundle["portfolio"] = portfolio
+
+        merged = self._merge_bundle(bundle)
+        symbol = technical["symbol"].iloc[0] if not technical.empty else "UNKNOWN"
+        return self._build_from_merged(merged, symbol)
+
+    def _build_from_merged(self, merged: pd.DataFrame, symbol: str) -> list[StrategicObservation]:
         if merged.empty:
             return []
 
