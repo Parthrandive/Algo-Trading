@@ -46,9 +46,120 @@ PRIMARY_FREQ = "1h"
 CLASS_DOWN = 0
 CLASS_NEUTRAL = 1
 CLASS_UP = 2
+ANNUALIZATION_1H = int(252.0 * 6.0)
+COST_PER_SIDE = 0.0003
+
+def compute_backtest_metrics(
+    probs: np.ndarray,
+    actual_next_log_returns: np.ndarray,
+    threshold: float | None = None,
+    min_hold_bars: int = 3,
+) -> dict[str, float]:
+    probabilities = np.asarray(probs, dtype=np.float64)
+    confidence_threshold = float(threshold if threshold is not None else 0.0)
+    confidence_threshold = float(np.clip(confidence_threshold, 0.0, 0.9999))
+    denominator = max(1.0 - confidence_threshold, 1e-12)
+    min_hold = max(int(min_hold_bars), 0)
+
+    positions = np.zeros(len(probabilities), dtype=np.float64)
+    last_change_idx = -10_000_000
+    eps = 1e-9
+
+    for idx in range(len(probabilities)):
+        row = probabilities[idx]
+        raw_confidence = float(np.max(row))
+        signal = int(np.argmax(row))
+
+        if raw_confidence < confidence_threshold:
+            desired_direction = 0.0
+            desired_size = 0.0
+        else:
+            excess = raw_confidence - confidence_threshold
+            position_size = float(np.clip(excess / denominator, 0.0, 1.0))
+            if signal == CLASS_UP:
+                desired_direction = 1.0
+            elif signal == CLASS_DOWN:
+                desired_direction = -1.0
+            else:
+                desired_direction = 0.0
+            desired_size = position_size if desired_direction != 0.0 else 0.0
+
+        desired_position = float(desired_direction * desired_size)
+
+        if idx == 0:
+            positions[idx] = desired_position
+            if abs(desired_position) > eps:
+                last_change_idx = idx
+            continue
+
+        prev_position = positions[idx - 1]
+        prev_direction = 0.0 if abs(prev_position) <= eps else float(np.sign(prev_position))
+        next_direction = 0.0 if abs(desired_position) <= eps else float(np.sign(desired_position))
+
+        if prev_direction == next_direction and prev_direction != 0.0:
+            desired_position = prev_position
+
+        has_change = abs(desired_position - prev_position) > eps
+        can_change = (idx - last_change_idx) >= min_hold
+
+        if has_change and not can_change:
+            positions[idx] = prev_position
+        else:
+            positions[idx] = desired_position
+            if has_change:
+                last_change_idx = idx
+
+    returns = np.expm1(np.asarray(actual_next_log_returns, dtype=np.float64))
+    returns = np.where(np.isfinite(returns), returns, 0.0)
+
+    prev_positions = np.roll(positions, 1)
+    prev_positions[0] = 0
+    turnover = np.abs(positions - prev_positions)
+    transaction_cost = turnover * COST_PER_SIDE
+
+    gross_returns = positions * returns
+    net_returns = gross_returns - transaction_cost
+
+    mean_return = float(np.mean(net_returns)) if len(net_returns) else 0.0
+    std_return = float(np.std(net_returns, ddof=0)) if len(net_returns) else 0.0
+    sharpe = float(mean_return / std_return * ANNUALIZATION_1H) if std_return > 1e-12 else 0.0
+
+    downside = net_returns[net_returns < 0.0]
+    downside_std = float(np.std(downside, ddof=0)) if len(downside) else 0.0
+    sortino = float(mean_return / downside_std * ANNUALIZATION_1H) if downside_std > 1e-12 else 0.0
+
+    equity_curve = np.cumprod(1.0 + net_returns)
+    if len(equity_curve):
+        peaks = np.maximum.accumulate(equity_curve)
+        drawdown = 1.0 - (equity_curve / np.clip(peaks, 1e-12, None))
+        max_drawdown = float(np.max(drawdown))
+    else:
+        max_drawdown = 0.0
+
+    active_mask = np.abs(positions) > eps
+    active_returns = net_returns[active_mask]
+    win_rate = float(np.mean(active_returns > 0.0)) if len(active_returns) else 0.0
+    pos_sum = float(active_returns[active_returns > 0.0].sum()) if len(active_returns) else 0.0
+    neg_sum = float(np.abs(active_returns[active_returns < 0.0].sum())) if len(active_returns) else 0.0
+    profit_factor = float("inf") if neg_sum <= 1e-12 and pos_sum > 0 else pos_sum / max(neg_sum, 1e-12)
+
+    total_trades = int(np.sum(turnover > eps))
+    average_trade_return = float(np.mean(active_returns)) if len(active_returns) else 0.0
+    coverage = float(np.mean(active_mask)) if len(active_mask) else 0.0
+
+    return {
+        "sharpe": sharpe,
+        "max_drawdown": max_drawdown,
+        "win_rate": win_rate,
+        "profit_factor": float(profit_factor),
+        "total_trades": total_trades,
+    }
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train Universe XGBoost Meta-Layer")
+    parser.add_argument("--symbol", type=str, default=None, help="Process a single symbol")
+    parser.add_argument("--symbols", type=str, default=None, help="Comma-separated symbols to process")
     parser.add_argument("--cnn-dir", type=str, default="data/models/cnn_pattern", help="CNN models directory")
     parser.add_argument("--lstm-dir", type=str, default="data/models/arima_lstm", help="LSTM models directory")
     parser.add_argument("--output-dir", type=str, default="data/models/xgboost", help="XGBoost output directory")
@@ -112,6 +223,8 @@ def maybe_load_regime_labels(symbol: str, base_path: Path, frame: pd.DataFrame) 
         base_path / "regime_agent" / "hmm_regime.parquet",
         base_path / "hmm_regime.parquet",
         PROJECT_ROOT / "data" / "models" / "regime" / f"{sanitize_symbol(symbol)}_hmm_regime.parquet",
+        PROJECT_ROOT / "data" / "models" / "regime" / sanitize_symbol(symbol) / "hmm_regime.parquet",
+        PROJECT_ROOT / "data" / "models" / "regime" / symbol / "hmm_regime.parquet",
     ]
     regime_path = first_existing(candidate_paths)
     if regime_path is None:
@@ -135,7 +248,7 @@ def maybe_load_regime_labels(symbol: str, base_path: Path, frame: pd.DataFrame) 
     merged = pd.merge_asof(
         frame[["timestamp"]].sort_values("timestamp"),
         regime_data.rename(columns={ts_col: "timestamp", label_col: "hmm_regime"}).sort_values("timestamp"),
-        on="timestamp", direction="backward"
+        on="timestamp", direction="nearest"
     )
     hmm_regime = pd.to_numeric(merged["hmm_regime"], errors="coerce").fillna(-1).astype(np.int64).to_numpy()
     
@@ -237,6 +350,15 @@ def main():
     discovered_symbols = [canonicalize_symbol(d.name) for d in cnn_dir.iterdir() if d.is_dir() and d.name != "GLOBAL"]
     symbols = dedupe_symbols([*EQUITY_SYMBOLS, *discovered_symbols])
     
+    requested = []
+    if args.symbol:
+        requested.append(canonicalize_symbol(args.symbol.strip()))
+    if args.symbols:
+        requested.extend([canonicalize_symbol(s.strip()) for s in args.symbols.split(",") if s.strip()])
+    requested = dedupe_symbols(requested)
+    if requested:
+        symbols = [s for s in symbols if s in requested]
+    
     for symbol in symbols:
         if symbol in FOREX_SYMBOLS: continue
         logger.info("========== Processing XGBoost for %s ==========", symbol)
@@ -275,14 +397,18 @@ def main():
             probs_test = xgb.predict_proba(X_test)
             y_pred_test = xgb.predict(X_test).astype(np.int64)
             cls_metrics = directional_metrics(y_true=y_test, y_pred=y_pred_test)
+            trade_stats = compute_backtest_metrics(
+                probs=probs_test,
+                actual_next_log_returns=valid_test["actual_next_log_return"].to_numpy(dtype=np.float64),
+                threshold=args.class_threshold
+            )
             logger.info(
-                "[%s] XGBoost Test Acc: %.4f | up(P/R): %.4f / %.4f | down(P/R): %.4f / %.4f",
+                "[%s] XGBoost Test Acc: %.4f | Sharpe: %.4f | Drawdown: %.4f | WinRate: %.4f",
                 symbol,
                 cls_metrics["test_accuracy"],
-                cls_metrics["up_precision"],
-                cls_metrics["up_recall"],
-                cls_metrics["down_precision"],
-                cls_metrics["down_recall"],
+                trade_stats["sharpe"],
+                trade_stats["max_drawdown"],
+                trade_stats["win_rate"]
             )
         else:
             probs_test = np.empty((0, 3), dtype=np.float32)

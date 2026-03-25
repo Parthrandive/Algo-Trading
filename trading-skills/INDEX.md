@@ -22,6 +22,7 @@ Each skill file is a self-contained instruction set for a specific agent or laye
 | **Risk Overseer** | `risk-overseer/SKILL.md` | Independent Risk Overseer, kill-switch, stress testing | Any risk control decision, kill-switch drill, stress test run |
 | **MLOps & Governance** | `mlops-governance/SKILL.md` | All model training, promotion, and rollback workflows | Promoting any model artifact to shadow or production |
 | **Compliance & Universe** | `compliance-universe/SKILL.md` | All agents; especially pre-trade and order routing | Submitting any order, changing universe, or handling regulatory data |
+| **Green PRs** | `green-prs/SKILL.md` | All branches, pull requests, CI pipelines | Resolving merge conflicts, fixing failing CI checks, getting PRs to green |
 
 ---
 
@@ -46,6 +47,9 @@ Use this section to match non-obvious user requests to the correct skill.
 
 ### compliance-universe
 > order submission, universe filter, "is this symbol allowed", audit log, SEBI, pre-trade check, margin, circuit breaker, lot size, "broker rejected", IP whitelist, regulatory, compliance violation, "order was rejected"
+
+### green-prs
+> merge conflict, "CI is red", "checks failing", "resolve conflicts", "PR won't merge", "build broken", "tests failing after merge", import error after merge, schema conflict, recorder conflict, "branch is behind", "rebase failed"
 
 ---
 

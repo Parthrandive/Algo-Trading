@@ -484,6 +484,8 @@ def maybe_load_regime_labels(symbol: str, base_path: Path, frame: pd.DataFrame, 
         base_path / "regime_agent" / "hmm_regime.csv",
         base_path / "hmm_regime.parquet",
         base_path / "hmm_regime.csv",
+        PROJECT_ROOT / "data" / "models" / "regime" / sanitize_symbol(symbol) / "hmm_regime.parquet",
+        PROJECT_ROOT / "data" / "models" / "regime" / symbol / "hmm_regime.parquet",
         PROJECT_ROOT / "data" / "models" / "hmm_regime" / f"{sanitize_symbol(symbol)}_hmm_regime.parquet",
         PROJECT_ROOT / "data" / "models" / "hmm_regime" / f"{sanitize_symbol(symbol)}_hmm_regime.csv",
     ]
@@ -531,7 +533,7 @@ def maybe_load_regime_labels(symbol: str, base_path: Path, frame: pd.DataFrame, 
         frame[["timestamp"]].sort_values("timestamp"),
         regime_data.rename(columns={ts_col: "timestamp", label_col: "hmm_regime"}).sort_values("timestamp"),
         on="timestamp",
-        direction="backward",
+        direction="nearest",
     )
     hmm_regime = (
         pd.to_numeric(merged["hmm_regime"], errors="coerce")

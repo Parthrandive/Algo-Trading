@@ -1,14 +1,34 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
+from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from src.db.connection import get_engine, get_session
 from src.db.models import Base, ObservationDB, RLPolicyDB, RLTrainingRunDB, RewardLogDB, TradeDecisionDB
+
+logger = logging.getLogger(__name__)
+
+PHASE3_TABLES = (
+    ObservationDB.__table__,
+    RLPolicyDB.__table__,
+    RLTrainingRunDB.__table__,
+    TradeDecisionDB.__table__,
+    RewardLogDB.__table__,
+)
+
+PHASE3_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_observations_symbol_ts ON observations (symbol, timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_rl_policies_status ON rl_policies (status, created_at DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_rl_training_runs_policy_ts ON rl_training_runs (policy_id, run_timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_trade_decisions_symbol_ts ON trade_decisions (symbol, timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_reward_logs_symbol_ts ON reward_logs (symbol, timestamp DESC);",
+)
 
 
 class Phase3Recorder:
@@ -19,14 +39,27 @@ class Phase3Recorder:
         database_url: str | None = None,
         engine=None,
         session_factory=None,
-        bootstrap_tables: bool | None = None,
+        *,
+        bootstrap_schema: bool = True,
     ):
         self.engine = engine or get_engine(database_url)
-        if bootstrap_tables is None:
-            bootstrap_tables = engine is not None
-        if bootstrap_tables:
-            Base.metadata.create_all(self.engine)
+        self._bootstrap_schema = bool(bootstrap_schema)
+        if self._bootstrap_schema:
+            self._ensure_phase3_schema()
         self.Session = session_factory or get_session(self.engine)
+
+    def _ensure_phase3_schema(self) -> None:
+        """
+        Idempotently creates the Phase 3 strategic tables and indexes.
+        Mirrors Phase2Recorder._ensure_phase2_schema() for consistency.
+        """
+        try:
+            Base.metadata.create_all(self.engine, tables=list(PHASE3_TABLES))
+            with self.engine.begin() as conn:
+                for ddl in PHASE3_INDEX_DDL:
+                    conn.execute(text(ddl))
+        except Exception as exc:
+            raise RuntimeError("Failed to bootstrap Phase 3 recorder schema.") from exc
 
     def save_observation(self, observation: Any) -> None:
         observation = self._ensure_dict(observation)
