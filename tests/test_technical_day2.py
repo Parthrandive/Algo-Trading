@@ -47,9 +47,33 @@ def test_feature_engineering(sample_data):
     assert 'rsi' in df_features.columns
     assert 'macd' in df_features.columns
     assert 'close_lag_1' in df_features.columns
+    assert 'daily_ma_20' in df_features.columns
+    assert 'daily_ma_50' in df_features.columns
+    assert 'daily_ma_200' in df_features.columns
+    assert 'daily_adx' in df_features.columns
+    assert 'daily_trend_bullish' in df_features.columns
     
     # Check length is preserved
     assert len(df_features) == len(sample_data)
+
+
+def test_daily_features_are_shifted_to_prevent_same_day_leakage(sample_data):
+    """
+    Daily features must only become available on the next day.
+    For one-bar-per-day synthetic data, this means the daily MA should equal
+    a 1-day-shifted rolling MA of close.
+    """
+    df_features = engineer_features(sample_data)
+    expected_ma50 = sample_data["close"].rolling(50, min_periods=50).mean().shift(1)
+
+    mask = expected_ma50.notna() & df_features["daily_ma_50"].notna()
+    assert mask.any()
+    assert np.allclose(
+        df_features.loc[mask, "daily_ma_50"].to_numpy(dtype=float),
+        expected_ma50.loc[mask].to_numpy(dtype=float),
+        atol=1e-9,
+        rtol=0.0,
+    )
 
 def test_arima_lstm_training_and_saving(sample_data, clean_model_dir):
     """Test full pipeline: feature engineering, training, saving, and loading."""

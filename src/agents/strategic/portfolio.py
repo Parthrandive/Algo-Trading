@@ -107,5 +107,6 @@ class PortfolioOptimizer:
         )
 
 
-# Alias for main branch compatibility
+# Backward-compatible aliases
 PortfolioManager = PortfolioOptimizer
+PortfolioConstructor = PortfolioOptimizer

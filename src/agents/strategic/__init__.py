@@ -36,21 +36,19 @@ from src.agents.strategic.execution import (
     audit_events_to_dict,
 )
 from src.agents.strategic.observation import MaterializationSummary, ObservationAssembler
-from src.agents.strategic.policy_manager import PolicySnapshotManager
-from src.agents.strategic.portfolio import (
-    PortfolioConstructor,
-    PortfolioState,
-    RiskBudgetConfig,
-    SizingDecision,
-    SizingRequest,
-    round_to_tradable_quantity,
-)
-from src.agents.strategic.placeholder_teacher import generate_placeholder_teacher_actions
 from src.agents.strategic.policy_manager import (
     PolicySnapshot,
+    PolicySnapshotManager,
     RiskMode,
     SnapshotManagerConfig,
 )
+from src.agents.strategic.portfolio import (
+    PortfolioConstructor,
+    PortfolioManager,
+    PortfolioOptimizer,
+    round_to_tradable_quantity,
+)
+from src.agents.strategic.placeholder_teacher import generate_placeholder_teacher_actions
 from src.agents.strategic.reward import sharpe_ratio
 from src.agents.strategic.schemas import (
     AgreementReport as AgreementReportSchema,
@@ -96,15 +94,13 @@ __all__ = [
     "PolicySnapshotManager",
     "PortfolioCheckResult",
     "PortfolioConstructor",
+    "PortfolioManager",
+    "PortfolioOptimizer",
     "PortfolioIntent",
-    "PortfolioState",
     "PreTradeComplianceChecker",
     "PreTradeLimits",
-    "RiskBudgetConfig",
     "RiskMode",
     "RoutingHealthMonitor",
-    "SizingDecision",
-    "SizingRequest",
     "SlowLoopDeliberationEngine",
     "SnapshotManagerConfig",
     "StrategicContractEnvelope",

@@ -22,7 +22,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from torch.utils.data import DataLoader as TorchDataLoader
 from torch.utils.data import TensorDataset
 from src.agents.technical.data_loader import DataLoader
-from src.agents.technical.features import engineer_features
+from src.agents.technical.features import apply_daily_trend_confirmation, engineer_features
 from src.agents.technical.models.arima_lstm import ArimaLstmHybrid, LSTMResidualModel
 from config.symbols import (
     EQUITY_SYMBOLS,
@@ -484,12 +484,22 @@ def quality_gate_split_counts(df: pd.DataFrame) -> SplitCounts:
     )
 
 
-def extract_symbol_features(symbol: str, df: pd.DataFrame, hybrid: ArimaLstmHybrid) -> tuple:
+def extract_symbol_features(
+    symbol: str,
+    df: pd.DataFrame,
+    hybrid: ArimaLstmHybrid,
+    *,
+    include_daily_features: bool,
+) -> tuple:
     """Extracts features, splits chronologically, computes ARIMA residuals, entirely per-symbol."""
     validate_data(df)
     
     is_forex_target = is_forex(symbol)
-    df_features = engineer_features(df, is_forex=is_forex_target)
+    df_features = engineer_features(
+        df,
+        is_forex=is_forex_target,
+        include_daily_features=include_daily_features,
+    )
     df_features = df_features.sort_values('timestamp').reset_index(drop=True)
 
     n = len(df_features)
@@ -582,6 +592,16 @@ def main():
     parser.add_argument("--output-dir", default="data/models/arima_lstm/", help="Output directory")
     parser.add_argument("--use-nse", action="store_true", help="Fetch data natively from NSE if DB is empty/unavailable")
     parser.add_argument("--interval", default="1h", help="Candle interval, e.g. 1d, 1h. Default: 1h")
+    parser.add_argument(
+        "--disable-daily-features",
+        action="store_true",
+        help="Disable daily timeframe feature fusion onto hourly rows.",
+    )
+    parser.add_argument(
+        "--disable-daily-trend-filter",
+        action="store_true",
+        help="Disable UP->NEUTRAL gating when daily trend is not bullish.",
+    )
     parser.add_argument("--class-threshold", type=float, default=0.005, help="Return threshold used to derive up/down/neutral labels for evaluation.")
     parser.add_argument("--min-neutral-ratio", type=float, default=0.15, help="Minimum target neutral prediction ratio for per-symbol thresholding.")
     parser.add_argument("--max-neutral-ratio", type=float, default=0.20, help="Maximum target neutral prediction ratio for per-symbol thresholding.")
@@ -594,6 +614,13 @@ def main():
     args = parser.parse_args()
 
     set_seed(args.seed)
+    include_daily_features = not bool(args.disable_daily_features)
+    apply_daily_trend_filter = not bool(args.disable_daily_trend_filter)
+    logger.info(
+        "Daily feature fusion: %s | Daily trend UP filter: %s",
+        "enabled" if include_daily_features else "disabled",
+        "enabled" if apply_daily_trend_filter else "disabled",
+    )
     output_root = Path(args.output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
     arima_order = tuple(map(int, args.arima_order.split(',')))
@@ -637,7 +664,12 @@ def main():
         try:
             logger.info("Extracting features and ARIMA residuals for %s...", symbol)
             frame = loader.load_historical_bars(symbol, limit=args.limit, use_nse_fallback=args.use_nse, min_fallback_rows=40, interval=args.interval)
-            train_df, val_df, test_df, f_cols = extract_symbol_features(symbol, frame, hybrid)
+            train_df, val_df, test_df, f_cols = extract_symbol_features(
+                symbol,
+                frame,
+                hybrid,
+                include_daily_features=include_daily_features,
+            )
             symbol_data[symbol] = {"train": train_df, "val": val_df, "test": test_df}
             all_train_dfs.append(train_df[f_cols].copy())
             if not global_feature_columns:
@@ -685,12 +717,17 @@ def main():
             timestamps = df["timestamp"].iloc[hybrid.window_size:].values if len(df) > hybrid.window_size else np.empty(0)
             arima_forecasts = df["arima_forecast"].iloc[hybrid.window_size:].values if len(df) > hybrid.window_size else np.empty(0)
             actual_returns = df["log_return"].iloc[hybrid.window_size:].values if len(df) > hybrid.window_size else np.empty(0)
+            if len(df) > hybrid.window_size and "daily_trend_bullish" in df.columns:
+                daily_trend = df["daily_trend_bullish"].iloc[hybrid.window_size:].values
+            else:
+                daily_trend = np.full(len(timestamps), np.nan, dtype=np.float64)
             
             splits[f"X_{s_name}"] = X
             splits[f"y_{s_name}"] = y
             splits[f"timestamps_{s_name}"] = timestamps
             splits[f"arima_forecast_{s_name}"] = arima_forecasts
             splits[f"actual_return_{s_name}"] = actual_returns
+            splits[f"daily_trend_{s_name}"] = daily_trend
             
             if s_name == "train":
                 X_train_list.append(X)
@@ -757,6 +794,8 @@ def main():
                 "min_neutral_ratio": args.min_neutral_ratio,
                 "max_neutral_ratio": args.max_neutral_ratio,
                 "target_neutral_ratio": args.target_neutral_ratio,
+                "include_daily_features": include_daily_features,
+                "apply_daily_trend_filter": apply_daily_trend_filter,
             },
             "metrics": {
                 "final_train_loss": metrics["train_loss"],
@@ -868,6 +907,7 @@ def main():
             timestamps = splits.get(f"timestamps_{s_name}")
             arima_forecasts = splits.get(f"arima_forecast_{s_name}")
             actual_returns = splits.get(f"actual_return_{s_name}")
+            daily_trend = splits.get(f"daily_trend_{s_name}")
             
             if X_data is None or len(X_data) == 0:
                 continue
@@ -887,6 +927,7 @@ def main():
                 "timestamps": timestamps,
                 "actual_returns": actual_returns if isinstance(actual_returns, np.ndarray) else np.empty((0,), dtype=np.float64),
                 "final_scores": final_scores,
+                "daily_trend_bullish": daily_trend if isinstance(daily_trend, np.ndarray) else np.full(len(final_scores), np.nan),
             }
 
         train_scores = split_payloads.get("train", {}).get("final_scores", np.empty((0,), dtype=np.float64))
@@ -911,10 +952,26 @@ def main():
             final_scores = payload["final_scores"]
             timestamps = payload["timestamps"]
             actual_returns = payload["actual_returns"]
+            daily_trend_bullish = payload.get("daily_trend_bullish", np.full(len(final_scores), np.nan))
 
             probs = scores_to_soft_probs(final_scores, threshold=symbol_threshold)
             pred_labels = returns_to_labels(final_scores, threshold=symbol_threshold)
+            daily_filter_mask = np.zeros(len(pred_labels), dtype=bool)
+            if apply_daily_trend_filter:
+                pred_labels, probs, daily_filter_mask = apply_daily_trend_confirmation(
+                    pred_labels,
+                    probs,
+                    daily_trend_bullish=daily_trend_bullish,
+                )
+                if daily_filter_mask.any():
+                    logger.info(
+                        "[%s][%s] Daily trend confirmation neutralized %d UP signal(s).",
+                        symbol,
+                        s_name,
+                        int(daily_filter_mask.sum()),
+                    )
             pred_dist = label_distribution(pred_labels)
+            pred_dist["daily_trend_up_neutralized"] = int(daily_filter_mask.sum())
             split_prediction_distribution[s_name] = pred_dist
 
             if s_name == "test" and len(actual_returns) == len(pred_labels):
@@ -954,6 +1011,8 @@ def main():
                 "predicted_label": pred_labels,
                 "lstm_final_score": final_scores,
                 "actual_return": actual_returns if len(actual_returns) == len(pred_labels) else np.full(len(pred_labels), np.nan),
+                "daily_trend_bullish": daily_trend_bullish if len(daily_trend_bullish) == len(pred_labels) else np.full(len(pred_labels), np.nan),
+                "daily_trend_up_neutralized": daily_filter_mask.astype(int),
                 "class_threshold": symbol_threshold,
             })
             sym_dfs.append(prob_df)
@@ -983,6 +1042,8 @@ def main():
                 "selected_train_neutral_ratio": float(train_neutral_ratio),
             },
             "recalibrate_only": bool(args.recalibrate_only),
+            "include_daily_features": include_daily_features,
+            "apply_daily_trend_filter": apply_daily_trend_filter,
             "finetune": {
                 "applied": finetune_applied,
                 "epochs_requested": int(args.finetune_epochs),
@@ -1011,6 +1072,8 @@ def main():
                 "max_neutral_ratio": float(args.max_neutral_ratio),
                 "target_neutral_ratio": float(args.target_neutral_ratio),
                 "recalibrate_only": bool(args.recalibrate_only),
+                "include_daily_features": include_daily_features,
+                "apply_daily_trend_filter": apply_daily_trend_filter,
             },
             "split_counts": split_counts,
             "metrics": {
