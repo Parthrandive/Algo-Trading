@@ -33,20 +33,31 @@
     "macro_coverage_ratio",
     "macro_regime_index",
     "macro_regime_shock",
-    "macro_directional_flag"
+    "macro_directional_flag",
+    "daily_ma_20",
+    "daily_ma_50",
+    "daily_rsi",
+    "daily_bollinger_upper",
+    "daily_bollinger_lower",
+    "daily_bollinger_width",
+    "daily_adx",
+    "daily_trend_strength",
+    "daily_trend_bullish"
   ],
   "class_threshold": 0.005,
   "effective_class_threshold": 0.005,
   "threshold_selection": {
-    "min_neutral_ratio": 0.2,
-    "max_neutral_ratio": 0.35,
-    "target_neutral_ratio": 0.25,
-    "selected_train_neutral_ratio": 0.3507223113964687
+    "min_neutral_ratio": 0.15,
+    "max_neutral_ratio": 0.2,
+    "target_neutral_ratio": 0.175,
+    "selected_train_neutral_ratio": 0.26524879614767255
   },
   "recalibrate_only": false,
+  "include_daily_features": true,
+  "apply_daily_trend_filter": true,
   "finetune": {
     "applied": true,
-    "epochs_requested": 25,
+    "epochs_requested": 12,
     "patience": 8
   }
 }

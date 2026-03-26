@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-26T10:38:39.040629+00:00",
+  "timestamp": "2026-03-26T12:37:44.977852+00:00",
   "symbol": "INFY.NS",
   "trained_as_part_of_universe": true,
   "hyperparameters": {
@@ -10,13 +10,15 @@
     ],
     "window_size": 10,
     "learning_rate": 0.001,
-    "epochs_requested": 25,
+    "epochs_requested": 12,
     "class_threshold": 0.005,
     "effective_class_threshold": 0.005,
-    "min_neutral_ratio": 0.2,
-    "max_neutral_ratio": 0.35,
-    "target_neutral_ratio": 0.25,
-    "recalibrate_only": false
+    "min_neutral_ratio": 0.15,
+    "max_neutral_ratio": 0.2,
+    "target_neutral_ratio": 0.175,
+    "recalibrate_only": false,
+    "include_daily_features": true,
+    "apply_daily_trend_filter": true
   },
   "split_counts": {
     "train": 2492,
@@ -24,79 +26,82 @@
     "test": 527
   },
   "metrics": {
-    "test_mse": 0.00014917960523983792,
-    "selected_train_neutral_ratio": 0.3507223113964687,
+    "test_mse": 0.0004471240530002145,
+    "selected_train_neutral_ratio": 0.26524879614767255,
     "prediction_distribution": {
       "train": {
         "total": 2492,
         "counts": {
-          "down": 106,
-          "neutral": 874,
-          "up": 1512
+          "down": 224,
+          "neutral": 1758,
+          "up": 510
         },
         "ratios": {
-          "down": 0.04253611556982344,
-          "neutral": 0.3507223113964687,
-          "up": 0.6067415730337079
-        }
+          "down": 0.0898876404494382,
+          "neutral": 0.7054574638844302,
+          "up": 0.20465489566613163
+        },
+        "daily_trend_up_neutralized": 1097
       },
       "val": {
         "total": 526,
         "counts": {
-          "down": 65,
-          "neutral": 390,
-          "up": 71
+          "down": 71,
+          "neutral": 403,
+          "up": 52
         },
         "ratios": {
-          "down": 0.12357414448669202,
-          "neutral": 0.7414448669201521,
-          "up": 0.13498098859315588
-        }
+          "down": 0.13498098859315588,
+          "neutral": 0.7661596958174905,
+          "up": 0.09885931558935361
+        },
+        "daily_trend_up_neutralized": 126
       },
       "test": {
         "total": 527,
         "counts": {
-          "down": 243,
-          "neutral": 139,
-          "up": 145
+          "down": 58,
+          "neutral": 446,
+          "up": 23
         },
         "ratios": {
-          "down": 0.46110056925996207,
-          "neutral": 0.2637571157495256,
-          "up": 0.27514231499051234
-        }
+          "down": 0.11005692599620494,
+          "neutral": 0.8462998102466793,
+          "up": 0.04364326375711575
+        },
+        "daily_trend_up_neutralized": 257
       }
     },
-    "test_accuracy": 0.2922201138519924,
-    "directional_accuracy": 0.39814814814814814,
-    "up_precision": 0.1103448275862069,
-    "up_recall": 0.32,
-    "up_f1": 0.1641025641025641,
+    "test_accuracy": 0.698292220113852,
+    "directional_accuracy": 0.10185185185185185,
+    "up_precision": 0.30434782608695654,
+    "up_recall": 0.14,
+    "up_f1": 0.1917808219178082,
     "up_support": 50,
-    "down_precision": 0.1111111111111111,
-    "down_recall": 0.46551724137931033,
-    "down_f1": 0.17940199335548174,
+    "down_precision": 0.06896551724137931,
+    "down_recall": 0.06896551724137931,
+    "down_f1": 0.06896551724137931,
     "down_support": 58,
     "test_confusion_matrix": [
       [
-        27,
-        15,
-        16
+        4,
+        50,
+        4
       ],
       [
-        195,
-        111,
-        113
+        50,
+        357,
+        12
       ],
       [
-        21,
-        13,
-        16
+        4,
+        39,
+        7
       ]
     ],
-    "finetune_train_loss": 0.00015809189988118762,
-    "finetune_best_train_loss": 6.387251756315824e-05,
-    "finetune_best_val_loss": 4.6118668292935925e-05,
+    "finetune_train_loss": 0.0003520382804994921,
+    "finetune_best_train_loss": 0.0002955185408934945,
+    "finetune_best_val_loss": 9.847852158977228e-05,
     "finetune_epochs_run": 10
   }
 }

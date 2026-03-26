@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-26T10:39:08.228941+00:00",
+  "timestamp": "2026-03-26T12:50:06.705055+00:00",
   "symbol": "RELIANCE.NS",
   "split_counts": {
     "train": 2483,
@@ -17,6 +17,8 @@
       "lstm_prob_down",
       "lstm_prob_neutral",
       "lstm_prob_up",
+      "daily_trend_bullish",
+      "daily_trend_up_neutralized",
       "tech_open",
       "tech_high",
       "tech_low",
@@ -58,6 +60,16 @@
       "tech_macro_regime_index",
       "tech_macro_regime_shock",
       "tech_macro_directional_flag",
+      "tech_daily_ma_20",
+      "tech_daily_ma_50",
+      "tech_daily_ma_200",
+      "tech_daily_rsi",
+      "tech_daily_bollinger_upper",
+      "tech_daily_bollinger_lower",
+      "tech_daily_bollinger_width",
+      "tech_daily_adx",
+      "tech_daily_trend_strength",
+      "tech_daily_trend_bullish",
       "hmm_regime",
       "regime_shift_flag",
       "cnn_up_reliable",
@@ -78,36 +90,37 @@
     }
   },
   "metrics": {
-    "test_accuracy": 0.6247582205029013,
-    "directional_accuracy": 0.33783783783783783,
-    "up_precision": 0.2857142857142857,
-    "up_recall": 0.18181818181818182,
-    "up_f1": 0.2222222222222222,
+    "test_accuracy": 0.6150870406189555,
+    "directional_accuracy": 0.25675675675675674,
+    "up_precision": 0.25,
+    "up_recall": 0.09090909090909091,
+    "up_f1": 0.13333333333333333,
     "up_support": 33,
-    "down_precision": 0.11949685534591195,
-    "down_recall": 0.4634146341463415,
-    "down_f1": 0.19,
+    "down_precision": 0.0963855421686747,
+    "down_recall": 0.3902439024390244,
+    "down_f1": 0.15458937198067632,
     "down_support": 41,
     "test_confusion_matrix": [
       [
-        19,
-        20,
-        2
+        16,
+        22,
+        3
       ],
       [
-        132,
-        298,
-        13
-      ],
-      [
-        8,
-        19,
+        138,
+        299,
         6
+      ],
+      [
+        12,
+        18,
+        3
       ]
     ],
-    "best_iteration": 498,
+    "best_iteration": 499,
     "gate_passed": false,
     "gate_reasons": [
+      "Low directional recall (< 15%)",
       "Directional accuracy <= 40%"
     ]
   }

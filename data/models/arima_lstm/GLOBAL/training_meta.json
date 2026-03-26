@@ -1,12 +1,10 @@
 {
-  "timestamp": "2026-03-26T10:38:34.637092+00:00",
+  "timestamp": "2026-03-26T12:37:42.806916+00:00",
   "symbol": "GLOBAL",
   "trained_on": [
     "RELIANCE.NS",
-    "TATASTEEL.NS",
     "INFY.NS",
-    "TCS.NS",
-    "HDFCBANK.NS"
+    "TATASTEEL.NS"
   ],
   "hyperparameters": {
     "arima_order": [
@@ -16,18 +14,20 @@
     ],
     "window_size": 10,
     "learning_rate": 0.001,
-    "epochs_run": 40,
+    "epochs_run": 20,
     "batch_size": 128,
     "patience": 15,
     "seed": 42,
     "class_threshold": 0.005,
-    "min_neutral_ratio": 0.2,
-    "max_neutral_ratio": 0.35,
-    "target_neutral_ratio": 0.25
+    "min_neutral_ratio": 0.15,
+    "max_neutral_ratio": 0.2,
+    "target_neutral_ratio": 0.175,
+    "include_daily_features": true,
+    "apply_daily_trend_filter": true
   },
   "metrics": {
-    "final_train_loss": 4.0203247364019216e-05,
-    "best_train_loss": 3.8624936836408933e-05,
-    "best_val_loss": 2.531101609427077e-05
+    "final_train_loss": 4.704299394949202e-05,
+    "best_train_loss": 4.704299394949202e-05,
+    "best_val_loss": 3.894615675598552e-05
   }
 }

@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-26T10:38:03.140247+00:00",
+  "timestamp": "2026-03-26T12:49:45.083645+00:00",
   "symbol": "TATASTEEL.NS",
   "hyperparameters": {
     "symbol": "TATASTEEL.NS",
@@ -11,15 +11,6 @@
       "low",
       "close",
       "volume",
-      "CPI",
-      "WPI",
-      "IIP",
-      "FII_FLOW",
-      "FX_RESERVES",
-      "INDIA_US_10Y_SPREAD",
-      "RBI_BULLETIN",
-      "REPO_RATE",
-      "US_10Y",
       "usdinr_close",
       "usdinr_return",
       "usdinr_zscore",
@@ -39,18 +30,20 @@
       "macd",
       "macd_signal",
       "macd_hist",
-      "CPI_z",
-      "WPI_z",
-      "IIP_z",
-      "FII_FLOW_z",
-      "FX_RESERVES_z",
-      "INDIA_US_10Y_SPREAD_z",
-      "REPO_RATE_z",
-      "US_10Y_z",
       "macro_coverage_ratio",
       "macro_regime_index",
       "macro_regime_shock",
       "macro_directional_flag",
+      "daily_ma_20",
+      "daily_ma_50",
+      "daily_ma_200",
+      "daily_rsi",
+      "daily_bollinger_upper",
+      "daily_bollinger_lower",
+      "daily_bollinger_width",
+      "daily_adx",
+      "daily_trend_strength",
+      "daily_trend_bullish",
       "returns",
       "vol_regime",
       "return_zscore",
@@ -58,63 +51,64 @@
       "arima_forecast",
       "arima_residual"
     ],
+    "include_daily_features": true,
     "neutral_threshold": 0.005,
     "use_binary": false,
-    "confidence_threshold": 0.5499999999999999,
+    "confidence_threshold": 0.49999999999999994,
     "class_weight_dict": {
-      "0": 2.5314685314685312,
-      "1": 0.9576719576719577,
-      "2": 1.547008547008547
+      "0": 6.987096774193549,
+      "1": 0.2220172201722017,
+      "2": 6.278260869565218
     }
   },
-  "epochs_requested": 30,
-  "epochs_run": 21,
+  "epochs_requested": 8,
+  "epochs_run": 8,
   "split_counts": {
-    "train": 362,
-    "val": 285,
-    "test": 286
+    "train": 1083,
+    "val": 516,
+    "test": 517
   },
   "class_distribution_pct": {
     "train": {
-      "up": 39.50276243093923,
-      "neutral": 17.403314917127073,
-      "down": 43.0939226519337
+      "up": 14.312096029547552,
+      "neutral": 75.06925207756233,
+      "down": 10.61865189289012
     },
     "val": {
-      "up": 36.49122807017544,
-      "neutral": 30.175438596491226,
-      "down": 33.33333333333333
+      "up": 8.527131782945736,
+      "neutral": 80.81395348837209,
+      "down": 10.65891472868217
     },
     "test": {
-      "up": 38.81118881118881,
-      "neutral": 28.671328671328673,
-      "down": 32.51748251748251
+      "up": 11.992263056092844,
+      "neutral": 76.40232108317214,
+      "down": 11.60541586073501
     }
   },
   "metrics": {
-    "train_loss": 0.8819450495651414,
-    "val_loss": 0.9961684369204337,
-    "train_accuracy": 0.4116022099447514,
-    "val_accuracy": 0.3263157894736842,
-    "test_accuracy": 0.3916083916083916,
-    "best_val_f1": 0.2590980493830926,
-    "sharpe": 1.7816960840660203,
-    "max_drawdown": -0.14852452278137207,
-    "win_rate": 0.539568345323741,
+    "train_loss": 0.941734170319301,
+    "val_loss": 1.0184626990510512,
+    "train_accuracy": 0.5789473684210527,
+    "val_accuracy": 0.8081395348837209,
+    "test_accuracy": 0.7640232108317214,
+    "best_val_f1": 0.7223883945262842,
+    "sharpe": NaN,
+    "max_drawdown": 0.0,
+    "win_rate": NaN,
     "confusion_matrix": [
       [
-        110,
-        1,
+        0,
+        62,
         0
       ],
       [
-        80,
-        2,
+        0,
+        395,
         0
       ],
       [
-        88,
-        5,
+        0,
+        60,
         0
       ]
     ]
