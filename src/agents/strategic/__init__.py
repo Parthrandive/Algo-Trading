@@ -36,25 +36,38 @@ from src.agents.strategic.execution import (
     audit_events_to_dict,
 )
 from src.agents.strategic.observation import MaterializationSummary, ObservationAssembler
-from src.agents.strategic.placeholder_teacher import generate_placeholder_teacher_actions
-from src.agents.strategic.policy_manager import (
-    PolicySnapshot,
-    PolicySnapshotManager,
-    RiskMode,
-    SnapshotManagerConfig,
-)
+from src.agents.strategic.policy_manager import PolicySnapshotManager
 from src.agents.strategic.portfolio import (
     PortfolioConstructor,
     PortfolioState,
     RiskBudgetConfig,
     SizingDecision,
     SizingRequest,
+    round_to_tradable_quantity,
+)
+from src.agents.strategic.placeholder_teacher import generate_placeholder_teacher_actions
+from src.agents.strategic.policy_manager import (
+    PolicySnapshot,
+    RiskMode,
+    SnapshotManagerConfig,
 )
 from src.agents.strategic.reward import sharpe_ratio
-from src.agents.strategic.schemas import StrategicObservation, StrategicToExecutiveContract, Week2ActionSpaceRecord
+from src.agents.strategic.schemas import (
+    AgreementReport as AgreementReportSchema,
+    EnsembleDecision,
+    ExecutionPlan,
+    PolicyAction,
+    PortfolioCheckResult,
+    PortfolioIntent,
+    StrategicObservation,
+    StrategicToExecutiveContract,
+    StudentPolicyArtifact,
+    Week2ActionSpaceRecord,
+)
 
 __all__ = [
     "AgreementReport",
+    "AgreementReportSchema",
     "audit_events_to_dict",
     "benchmark_inference_latency",
     "DeliberationInput",
@@ -62,23 +75,28 @@ __all__ = [
     "DeterministicStudentPolicy",
     "DistillationGateConfig",
     "DistillationMonitor",
+    "EnsembleDecision",
     "ExecutionContext",
     "ExecutionEngine",
+    "ExecutionPlan",
     "export_week2_action_space",
     "GAOptimizationResult",
     "GAThresholdConfig",
     "generate_placeholder_teacher_actions",
+    "MaxEntropyEnsemble",
     "MaterializationSummary",
     "MaxEntropyConfig",
-    "MaxEntropyEnsemble",
     "OfflineGeneticThresholdOptimizer",
     "ObservationAssembler",
     "OrderRequest",
     "OrderType",
+    "PolicyAction",
     "PolicySignal",
     "PolicySnapshot",
     "PolicySnapshotManager",
+    "PortfolioCheckResult",
     "PortfolioConstructor",
+    "PortfolioIntent",
     "PortfolioState",
     "PreTradeComplianceChecker",
     "PreTradeLimits",
@@ -93,10 +111,12 @@ __all__ = [
     "StrategicObservation",
     "StrategicToExecutiveContract",
     "StrategicTradingEnv",
+    "StudentPolicyArtifact",
     "StudentPolicyRecord",
     "StudentPolicyStatus",
     "sharpe_ratio",
     "ThresholdTable",
     "TradeRejectionGuard",
     "Week2ActionSpaceRecord",
+    "round_to_tradable_quantity",
 ]
