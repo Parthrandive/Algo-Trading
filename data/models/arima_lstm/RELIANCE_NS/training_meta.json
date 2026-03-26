@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-25T16:54:54.437925+00:00",
+  "timestamp": "2026-03-26T10:38:36.128209+00:00",
   "symbol": "RELIANCE.NS",
   "trained_as_part_of_universe": true,
   "hyperparameters": {
@@ -12,11 +12,11 @@
     "learning_rate": 0.001,
     "epochs_requested": 25,
     "class_threshold": 0.005,
-    "effective_class_threshold": 0.0010782063150104894,
-    "min_neutral_ratio": 0.15,
-    "max_neutral_ratio": 0.2,
-    "target_neutral_ratio": 0.175,
-    "recalibrate_only": true
+    "effective_class_threshold": 0.005,
+    "min_neutral_ratio": 0.2,
+    "max_neutral_ratio": 0.35,
+    "target_neutral_ratio": 0.25,
+    "recalibrate_only": false
   },
   "split_counts": {
     "train": 2492,
@@ -24,79 +24,79 @@
     "test": 527
   },
   "metrics": {
-    "test_mse": 3.535494514174611e-05,
-    "selected_train_neutral_ratio": 0.18017656500802567,
+    "test_mse": 3.9993621792149e-05,
+    "selected_train_neutral_ratio": 0.5638041733547352,
     "prediction_distribution": {
       "train": {
         "total": 2492,
         "counts": {
-          "down": 262,
-          "neutral": 449,
-          "up": 1781
+          "down": 13,
+          "neutral": 1405,
+          "up": 1074
         },
         "ratios": {
-          "down": 0.10513643659711075,
-          "neutral": 0.18017656500802567,
-          "up": 0.7146869983948636
+          "down": 0.00521669341894061,
+          "neutral": 0.5638041733547352,
+          "up": 0.43097913322632425
         }
       },
       "val": {
         "total": 526,
         "counts": {
-          "down": 72,
-          "neutral": 205,
-          "up": 249
+          "down": 4,
+          "neutral": 510,
+          "up": 12
         },
         "ratios": {
-          "down": 0.13688212927756654,
-          "neutral": 0.3897338403041825,
-          "up": 0.47338403041825095
+          "down": 0.0076045627376425855,
+          "neutral": 0.9695817490494296,
+          "up": 0.022813688212927757
         }
       },
       "test": {
         "total": 527,
         "counts": {
-          "down": 53,
-          "neutral": 64,
-          "up": 410
+          "down": 1,
+          "neutral": 451,
+          "up": 75
         },
         "ratios": {
-          "down": 0.10056925996204934,
-          "neutral": 0.12144212523719165,
-          "up": 0.777988614800759
+          "down": 0.0018975332068311196,
+          "neutral": 0.855787476280835,
+          "up": 0.14231499051233396
         }
       }
     },
-    "test_accuracy": 0.31499051233396586,
-    "directional_accuracy": 0.41761363636363635,
-    "up_precision": 0.3097560975609756,
-    "up_recall": 0.774390243902439,
-    "up_f1": 0.4425087108013937,
-    "up_support": 164,
-    "down_precision": 0.37735849056603776,
-    "down_recall": 0.10638297872340426,
-    "down_f1": 0.16597510373443983,
-    "down_support": 188,
+    "test_accuracy": 0.7286527514231499,
+    "directional_accuracy": 0.02666666666666667,
+    "up_precision": 0.02666666666666667,
+    "up_recall": 0.058823529411764705,
+    "up_f1": 0.03669724770642202,
+    "up_support": 34,
+    "down_precision": 0.0,
+    "down_recall": 0.0,
+    "down_f1": 0.0,
+    "down_support": 41,
     "test_confusion_matrix": [
       [
-        20,
-        22,
-        146
+        0,
+        37,
+        4
       ],
       [
-        19,
-        19,
-        137
+        1,
+        382,
+        69
       ],
       [
-        14,
-        23,
-        127
+        0,
+        32,
+        2
       ]
     ],
-    "finetune_train_loss": null,
-    "finetune_best_train_loss": null,
-    "finetune_best_val_loss": null,
-    "finetune_epochs_run": null
+    "finetune_train_loss": 4.377763702927111e-05,
+    "finetune_best_train_loss": 3.668370185401978e-05,
+    "finetune_best_val_loss": 1.8067482463477008e-05,
+    "finetune_epochs_run": 16
   }
 }

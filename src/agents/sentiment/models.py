@@ -94,7 +94,8 @@ class FinBERTSentimentModel:
     ):
         self.model_id = model_id
         self.classifier = classifier
-        self.fallback_model = fallback_model or KeywordSentimentModel(model_name=f"{model_id}_fallback")
+        # Keep canonical model id in prediction contracts even when running fallback logic.
+        self.fallback_model = fallback_model or KeywordSentimentModel(model_name=model_id)
 
     @property
     def using_fallback(self) -> bool:

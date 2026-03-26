@@ -1,0 +1,66 @@
+{
+  "run_at_utc": "2026-03-26T10:53:39.288793+00:00",
+  "window": {
+    "start": "2024-03-26T03:45:00+00:00",
+    "end": "2026-03-23T09:45:00+00:00"
+  },
+  "method": "offline_linear_distillation_lstsq_with_fallback_observations",
+  "results": [
+    {
+      "symbol": "RELIANCE.NS",
+      "status": "ok",
+      "dataset_meta": {
+        "symbol": "RELIANCE.NS",
+        "price_rows": 3576,
+        "interval": "1h",
+        "price_source": "ohlcv",
+        "observation_source": "ohlcv_fallback",
+        "observation_rows": 3576,
+        "price_alignment_rows": 3576
+      },
+      "train_rows": 2860,
+      "test_rows": 716,
+      "agreement": {
+        "overall": 0.5181564245810056,
+        "average_day": 0.5483383685800605,
+        "crisis_slice": 0.14814814814814814,
+        "kl_divergence": 0.048605088701802475
+      },
+      "latency_ms": {
+        "p50": 0.002875,
+        "p95": 0.00313525,
+        "p99": 0.00325,
+        "p999": 0.00349362500000001
+      },
+      "promotion_eligible": false
+    },
+    {
+      "symbol": "TCS.NS",
+      "status": "ok",
+      "dataset_meta": {
+        "symbol": "TCS.NS",
+        "price_rows": 3572,
+        "interval": "1h",
+        "price_source": "ohlcv",
+        "observation_source": "ohlcv_fallback",
+        "observation_rows": 3572,
+        "price_alignment_rows": 3572
+      },
+      "train_rows": 2857,
+      "test_rows": 715,
+      "agreement": {
+        "overall": 0.4951048951048951,
+        "average_day": 0.536923076923077,
+        "crisis_slice": 0.07692307692307693,
+        "kl_divergence": 0.05132531646397661
+      },
+      "latency_ms": {
+        "p50": 0.007458,
+        "p95": 0.007625,
+        "p99": 0.00779186,
+        "p999": 0.42499048800008427
+      },
+      "promotion_eligible": false
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-25T17:00:29.528332+00:00",
+  "timestamp": "2026-03-26T10:39:08.228941+00:00",
   "symbol": "RELIANCE.NS",
   "split_counts": {
     "train": 2483,
@@ -17,10 +17,6 @@
       "lstm_prob_down",
       "lstm_prob_neutral",
       "lstm_prob_up",
-      "predicted_label",
-      "lstm_final_score",
-      "actual_return",
-      "class_threshold",
       "tech_open",
       "tech_high",
       "tech_low",
@@ -82,33 +78,37 @@
     }
   },
   "metrics": {
-    "test_accuracy": 0.3733075435203095,
-    "directional_accuracy": 0.32456140350877194,
-    "up_precision": 0.36363636363636365,
-    "up_recall": 0.025,
-    "up_f1": 0.04678362573099415,
-    "up_support": 160,
-    "down_precision": 0.37543859649122807,
-    "down_recall": 0.5879120879120879,
-    "down_f1": 0.4582441113490364,
-    "down_support": 182,
+    "test_accuracy": 0.6247582205029013,
+    "directional_accuracy": 0.33783783783783783,
+    "up_precision": 0.2857142857142857,
+    "up_recall": 0.18181818181818182,
+    "up_f1": 0.2222222222222222,
+    "up_support": 33,
+    "down_precision": 0.11949685534591195,
+    "down_recall": 0.4634146341463415,
+    "down_f1": 0.19,
+    "down_support": 41,
     "test_confusion_matrix": [
       [
-        107,
-        70,
-        5
-      ],
-      [
-        91,
-        82,
+        19,
+        20,
         2
       ],
       [
-        87,
-        69,
-        4
+        132,
+        298,
+        13
+      ],
+      [
+        8,
+        19,
+        6
       ]
     ],
-    "best_iteration": 16
+    "best_iteration": 498,
+    "gate_passed": false,
+    "gate_reasons": [
+      "Directional accuracy <= 40%"
+    ]
   }
 }

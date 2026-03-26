@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-25T16:30:05.734282+00:00",
+  "timestamp": "2026-03-26T10:38:40.313046+00:00",
   "symbol": "TCS.NS",
   "trained_as_part_of_universe": true,
   "hyperparameters": {
@@ -12,11 +12,11 @@
     "learning_rate": 0.001,
     "epochs_requested": 25,
     "class_threshold": 0.005,
-    "effective_class_threshold": 0.002,
-    "min_neutral_ratio": 0.15,
-    "max_neutral_ratio": 0.2,
-    "target_neutral_ratio": 0.175,
-    "recalibrate_only": true
+    "effective_class_threshold": 0.011552819527458829,
+    "min_neutral_ratio": 0.2,
+    "max_neutral_ratio": 0.35,
+    "target_neutral_ratio": 0.25,
+    "recalibrate_only": false
   },
   "split_counts": {
     "train": 2489,
@@ -24,79 +24,79 @@
     "test": 526
   },
   "metrics": {
-    "test_mse": 4.394538490324788e-05,
-    "selected_train_neutral_ratio": 0.1799919646444355,
+    "test_mse": 8.924698631191527e-05,
+    "selected_train_neutral_ratio": 0.25030132583366815,
     "prediction_distribution": {
       "train": {
         "total": 2489,
         "counts": {
-          "down": 15,
-          "neutral": 448,
-          "up": 2026
+          "down": 0,
+          "neutral": 623,
+          "up": 1866
         },
         "ratios": {
-          "down": 0.006026516673362796,
-          "neutral": 0.1799919646444355,
-          "up": 0.8139815186822017
+          "down": 0.0,
+          "neutral": 0.25030132583366815,
+          "up": 0.7496986741663318
         }
       },
       "val": {
         "total": 526,
         "counts": {
-          "down": 16,
-          "neutral": 440,
-          "up": 70
+          "down": 0,
+          "neutral": 526,
+          "up": 0
         },
         "ratios": {
-          "down": 0.030418250950570342,
-          "neutral": 0.8365019011406845,
-          "up": 0.13307984790874525
+          "down": 0.0,
+          "neutral": 1.0,
+          "up": 0.0
         }
       },
       "test": {
         "total": 526,
         "counts": {
-          "down": 28,
-          "neutral": 287,
-          "up": 211
+          "down": 5,
+          "neutral": 485,
+          "up": 36
         },
         "ratios": {
-          "down": 0.053231939163498096,
-          "neutral": 0.5456273764258555,
-          "up": 0.4011406844106464
+          "down": 0.009505703422053232,
+          "neutral": 0.9220532319391636,
+          "up": 0.06844106463878327
         }
       }
     },
-    "test_accuracy": 0.3840304182509506,
-    "directional_accuracy": 0.2217741935483871,
-    "up_precision": 0.22274881516587677,
-    "up_recall": 0.42727272727272725,
-    "up_f1": 0.29283489096573206,
-    "up_support": 110,
-    "down_precision": 0.2857142857142857,
-    "down_recall": 0.057971014492753624,
-    "down_f1": 0.0963855421686747,
-    "down_support": 138,
+    "test_accuracy": 0.8840304182509505,
+    "directional_accuracy": 0.0,
+    "up_precision": 0.0,
+    "up_recall": 0.0,
+    "up_f1": 0.0,
+    "up_support": 8,
+    "down_precision": 0.0,
+    "down_recall": 0.0,
+    "down_f1": 0.0,
+    "down_support": 13,
     "test_confusion_matrix": [
       [
-        8,
-        79,
-        51
+        0,
+        13,
+        0
       ],
       [
-        18,
-        147,
-        113
+        4,
+        465,
+        36
       ],
       [
-        2,
-        61,
-        47
+        1,
+        7,
+        0
       ]
     ],
-    "finetune_train_loss": null,
-    "finetune_best_train_loss": null,
-    "finetune_best_val_loss": null,
-    "finetune_epochs_run": null
+    "finetune_train_loss": 0.00014494888046996795,
+    "finetune_best_train_loss": 8.200816896235265e-05,
+    "finetune_best_val_loss": 2.299315965086613e-05,
+    "finetune_epochs_run": 12
   }
 }

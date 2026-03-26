@@ -470,6 +470,12 @@ def compute_class_weights(
             UP_WEIGHT_MULTIPLIER,
         )
 
+    # Force directional stance by boosting UP and DOWN, and suppressing NEUTRAL
+    class_weight_dict[up_idx] = float(class_weight_dict.get(up_idx, 1.0) * 3.0)
+    class_weight_dict[down_idx] = float(class_weight_dict.get(down_idx, 1.0) * 2.0)
+    if neutral_idx is not None:
+        class_weight_dict[neutral_idx] = float(class_weight_dict.get(neutral_idx, 1.0) * 0.5)
+
     full_weights = torch.ones(num_classes, dtype=torch.float32)
     for cls, weight in class_weight_dict.items():
         full_weights[cls] = float(weight)
@@ -761,6 +767,7 @@ def train_single_symbol(
     batch_size: int,
     seed: int,
     min_rows: int,
+    include_daily_features: bool,
 ) -> SymbolTrainingResult:
     set_seed(seed)
     validate_data(df, symbol=symbol, min_rows=min_rows)
@@ -769,7 +776,7 @@ def train_single_symbol(
     train_df_raw, val_df_raw, test_df_raw = chronological_split(df)
     train_len = len(train_df_raw)
 
-    feat_df = engineer_features(df)
+    feat_df = engineer_features(df, include_daily_features=include_daily_features)
     feat_df = add_symbol_features(feat_df, train_len=train_len)
     arima_forecast, arima_residual = build_arima_features(feat_df["close"], train_len=train_len, arima_order=arima_order)
     feat_df["arima_forecast"] = arima_forecast
@@ -949,6 +956,7 @@ def train_single_symbol(
         "window_size": window_size,
         "learning_rate": lr,
         "feature_columns": feature_columns,
+        "include_daily_features": include_daily_features,
         "neutral_threshold": effective_neutral_threshold,
         "use_binary": use_binary,
         "confidence_threshold": best_threshold,
@@ -1027,6 +1035,11 @@ def main() -> None:
     parser.add_argument("--use-nse", action="store_true", help="Use NSE fallback when DB data is sparse.")
     parser.add_argument("--interval", default="1d", help="Candle interval (e.g., 1d, 1h).")
     parser.add_argument(
+        "--disable-daily-features",
+        action="store_true",
+        help="Disable daily timeframe feature fusion onto intraday rows.",
+    )
+    parser.add_argument(
         "--local-silver-dir",
         default=None,
         help="Optional local OHLCV parquet root (e.g., data/silver/ohlcv) to bypass DB/NSE.",
@@ -1040,6 +1053,11 @@ def main() -> None:
     args = parser.parse_args()
 
     set_seed(args.seed)
+    include_daily_features = not bool(args.disable_daily_features)
+    logger.info(
+        "Daily feature fusion: %s",
+        "enabled" if include_daily_features else "disabled",
+    )
     output_root = Path(args.output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
     arima_order = tuple(int(x.strip()) for x in args.arima_order.split(","))
@@ -1125,6 +1143,7 @@ def main() -> None:
                 batch_size=args.batch_size,
                 seed=args.seed,
                 min_rows=args.min_rows,
+                include_daily_features=include_daily_features,
             )
             results.append(result)
         except Exception as exc:

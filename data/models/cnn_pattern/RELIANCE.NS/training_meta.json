@@ -1,14 +1,122 @@
 {
-  "timestamp": "2026-03-23T13:55:10.168301+00:00",
+  "timestamp": "2026-03-26T10:37:54.276847+00:00",
   "symbol": "RELIANCE.NS",
-  "trained_as_part_of_universe": true,
   "hyperparameters": {
-    "trained_as_part_of_universe": true
+    "symbol": "RELIANCE.NS",
+    "window_size": 20,
+    "learning_rate": 0.001,
+    "feature_columns": [
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume",
+      "CPI",
+      "WPI",
+      "IIP",
+      "FII_FLOW",
+      "FX_RESERVES",
+      "INDIA_US_10Y_SPREAD",
+      "RBI_BULLETIN",
+      "REPO_RATE",
+      "US_10Y",
+      "usdinr_close",
+      "usdinr_return",
+      "usdinr_zscore",
+      "usdinr_trend",
+      "usdinr_vol",
+      "log_return",
+      "close_lag_1",
+      "close_lag_2",
+      "close_lag_3",
+      "close_lag_4",
+      "close_lag_5",
+      "close_roll_mean_7",
+      "close_roll_std_7",
+      "close_roll_mean_14",
+      "close_roll_std_14",
+      "rsi",
+      "macd",
+      "macd_signal",
+      "macd_hist",
+      "CPI_z",
+      "WPI_z",
+      "IIP_z",
+      "FII_FLOW_z",
+      "FX_RESERVES_z",
+      "INDIA_US_10Y_SPREAD_z",
+      "REPO_RATE_z",
+      "US_10Y_z",
+      "macro_coverage_ratio",
+      "macro_regime_index",
+      "macro_regime_shock",
+      "macro_directional_flag",
+      "returns",
+      "vol_regime",
+      "return_zscore",
+      "volume_zscore",
+      "arima_forecast",
+      "arima_residual"
+    ],
+    "neutral_threshold": 0.005,
+    "use_binary": false,
+    "confidence_threshold": 0.3,
+    "class_weight_dict": {
+      "0": 2.661764705882353,
+      "1": 0.6284722222222222,
+      "2": 1.8564102564102565
+    }
+  },
+  "epochs_requested": 30,
+  "epochs_run": 18,
+  "split_counts": {
+    "train": 362,
+    "val": 285,
+    "test": 286
+  },
+  "class_distribution_pct": {
+    "train": {
+      "up": 37.569060773480665,
+      "neutral": 26.519337016574585,
+      "down": 35.91160220994475
+    },
+    "val": {
+      "up": 35.08771929824561,
+      "neutral": 32.98245614035088,
+      "down": 31.929824561403507
+    },
+    "test": {
+      "up": 30.76923076923077,
+      "neutral": 38.111888111888106,
+      "down": 31.11888111888112
+    }
   },
   "metrics": {
-    "test_accuracy": 0.7272727272727273,
-    "sharpe": NaN,
-    "max_drawdown": 0.0,
-    "win_rate": NaN
+    "train_loss": 0.9202745461332206,
+    "val_loss": 0.9654489316438374,
+    "train_accuracy": 0.3756906077348066,
+    "val_accuracy": 0.3508771929824561,
+    "test_accuracy": 0.3076923076923077,
+    "best_val_f1": 0.18227386648439278,
+    "sharpe": 0.5514867819030043,
+    "max_drawdown": -0.155309796333313,
+    "win_rate": 0.506993006993007,
+    "confusion_matrix": [
+      [
+        88,
+        0,
+        0
+      ],
+      [
+        109,
+        0,
+        0
+      ],
+      [
+        89,
+        0,
+        0
+      ]
+    ]
   }
 }
