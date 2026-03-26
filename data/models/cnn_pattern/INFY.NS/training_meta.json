@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-26T10:38:12.011634+00:00",
+  "timestamp": "2026-03-26T12:49:28.895415+00:00",
   "symbol": "INFY.NS",
   "hyperparameters": {
     "symbol": "INFY.NS",
@@ -11,15 +11,6 @@
       "low",
       "close",
       "volume",
-      "CPI",
-      "WPI",
-      "IIP",
-      "FII_FLOW",
-      "FX_RESERVES",
-      "INDIA_US_10Y_SPREAD",
-      "RBI_BULLETIN",
-      "REPO_RATE",
-      "US_10Y",
       "usdinr_close",
       "usdinr_return",
       "usdinr_zscore",
@@ -39,18 +30,20 @@
       "macd",
       "macd_signal",
       "macd_hist",
-      "CPI_z",
-      "WPI_z",
-      "IIP_z",
-      "FII_FLOW_z",
-      "FX_RESERVES_z",
-      "INDIA_US_10Y_SPREAD_z",
-      "REPO_RATE_z",
-      "US_10Y_z",
       "macro_coverage_ratio",
       "macro_regime_index",
       "macro_regime_shock",
       "macro_directional_flag",
+      "daily_ma_20",
+      "daily_ma_50",
+      "daily_ma_200",
+      "daily_rsi",
+      "daily_bollinger_upper",
+      "daily_bollinger_lower",
+      "daily_bollinger_width",
+      "daily_adx",
+      "daily_trend_strength",
+      "daily_trend_bullish",
       "returns",
       "vol_regime",
       "return_zscore",
@@ -58,63 +51,64 @@
       "arima_forecast",
       "arima_residual"
     ],
+    "include_daily_features": true,
     "neutral_threshold": 0.005,
     "use_binary": false,
     "confidence_threshold": 0.5499999999999999,
     "class_weight_dict": {
-      "0": 2.6231884057971016,
-      "1": 0.5857605177993528,
-      "2": 1.9944903581267217
+      "0": 9.256410256410257,
+      "1": 0.21386255924170616,
+      "2": 5.918032786885246
     }
   },
-  "epochs_requested": 30,
-  "epochs_run": 20,
+  "epochs_requested": 8,
+  "epochs_run": 8,
   "split_counts": {
-    "train": 362,
-    "val": 285,
-    "test": 286
+    "train": 1083,
+    "val": 516,
+    "test": 517
   },
   "class_distribution_pct": {
     "train": {
-      "up": 38.12154696132597,
-      "neutral": 28.45303867403315,
-      "down": 33.42541436464088
+      "up": 10.80332409972299,
+      "neutral": 77.93167128347184,
+      "down": 11.265004616805172
     },
     "val": {
-      "up": 35.43859649122807,
-      "neutral": 34.03508771929825,
-      "down": 30.526315789473685
+      "up": 7.945736434108527,
+      "neutral": 84.10852713178295,
+      "down": 7.945736434108527
     },
     "test": {
-      "up": 32.16783216783217,
-      "neutral": 30.419580419580424,
-      "down": 37.41258741258741
+      "up": 9.477756286266924,
+      "neutral": 79.3036750483559,
+      "down": 11.218568665377177
     }
   },
   "metrics": {
-    "train_loss": 0.9137323054160861,
-    "val_loss": 0.9541552183920877,
-    "train_accuracy": 0.4419889502762431,
-    "val_accuracy": 0.34385964912280703,
-    "test_accuracy": 0.32867132867132864,
-    "best_val_f1": 0.1860507265728763,
-    "sharpe": -0.3667286646905626,
-    "max_drawdown": -0.13644856214523315,
-    "win_rate": 0.5370370370370371,
+    "train_loss": 0.9539169655392155,
+    "val_loss": 1.000695224880248,
+    "train_accuracy": 0.7793167128347184,
+    "val_accuracy": 0.8410852713178295,
+    "test_accuracy": 0.5183752417794971,
+    "best_val_f1": 0.768486332109343,
+    "sharpe": 0.32148515498855035,
+    "max_drawdown": -0.050876617431640625,
+    "win_rate": 0.494949494949495,
     "confusion_matrix": [
       [
-        21,
-        71,
+        18,
+        31,
         0
       ],
       [
-        14,
-        73,
+        160,
+        250,
         0
       ],
       [
-        19,
-        88,
+        20,
+        38,
         0
       ]
     ]

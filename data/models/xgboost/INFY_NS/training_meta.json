@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-26T10:39:04.764751+00:00",
+  "timestamp": "2026-03-26T12:50:04.047262+00:00",
   "symbol": "INFY.NS",
   "split_counts": {
     "train": 2483,
@@ -17,6 +17,8 @@
       "lstm_prob_down",
       "lstm_prob_neutral",
       "lstm_prob_up",
+      "daily_trend_bullish",
+      "daily_trend_up_neutralized",
       "tech_open",
       "tech_high",
       "tech_low",
@@ -58,6 +60,16 @@
       "tech_macro_regime_index",
       "tech_macro_regime_shock",
       "tech_macro_directional_flag",
+      "tech_daily_ma_20",
+      "tech_daily_ma_50",
+      "tech_daily_ma_200",
+      "tech_daily_rsi",
+      "tech_daily_bollinger_upper",
+      "tech_daily_bollinger_lower",
+      "tech_daily_bollinger_width",
+      "tech_daily_adx",
+      "tech_daily_trend_strength",
+      "tech_daily_trend_bullish",
       "hmm_regime",
       "regime_shift_flag",
       "cnn_up_reliable",
@@ -78,37 +90,36 @@
     }
   },
   "metrics": {
-    "test_accuracy": 0.4526112185686654,
-    "directional_accuracy": 0.2803738317757009,
-    "up_precision": 0.06382978723404255,
-    "up_recall": 0.12244897959183673,
-    "up_f1": 0.08391608391608392,
+    "test_accuracy": 0.6247582205029013,
+    "directional_accuracy": 0.205607476635514,
+    "up_precision": 0.14473684210526316,
+    "up_recall": 0.22448979591836735,
+    "up_f1": 0.176,
     "up_support": 49,
-    "down_precision": 0.13114754098360656,
-    "down_recall": 0.41379310344827586,
-    "down_f1": 0.1991701244813278,
+    "down_precision": 0.14666666666666667,
+    "down_recall": 0.1896551724137931,
+    "down_f1": 0.16541353383458646,
     "down_support": 58,
     "test_confusion_matrix": [
       [
-        24,
-        18,
-        16
+        11,
+        36,
+        11
       ],
       [
-        134,
-        204,
-        72
+        55,
+        301,
+        54
       ],
       [
-        25,
-        18,
-        6
+        9,
+        29,
+        11
       ]
     ],
-    "best_iteration": 498,
+    "best_iteration": 492,
     "gate_passed": false,
     "gate_reasons": [
-      "Low directional recall (< 15%)",
       "Directional accuracy <= 40%"
     ]
   }

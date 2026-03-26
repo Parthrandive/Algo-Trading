@@ -152,7 +152,8 @@ def load_symbol_from_local_silver(symbol: str, base_dir: str) -> pd.DataFrame:
     if "symbol" not in df.columns:
         df["symbol"] = symbol
     if "timestamp" in df.columns:
-        df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+        df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+        df["timestamp"] = df["timestamp"].astype("datetime64[ns, UTC]")
     return df
 
 
@@ -162,6 +163,7 @@ def prepare_usdinr_features(df_usdinr: pd.DataFrame) -> pd.DataFrame:
 
     frame = df_usdinr.copy()
     frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True, errors="coerce")
+    frame["timestamp"] = frame["timestamp"].astype("datetime64[ns, UTC]")
     frame["close"] = pd.to_numeric(frame["close"], errors="coerce")
     frame = frame.dropna(subset=["timestamp", "close"]).sort_values("timestamp").drop_duplicates(
         subset=["timestamp"],
@@ -220,11 +222,18 @@ def merge_usdinr_features(df: pd.DataFrame, fx_context: pd.DataFrame) -> pd.Data
 
     target = df.copy()
     target["timestamp"] = pd.to_datetime(target["timestamp"], utc=True, errors="coerce")
+    target["timestamp"] = target["timestamp"].astype("datetime64[ns, UTC]")
     target = target.dropna(subset=["timestamp"]).sort_values("timestamp").drop_duplicates(subset=["timestamp"], keep="last")
+    fx_frame = fx_context.copy()
+    fx_frame["timestamp"] = pd.to_datetime(fx_frame["timestamp"], utc=True, errors="coerce")
+    fx_frame["timestamp"] = fx_frame["timestamp"].astype("datetime64[ns, UTC]")
+    fx_frame = fx_frame.dropna(subset=["timestamp"]).sort_values("timestamp").drop_duplicates(
+        subset=["timestamp"], keep="last"
+    )
 
     merged = pd.merge_asof(
         target,
-        fx_context.sort_values("timestamp"),
+        fx_frame,
         on="timestamp",
         direction="backward",
     )
@@ -947,8 +956,15 @@ def train_single_symbol(
             val_acc,
         )
 
-    torch.save(model.state_dict(), symbol_dir / "hybrid_cnn_lstm_weights.pt")
-    with open(symbol_dir / "feature_scaler.pkl", "wb") as f:
+    weights_path = symbol_dir / "hybrid_cnn_lstm_weights.pt"
+    weights_path.parent.mkdir(parents=True, exist_ok=True)
+    if weights_path.exists() or weights_path.is_symlink():
+        weights_path.unlink()
+    torch.save(model.state_dict(), str(weights_path))
+    scaler_path = symbol_dir / "feature_scaler.pkl"
+    if scaler_path.exists() or scaler_path.is_symlink():
+        scaler_path.unlink()
+    with open(scaler_path, "wb") as f:
         pickle.dump(scaler, f)
 
     hyperparams = {
@@ -962,7 +978,10 @@ def train_single_symbol(
         "confidence_threshold": best_threshold,
         "class_weight_dict": class_weight_dict,
     }
-    with open(symbol_dir / "hyperparams.json", "w", encoding="utf-8") as f:
+    hyperparams_path = symbol_dir / "hyperparams.json"
+    if hyperparams_path.exists() or hyperparams_path.is_symlink():
+        hyperparams_path.unlink()
+    with open(hyperparams_path, "w", encoding="utf-8") as f:
         json.dump(hyperparams, f, indent=2)
 
     training_meta = {

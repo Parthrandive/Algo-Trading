@@ -6,12 +6,14 @@
   ],
   "window_size": 10,
   "learning_rate": 0.001,
-  "epochs_run": 40,
+  "epochs_run": 20,
   "batch_size": 128,
   "patience": 15,
   "seed": 42,
   "class_threshold": 0.005,
-  "min_neutral_ratio": 0.2,
-  "max_neutral_ratio": 0.35,
-  "target_neutral_ratio": 0.25
+  "min_neutral_ratio": 0.15,
+  "max_neutral_ratio": 0.2,
+  "target_neutral_ratio": 0.175,
+  "include_daily_features": true,
+  "apply_daily_trend_filter": true
 }
