@@ -1,11 +1,11 @@
 {
-  "timestamp": "2026-03-23T17:45:58.471685+00:00",
+  "timestamp": "2026-03-26T10:38:34.637092+00:00",
   "symbol": "GLOBAL",
   "trained_on": [
     "RELIANCE.NS",
     "TATASTEEL.NS",
-    "TCS.NS",
     "INFY.NS",
+    "TCS.NS",
     "HDFCBANK.NS"
   ],
   "hyperparameters": {
@@ -20,11 +20,14 @@
     "batch_size": 128,
     "patience": 15,
     "seed": 42,
-    "class_threshold": 0.005
+    "class_threshold": 0.005,
+    "min_neutral_ratio": 0.2,
+    "max_neutral_ratio": 0.35,
+    "target_neutral_ratio": 0.25
   },
   "metrics": {
-    "final_train_loss": 3.220322060152967e-05,
-    "best_train_loss": 3.220322060152967e-05,
-    "best_val_loss": 1.985498580272958e-05
+    "final_train_loss": 4.0203247364019216e-05,
+    "best_train_loss": 3.8624936836408933e-05,
+    "best_val_loss": 2.531101609427077e-05
   }
 }

@@ -10,5 +10,8 @@
   "batch_size": 128,
   "patience": 15,
   "seed": 42,
-  "class_threshold": 0.005
+  "class_threshold": 0.005,
+  "min_neutral_ratio": 0.2,
+  "max_neutral_ratio": 0.35,
+  "target_neutral_ratio": 0.25
 }

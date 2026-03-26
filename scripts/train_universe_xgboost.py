@@ -47,13 +47,13 @@ CLASS_DOWN = 0
 CLASS_NEUTRAL = 1
 CLASS_UP = 2
 ANNUALIZATION_1H = int(252.0 * 6.0)
-COST_PER_SIDE = 0.0003
+COST_PER_SIDE = 0.0010  # 10 bps per side (20 bps round trip)
 
 def compute_backtest_metrics(
     probs: np.ndarray,
     actual_next_log_returns: np.ndarray,
     threshold: float | None = None,
-    min_hold_bars: int = 3,
+    min_hold_bars: int = 0,
 ) -> dict[str, float]:
     probabilities = np.asarray(probs, dtype=np.float64)
     confidence_threshold = float(threshold if threshold is not None else 0.0)
@@ -377,7 +377,13 @@ def main():
         valid_val = val_df[val_df["y_label"] >= 0]
         valid_test = test_df[test_df["y_label"] >= 0]
         
-        feature_cols = [c for c in train_df.columns if c not in ("timestamp", "split", "y_label", "actual_next_log_return")]
+        feature_cols = [
+            c for c in train_df.columns 
+            if c not in (
+                "timestamp", "split", "y_label", "actual_next_log_return", 
+                "actual_return", "class_threshold", "predicted_label", "lstm_final_score"
+            )
+        ]
         
         X_train = np.ascontiguousarray(valid_train[feature_cols].to_numpy(dtype=np.float32))
         y_train = np.ascontiguousarray(valid_train["y_label"].to_numpy(dtype=np.int64))
@@ -386,7 +392,12 @@ def main():
         X_test = np.ascontiguousarray(valid_test[feature_cols].to_numpy(dtype=np.float32))
         y_test = np.ascontiguousarray(valid_test["y_label"].to_numpy(dtype=np.int64))
         
-        sample_weight = np.ascontiguousarray(compute_sample_weight(class_weight="balanced", y=y_train).astype(np.float32))
+        # Compute balanced weights, then boost directional classes to fight neutral bias
+        base_sw = compute_sample_weight(class_weight="balanced", y=y_train)
+        sw = np.copy(base_sw)
+        sw[y_train == CLASS_UP] *= 3.0
+        sw[y_train == CLASS_DOWN] *= 2.0
+        sample_weight = np.ascontiguousarray(sw.astype(np.float32))
         
         xgb = XGBClassifier(
             n_estimators=500, max_depth=4, learning_rate=0.03, subsample=0.8, colsample_bytree=0.8,
@@ -406,19 +417,40 @@ def main():
             trade_stats = compute_backtest_metrics(
                 probs=probs_test,
                 actual_next_log_returns=valid_test["actual_next_log_return"].to_numpy(dtype=np.float64),
-                threshold=args.class_threshold
+                threshold=args.class_threshold,
+                min_hold_bars=0
             )
+            
+            gate_failed = False
+            gate_reasons = []
+            if cls_metrics["up_recall"] < 0.15 or cls_metrics["down_recall"] < 0.15:
+                gate_failed = True
+                gate_reasons.append("Low directional recall (< 15%)")
+            if cls_metrics["directional_accuracy"] <= 0.40:
+                gate_failed = True
+                gate_reasons.append("Directional accuracy <= 40%")
+            if getattr(xgb, "best_iteration", 0) < 20:
+                gate_failed = True
+                gate_reasons.append(f"Early stopping too early (best_iteration < 20)")
+                
+            gate_status = "FAILED" if gate_failed else "PASSED"
+            
             logger.info(
-                "[%s] XGBoost Test Acc: %.4f | Sharpe: %.4f | Drawdown: %.4f | WinRate: %.4f",
+                "[%s] XGBoost Test Acc: %.4f | Sharpe: %.4f | Drawdown: %.4f | WinRate: %.4f | Gates: %s",
                 symbol,
                 cls_metrics["test_accuracy"],
                 trade_stats["sharpe"],
                 trade_stats["max_drawdown"],
-                trade_stats["win_rate"]
+                trade_stats["win_rate"],
+                gate_status
             )
+            if gate_failed:
+                logger.warning("[%s] Gate failure reasons: %s", symbol, ", ".join(gate_reasons))
         else:
             probs_test = np.empty((0, 3), dtype=np.float32)
             y_pred_test = np.empty((0,), dtype=np.int64)
+            gate_failed = True
+            gate_reasons = ["No test data"]
             cls_metrics = {
                 "test_accuracy": 0.0,
                 "directional_accuracy": 0.0,
@@ -479,6 +511,8 @@ def main():
                 "metrics": {
                     **cls_metrics,
                     "best_iteration": int(getattr(xgb, "best_iteration", 0) or 0),
+                    "gate_passed": not gate_failed,
+                    "gate_reasons": gate_reasons,
                 },
             },
         )

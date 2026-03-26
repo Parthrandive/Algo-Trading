@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-25T17:00:30.309944+00:00",
+  "timestamp": "2026-03-26T10:39:10.202776+00:00",
   "symbol": "TATASTEEL.NS",
   "split_counts": {
     "train": 2483,
@@ -17,10 +17,6 @@
       "lstm_prob_down",
       "lstm_prob_neutral",
       "lstm_prob_up",
-      "predicted_label",
-      "lstm_final_score",
-      "actual_return",
-      "class_threshold",
       "tech_open",
       "tech_high",
       "tech_low",
@@ -82,33 +78,38 @@
     }
   },
   "metrics": {
-    "test_accuracy": 0.539651837524178,
-    "directional_accuracy": 0.06018518518518518,
-    "up_precision": 0.25,
-    "up_recall": 0.009174311926605505,
-    "up_f1": 0.017699115044247787,
-    "up_support": 109,
-    "down_precision": 0.1935483870967742,
-    "down_recall": 0.11214953271028037,
-    "down_f1": 0.14201183431952663,
-    "down_support": 107,
+    "test_accuracy": 0.7350096711798839,
+    "directional_accuracy": 0.056910569105691054,
+    "up_precision": 0.0,
+    "up_recall": 0.0,
+    "up_f1": 0.0,
+    "up_support": 62,
+    "down_precision": 0.21212121212121213,
+    "down_recall": 0.11475409836065574,
+    "down_f1": 0.14893617021276595,
+    "down_support": 61,
     "test_confusion_matrix": [
       [
-        12,
-        93,
-        2
+        7,
+        54,
+        0
       ],
       [
-        34,
-        266,
-        1
+        21,
+        373,
+        0
       ],
       [
-        16,
-        92,
-        1
+        5,
+        57,
+        0
       ]
     ],
-    "best_iteration": 113
+    "best_iteration": 497,
+    "gate_passed": false,
+    "gate_reasons": [
+      "Low directional recall (< 15%)",
+      "Directional accuracy <= 40%"
+    ]
   }
 }

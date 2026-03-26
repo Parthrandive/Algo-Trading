@@ -470,6 +470,12 @@ def compute_class_weights(
             UP_WEIGHT_MULTIPLIER,
         )
 
+    # Force directional stance by boosting UP and DOWN, and suppressing NEUTRAL
+    class_weight_dict[up_idx] = float(class_weight_dict.get(up_idx, 1.0) * 3.0)
+    class_weight_dict[down_idx] = float(class_weight_dict.get(down_idx, 1.0) * 2.0)
+    if neutral_idx is not None:
+        class_weight_dict[neutral_idx] = float(class_weight_dict.get(neutral_idx, 1.0) * 0.5)
+
     full_weights = torch.ones(num_classes, dtype=torch.float32)
     for cls, weight in class_weight_dict.items():
         full_weights[cls] = float(weight)

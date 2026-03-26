@@ -1,0 +1,148 @@
+{
+  "run_id": "phase3_offline_20260326T104930Z",
+  "symbol": "RELIANCE.NS",
+  "start": "2024-03-26T03:45:00+00:00",
+  "end": "2026-03-23T09:45:00+00:00",
+  "reward_name": "ra_drl_composite",
+  "dataset": {
+    "symbol": "RELIANCE.NS",
+    "price_rows": 3576,
+    "interval": "1h",
+    "price_source": "ohlcv",
+    "observation_source": "ohlcv_fallback",
+    "observation_rows": 3576,
+    "price_alignment_rows": 3576
+  },
+  "algorithms": [
+    "SAC",
+    "PPO",
+    "TD3"
+  ],
+  "results": [
+    {
+      "algorithm": "SAC",
+      "policy_id": "phase3_sac_teacher_v1",
+      "checkpoint_path": "data/models/strategic/offline_runs/phase3_offline_20260326T104930Z/phase3_sac_teacher_v1/checkpoint.pt",
+      "episodes": 1,
+      "total_steps": 1200,
+      "duration_seconds": 2.727193,
+      "metrics": {
+        "episode_reward": -225.67748008018955,
+        "cumulative_return": -0.047444025198988826,
+        "mean_step_return": -8.555267114104092e-06,
+        "sharpe": -0.04278595891062455,
+        "sortino": -0.042565207457879374,
+        "calmar": -0.00980435026873526,
+        "max_drawdown": 0.21989497046318207,
+        "win_rate": 0.4934265734265734,
+        "ra_drl_objective": -0.05656939162300303,
+        "final_portfolio_value": 952555.9748010107,
+        "train_episode_reward_mean": 0.0,
+        "critic_loss_mean": 0.0486213294044137,
+        "actor_loss_mean": -7.022725005149841,
+        "alpha_loss_mean": 14.710295476913451
+      },
+      "params": {
+        "learning_rate": 0.0003,
+        "gamma": 0.99,
+        "buffer_size": 150000,
+        "batch_size": 256,
+        "tau": 0.005,
+        "hidden_dims": [
+          256,
+          256
+        ],
+        "learning_starts": 1000,
+        "gradient_steps": 1,
+        "alpha_init": 0.2,
+        "seed": 42,
+        "device": "cpu"
+      }
+    },
+    {
+      "algorithm": "PPO",
+      "policy_id": "phase3_ppo_teacher_v1",
+      "checkpoint_path": "data/models/strategic/offline_runs/phase3_offline_20260326T104930Z/phase3_ppo_teacher_v1/checkpoint.pt",
+      "episodes": 1,
+      "total_steps": 1200,
+      "duration_seconds": 0.939485,
+      "metrics": {
+        "episode_reward": -185.14147126323473,
+        "cumulative_return": 0.0025584710816723977,
+        "mean_step_return": 5.754204177041154e-06,
+        "sharpe": 0.028766375664766957,
+        "sortino": 0.028636226213853585,
+        "calmar": 0.007385621538174717,
+        "max_drawdown": 0.19633546684179792,
+        "win_rate": 0.4976223776223776,
+        "ra_drl_objective": -0.05066581963590434,
+        "final_portfolio_value": 1002558.4710816822,
+        "train_episode_reward_mean": 0.0,
+        "policy_loss_mean": 0.2955503323115408,
+        "value_loss_mean": 28.285052195598837,
+        "entropy_mean": 1.4196699634194374
+      },
+      "params": {
+        "learning_rate": 0.0003,
+        "gamma": 0.99,
+        "gae_lambda": 0.95,
+        "n_steps": 1024,
+        "batch_size": 128,
+        "update_epochs": 8,
+        "clip_range": 0.2,
+        "ent_coef": 0.01,
+        "vf_coef": 0.5,
+        "max_grad_norm": 0.5,
+        "hidden_dims": [
+          256,
+          256
+        ],
+        "seed": 42,
+        "device": "cpu"
+      }
+    },
+    {
+      "algorithm": "TD3",
+      "policy_id": "phase3_td3_teacher_v1",
+      "checkpoint_path": "data/models/strategic/offline_runs/phase3_offline_20260326T104930Z/phase3_td3_teacher_v1/checkpoint.pt",
+      "episodes": 1,
+      "total_steps": 1200,
+      "duration_seconds": 1.340199,
+      "metrics": {
+        "episode_reward": -225.67748008018955,
+        "cumulative_return": -0.047444025198988826,
+        "mean_step_return": -8.555267114104092e-06,
+        "sharpe": -0.04278595891062455,
+        "sortino": -0.042565207457879374,
+        "calmar": -0.00980435026873526,
+        "max_drawdown": 0.21989497046318207,
+        "win_rate": 0.4934265734265734,
+        "ra_drl_objective": -0.05656939162300303,
+        "final_portfolio_value": 952555.9748010107,
+        "train_episode_reward_mean": 0.0,
+        "critic_loss_mean": 0.03076593132689595,
+        "actor_loss_mean": 14.358971898555756
+      },
+      "params": {
+        "learning_rate": 0.001,
+        "gamma": 0.99,
+        "buffer_size": 150000,
+        "batch_size": 256,
+        "tau": 0.005,
+        "policy_delay": 2,
+        "target_policy_noise": 0.2,
+        "noise_clip": 0.5,
+        "exploration_noise": 0.1,
+        "learning_starts": 1000,
+        "hidden_dims": [
+          256,
+          256
+        ],
+        "seed": 42,
+        "device": "cpu"
+      }
+    }
+  ],
+  "code_hash": "892a10116f00a52187c5cf64909168c8f91f2156",
+  "db_write_enabled": true
+}

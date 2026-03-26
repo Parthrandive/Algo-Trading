@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-25T17:00:29.097192+00:00",
+  "timestamp": "2026-03-26T10:39:06.384208+00:00",
   "symbol": "TCS.NS",
   "split_counts": {
     "train": 2480,
@@ -17,10 +17,6 @@
       "lstm_prob_down",
       "lstm_prob_neutral",
       "lstm_prob_up",
-      "predicted_label",
-      "lstm_final_score",
-      "actual_return",
-      "class_threshold",
       "tech_open",
       "tech_high",
       "tech_low",
@@ -82,33 +78,38 @@
     }
   },
   "metrics": {
-    "test_accuracy": 0.32751937984496127,
-    "directional_accuracy": 0.3821138211382114,
-    "up_precision": 0.1950207468879668,
-    "up_recall": 0.4351851851851852,
-    "up_f1": 0.2693409742120344,
-    "up_support": 108,
-    "down_precision": 0.29375,
-    "down_recall": 0.34057971014492755,
-    "down_f1": 0.31543624161073824,
-    "down_support": 138,
+    "test_accuracy": 0.936046511627907,
+    "directional_accuracy": 0.047619047619047616,
+    "up_precision": 0.0,
+    "up_recall": 0.0,
+    "up_f1": 0.0,
+    "up_support": 8,
+    "down_precision": 0.06666666666666667,
+    "down_recall": 0.07692307692307693,
+    "down_f1": 0.07142857142857142,
+    "down_support": 13,
     "test_confusion_matrix": [
       [
-        47,
-        18,
-        73
+        1,
+        12,
+        0
       ],
       [
-        74,
-        75,
-        121
+        13,
+        482,
+        0
       ],
       [
-        39,
-        22,
-        47
+        1,
+        7,
+        0
       ]
     ],
-    "best_iteration": 41
+    "best_iteration": 499,
+    "gate_passed": false,
+    "gate_reasons": [
+      "Low directional recall (< 15%)",
+      "Directional accuracy <= 40%"
+    ]
   }
 }

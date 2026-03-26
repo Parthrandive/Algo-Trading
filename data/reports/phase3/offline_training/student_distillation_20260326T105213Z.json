@@ -1,0 +1,20 @@
+{
+  "run_at_utc": "2026-03-26T10:52:12.517979+00:00",
+  "window": {
+    "start": "2024-03-26T03:45:00+00:00",
+    "end": "2026-03-23T09:45:00+00:00"
+  },
+  "method": "offline_linear_distillation_lstsq",
+  "results": [
+    {
+      "symbol": "RELIANCE.NS",
+      "status": "skipped",
+      "reason": "insufficient_observations"
+    },
+    {
+      "symbol": "TCS.NS",
+      "status": "skipped",
+      "reason": "insufficient_observations"
+    }
+  ]
+}
