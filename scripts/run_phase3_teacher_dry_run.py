@@ -87,6 +87,34 @@ def _resolve_latest_phase2_timestamp(symbols: list[str], database_url: str | Non
     return max(latest_candidates)
 
 
+def _resolve_window(
+    *,
+    start_raw: str | None,
+    end_raw: str | None,
+    symbols: list[str],
+    database_url: str | None,
+    auto_window_days: int,
+) -> tuple[datetime, datetime, str]:
+    if auto_window_days < 1:
+        raise ValueError("auto-window-days must be >= 1.")
+
+    window_mode = "explicit"
+    if start_raw and end_raw:
+        start = _parse_datetime(start_raw)
+        end = _parse_datetime(end_raw)
+    elif start_raw or end_raw:
+        raise ValueError("Provide both --start and --end, or omit both to use auto window mode.")
+    else:
+        end = _resolve_latest_phase2_timestamp(symbols, database_url)
+        start = end - timedelta(days=auto_window_days)
+        window_mode = "auto_latest_phase2"
+
+    if end < start:
+        raise ValueError("end must be greater than or equal to start.")
+
+    return start, end, window_mode
+
+
 def _json_safe(value: object) -> object:
     if isinstance(value, datetime):
         if value.tzinfo is None:
@@ -162,8 +190,27 @@ def build_parser() -> argparse.ArgumentParser:
         )
     )
     parser.add_argument("--symbols", required=True, help="Comma-separated symbols (e.g. RELIANCE.NS,TCS.NS).")
-    parser.add_argument("--start", required=True, help="ISO8601 start timestamp (UTC recommended).")
-    parser.add_argument("--end", required=True, help="ISO8601 end timestamp (UTC recommended).")
+    parser.add_argument(
+        "--start",
+        required=False,
+        default=None,
+        help="ISO8601 start timestamp (UTC recommended). Optional when using auto window mode.",
+    )
+    parser.add_argument(
+        "--end",
+        required=False,
+        default=None,
+        help="ISO8601 end timestamp (UTC recommended). Optional when using auto window mode.",
+    )
+    parser.add_argument(
+        "--auto-window-days",
+        type=int,
+        default=7,
+        help=(
+            "When --start/--end are omitted, resolve the latest Phase 2 timestamp and run the "
+            "trailing N-day window (default: 7)."
+        ),
+    )
     parser.add_argument("--database-url", default=None, help="Optional SQLAlchemy database URL override.")
     parser.add_argument("--policy-id", default="teacher_placeholder_v0", help="Placeholder teacher policy id.")
     parser.add_argument("--batch-size", type=int, default=500, help="Observation materialization batch size.")
@@ -270,10 +317,13 @@ def main() -> int:
     symbols = _parse_symbols(args.symbols)
     if not symbols:
         raise ValueError("No symbols provided.")
-    start = _parse_datetime(args.start)
-    end = _parse_datetime(args.end)
-    if end < start:
-        raise ValueError("end must be greater than or equal to start.")
+    start, end, window_mode = _resolve_window(
+        start_raw=args.start,
+        end_raw=args.end,
+        symbols=symbols,
+        database_url=args.database_url,
+        auto_window_days=int(args.auto_window_days),
+    )
 
     run_started = utc_now()
     run_id = f"phase3_week1_dry_run_{run_started.strftime('%Y%m%dT%H%M%SZ')}"
@@ -924,7 +974,12 @@ def main() -> int:
         actions_generated=len(actions),
         code_hash=resolve_code_hash(),
         dataset_snapshot={
-            "phase2_window": {"start": start.isoformat(), "end": end.isoformat()},
+            "phase2_window": {
+                "mode": window_mode,
+                "start": start.isoformat(),
+                "end": end.isoformat(),
+                "auto_window_days": int(args.auto_window_days) if window_mode != "explicit" else None,
+            },
             "per_symbol_observation_rows": per_symbol_counts,
             "warn_quality_rows": warn_count,
         },
@@ -955,6 +1010,12 @@ def main() -> int:
     summary = {
         "run_id": run_id,
         "symbols": symbols,
+        "window": {
+            "mode": window_mode,
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "auto_window_days": int(args.auto_window_days) if window_mode != "explicit" else None,
+        },
         "rows_built": len(observations),
         "rows_materialized": 0 if args.no_materialize_observations else len(observations),
         "actions_generated": len(actions),
