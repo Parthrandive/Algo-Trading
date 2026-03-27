@@ -9,6 +9,17 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from src.agents.strategic.schemas import ActionType, RiskMode
 
 
+class CrisisState(str, Enum):
+    NORMAL = "normal"
+    FULL_CRISIS = "full_crisis"
+    AGENT_DIVERGENCE = "agent_divergence"
+    SLOW_CRASH = "slow_crash"
+    FEED_FREEZE = "feed_freeze"
+    NEGATIVE_SENTIMENT = "negative_sentiment"
+    OOD_WARNING = "ood_warning"
+    OOD_ALIEN = "ood_alien"
+
+
 class RiskTriggerLayer(str, Enum):
     L1_MODEL = "l1_model"
     L2_PORTFOLIO = "l2_portfolio"
@@ -27,6 +38,18 @@ class RiskTriggerCode(str, Enum):
     REJECTION_RATE_BREACH = "rejection_rate_breach"
     MANUAL_KILL_SWITCH = "manual_kill_switch"
     RECOVERY_STEP = "recovery_step"
+    CRISIS_ENTRY = "crisis_entry"
+    CRISIS_TIMEOUT_CLEAR = "crisis_timeout_clear"
+    AGENT_DIVERGENCE = "agent_divergence"
+    RE_RISK_STEP = "re_risk_step"
+    SLOW_CRASH = "slow_crash"
+    FEED_FREEZE = "feed_freeze"
+    NEGATIVE_SENTIMENT_SPIKE = "negative_sentiment_spike"
+    SENTIMENT_PRICE_MISMATCH = "sentiment_price_mismatch"
+    OOD_WARNING = "ood_warning"
+    OOD_ALIEN = "ood_alien"
+    OOD_HARD_LIMIT_BREACH = "ood_hard_limit_breach"
+    RISK_CAP_CHANGE = "risk_cap_change"
 
 
 class ModelRiskSnapshot(BaseModel):
@@ -58,11 +81,40 @@ class BrokerRiskSnapshot(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+class CrisisRiskSnapshot(BaseModel):
+    realized_vol: float = Field(default=0.0, ge=0.0)
+    baseline_vol: float = Field(default=1.0, gt=0.0)
+    liquidity_score: float = Field(default=1.0, ge=0.0, le=1.0)
+    agent_confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    major_agent_disagreement_count: int = Field(default=0, ge=0)
+    drawdown_velocity: float = Field(default=0.0, ge=0.0)
+    feed_staleness_seconds: float = Field(default=0.0, ge=0.0)
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class SentimentRiskSnapshot(BaseModel):
+    z_t: float | None = None
+    sentiment_score: float | None = None
+    price_return: float = 0.0
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class OODRiskSnapshot(BaseModel):
+    warning: bool = False
+    alien: bool = False
+    provenance_reliability: float = Field(default=1.0, ge=0.0, le=1.0)
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
 class RecoveryRequest(BaseModel):
     requested: bool = False
     all_conditions_resolved: bool = False
     operator_acknowledged: bool = False
     clear_manual_override: bool = False
+    confirmed_alignment: bool = False
     requested_by: str | None = None
     note: str | None = None
 
@@ -75,6 +127,9 @@ class RiskEvaluationInput(BaseModel):
     model: ModelRiskSnapshot = Field(default_factory=ModelRiskSnapshot)
     portfolio: PortfolioRiskSnapshot = Field(default_factory=PortfolioRiskSnapshot)
     broker: BrokerRiskSnapshot = Field(default_factory=BrokerRiskSnapshot)
+    crisis: CrisisRiskSnapshot = Field(default_factory=CrisisRiskSnapshot)
+    sentiment: SentimentRiskSnapshot = Field(default_factory=SentimentRiskSnapshot)
+    ood: OODRiskSnapshot = Field(default_factory=OODRiskSnapshot)
     recovery: RecoveryRequest = Field(default_factory=RecoveryRequest)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -115,9 +170,15 @@ class RiskAssessment(BaseModel):
     mode: RiskMode
     previous_mode: RiskMode
     approved: bool
+    crisis_state: CrisisState = CrisisState.NORMAL
     veto_reason: str | None = None
     trigger_events: tuple[RiskTriggerEvent, ...] = ()
     permitted_actions: tuple[ActionType, ...] = ()
+    exposure_cap: float = Field(default=1.0, ge=0.0, le=1.0)
+    crisis_weight_cap: float = Field(default=0.70, ge=0.0, le=1.0)
+    rerisk_budget_fraction: float = Field(default=1.0, ge=0.0, le=1.0)
+    neutral_hold_active: bool = False
+    hedge_bias: float = Field(default=0.0, ge=0.0, le=1.0)
     recovery_active: bool = False
     recovery_reason: str | None = None
     source_service: str = "independent_risk_overseer"

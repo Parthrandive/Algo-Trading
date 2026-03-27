@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from statistics import mean
 from typing import Iterable
 
+from src.agents.risk_overseer.schemas import RiskAssessment
 from src.agents.strategic.config import EnsembleConfig
 from src.agents.strategic.schemas import (
     ActionType,
@@ -50,6 +51,7 @@ class MaxEntropyEnsemble:
         teacher_actions: Iterable[PolicyAction],
         *,
         threshold: ThresholdCandidate | None = None,
+        risk_assessment: RiskAssessment | None = None,
     ) -> EnsembleDecision:
         actions = tuple(teacher_actions)
         if not actions:
@@ -58,6 +60,8 @@ class MaxEntropyEnsemble:
             raise ValueError("teacher actions are blocked from Fast Loop usage")
 
         weights = self._compute_weights(actions, observation)
+        if risk_assessment is not None:
+            weights = self._apply_risk_assessment(weights, risk_assessment)
         signed_action = sum(_ACTION_SIGN[action.action] * weight.weight for action, weight in zip(actions, weights))
         weighted_size = sum(action.action_size * weight.weight for action, weight in zip(actions, weights))
         combined_confidence = sum(action.confidence * weight.weight for action, weight in zip(actions, weights))
@@ -65,9 +69,9 @@ class MaxEntropyEnsemble:
         action = self._map_signed_action_to_enum(signed_action, combined_confidence, selected_threshold)
         dominant = max(weights, key=lambda item: item.weight)
         rationale = self._build_rationale(observation, signed_action, combined_confidence, dominant.policy_id)
-        risk_mode = self._resolve_risk_mode(observation)
+        risk_mode = self._resolve_risk_mode(observation, risk_assessment)
         mode = "divergence_hold" if observation.agent_divergence else "crisis" if observation.crisis_mode else "default"
-        final_size = self._final_action_size(action, weighted_size, combined_confidence, observation)
+        final_size = self._final_action_size(action, weighted_size, combined_confidence, observation, risk_assessment)
 
         return EnsembleDecision(
             timestamp=observation.timestamp,
@@ -86,6 +90,8 @@ class MaxEntropyEnsemble:
                 "signed_action": signed_action,
                 "weighted_action_size": weighted_size,
                 "teacher_policy_count": len(actions),
+                "risk_overlay_exposure_cap": risk_assessment.exposure_cap if risk_assessment else 1.0,
+                "risk_overlay_state": risk_assessment.crisis_state.value if risk_assessment else "none",
             },
         )
 
@@ -173,13 +179,20 @@ class MaxEntropyEnsemble:
             return ActionType.REDUCE
         return ActionType.HOLD
 
-    def _resolve_risk_mode(self, observation: StrategicObservation) -> RiskMode:
+    def _resolve_risk_mode(
+        self,
+        observation: StrategicObservation,
+        risk_assessment: RiskAssessment | None = None,
+    ) -> RiskMode:
         regime = observation.regime_state.strip().lower()
+        inferred = RiskMode.NORMAL
         if observation.crisis_mode or regime == "crisis":
-            return RiskMode.CLOSE_ONLY
-        if observation.agent_divergence or regime == "alien":
-            return RiskMode.REDUCE_ONLY
-        return RiskMode.NORMAL
+            inferred = RiskMode.CLOSE_ONLY
+        elif observation.agent_divergence or regime == "alien":
+            inferred = RiskMode.REDUCE_ONLY
+        if risk_assessment is None:
+            return inferred
+        return _max_risk_mode(inferred, risk_assessment.mode)
 
     def _final_action_size(
         self,
@@ -187,17 +200,45 @@ class MaxEntropyEnsemble:
         weighted_size: float,
         combined_confidence: float,
         observation: StrategicObservation,
+        risk_assessment: RiskAssessment | None = None,
     ) -> float:
         if action == ActionType.HOLD:
             return 0.0
         size = max(0.05, min(1.0, weighted_size * max(combined_confidence, 0.10)))
         if observation.crisis_mode:
-            return min(size, 0.25)
+            size = min(size, 0.25)
         if observation.agent_divergence:
-            return min(size, 0.10)
+            size = min(size, 0.10)
         if action in {ActionType.REDUCE, ActionType.CLOSE}:
-            return min(size, 0.50)
+            size = min(size, 0.50)
+        if risk_assessment is not None:
+            size = min(size, risk_assessment.exposure_cap)
         return size
+
+    def _apply_risk_assessment(
+        self,
+        weights: tuple[PolicyWeight, ...],
+        risk_assessment: RiskAssessment,
+    ) -> tuple[PolicyWeight, ...]:
+        if not weights:
+            return ()
+        adjusted = list(weights)
+        if risk_assessment.crisis_state.value == "full_crisis":
+            dominant_index = max(range(len(adjusted)), key=lambda idx: adjusted[idx].weight)
+            dominant = adjusted[dominant_index]
+            capped = min(dominant.weight, risk_assessment.crisis_weight_cap)
+            remainder = 1.0 - capped
+            peer_total = sum(item.weight for idx, item in enumerate(adjusted) if idx != dominant_index)
+            adjusted[dominant_index] = dominant.model_copy(update={"weight": capped})
+            if peer_total > 0.0:
+                for idx, item in enumerate(adjusted):
+                    if idx == dominant_index:
+                        continue
+                    adjusted[idx] = item.model_copy(update={"weight": remainder * (item.weight / peer_total)})
+        total = sum(item.weight for item in adjusted)
+        if total <= 0.0:
+            return weights
+        return tuple(item.model_copy(update={"weight": item.weight / total}) for item in adjusted)
 
     def _build_rationale(
         self,
@@ -254,3 +295,13 @@ def _floor_weights(weights: list[float], minimum_weight: float) -> list[float]:
     floored = [max(minimum_weight, item) for item in weights]
     total = sum(floored)
     return [item / total for item in floored]
+
+
+def _max_risk_mode(left: RiskMode, right: RiskMode) -> RiskMode:
+    ordering = {
+        RiskMode.NORMAL: 0,
+        RiskMode.REDUCE_ONLY: 1,
+        RiskMode.CLOSE_ONLY: 2,
+        RiskMode.KILL_SWITCH: 3,
+    }
+    return left if ordering[left] >= ordering[right] else right
