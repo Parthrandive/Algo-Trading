@@ -34,5 +34,10 @@ class RiskOverseerConfig:
     sentiment_price_mismatch_drop_threshold: float = -0.02
     slow_crash_drawdown_velocity_threshold: float = 0.04
     feed_freeze_staleness_seconds: int = 60
+    stress_scenario_library_version: str = "phase4_week3_v1"
+    capacity_stress_multipliers: tuple[float, ...] = (1.0, 2.0, 3.0)
+    capacity_impact_cap_bps: float = 25.0
+    capacity_hard_cap_multiplier: float = 2.0
+    stress_max_snapback_ticks: int = 30
     service_name: str = "independent_risk_overseer"
     schema_version: str = "phase4_risk_overseer_v2"
