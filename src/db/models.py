@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from uuid import uuid4
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -409,11 +410,15 @@ class RLTrainingRunDB(Base):
 
 class TradeDecisionDB(Base):
     __tablename__ = "trade_decisions"
+    __table_args__ = (
+        UniqueConstraint("symbol", "timestamp", "policy_snapshot_id", name="uq_trade_decisions_sym_ts_snapshot"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     timestamp = Column(DateTime(timezone=True), nullable=False)
     symbol = Column(String(32), nullable=False)
     observation_id = Column(Integer, ForeignKey("observations.id"), nullable=True)
+    policy_snapshot_id = Column(String(128), nullable=True)
     policy_id = Column(String(128), nullable=False)
     action = Column(String(16), nullable=False)
     action_size = Column(Float, nullable=False)
@@ -422,6 +427,8 @@ class TradeDecisionDB(Base):
     sac_weight = Column(Float, nullable=True)
     ppo_weight = Column(Float, nullable=True)
     td3_weight = Column(Float, nullable=True)
+    genetic_threshold = Column(Float, nullable=True)
+    deliberation_used = Column(Boolean, nullable=False, default=False)
     risk_override = Column(String(16), nullable=True)
     risk_override_reason = Column(Text, nullable=True)
     decision_latency_ms = Column(Float, nullable=False, default=0.0)
@@ -435,12 +442,306 @@ class TradeDecisionDB(Base):
 class RewardLogDB(Base):
     __tablename__ = "reward_logs"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    event_id = Column(String(64), primary_key=True, default=lambda: uuid4().hex)
+    timestamp = Column(DateTime(timezone=True), primary_key=True, nullable=False)
+    id = Column(Integer, nullable=True)
     decision_id = Column(Integer, ForeignKey("trade_decisions.id"), nullable=True)
-    timestamp = Column(DateTime(timezone=True), nullable=False)
     symbol = Column(String(32), nullable=False)
     policy_id = Column(String(128), nullable=False)
-    reward_name = Column(String(32), nullable=False)
-    reward_value = Column(Float, nullable=False)
+    reward_name = Column(String(32), nullable=False)  # backward-compatible alias
+    reward_value = Column(Float, nullable=False)  # backward-compatible alias
+    reward_function = Column(String(32), nullable=False, default="ra_drl_composite")
+    total_reward = Column(Float, nullable=False, default=0.0)
+    return_component = Column(Float, nullable=True)
+    risk_penalty = Column(Float, nullable=True)
+    regime_weight = Column(Float, nullable=True)
+    sentiment_weight = Column(Float, nullable=True)
+    transaction_cost = Column(Float, nullable=True)
+    regime_state = Column(String(32), nullable=True)
     components_json = Column(Text, nullable=True)
+    schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class PolicySnapshotDB(Base):
+    __tablename__ = "policy_snapshots"
+
+    snapshot_id = Column(String(128), primary_key=True)
+    policy_id = Column(String(128), nullable=False)
+    policy_type = Column(String(16), nullable=False)
+    generated_at = Column(DateTime(timezone=True), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    is_active = Column(Boolean, nullable=False, default=False)
+    artifact_path = Column(Text, nullable=False)
+    quality_status = Column(String(8), nullable=False, default="pass")
+    source_type = Column(String(32), nullable=False)
+    schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class OrderDB(Base):
+    __tablename__ = "orders"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    order_id = Column(String(128), nullable=False, unique=True)
+    decision_id = Column(Integer, ForeignKey("trade_decisions.id"), nullable=True)
+    symbol = Column(String(32), nullable=False)
+    exchange = Column(String(16), nullable=False, default="NSE")
+    product_type = Column(String(16), nullable=False, default="equity")
+    order_type = Column(String(16), nullable=False)
+    side = Column(String(4), nullable=False)
+    quantity = Column(Integer, nullable=False)
+    price = Column(Float, nullable=True)
+    trigger_price = Column(Float, nullable=True)
+    status = Column(String(16), nullable=False, default="pending")
+    submitted_at = Column(DateTime(timezone=True), nullable=True)
+    filled_at = Column(DateTime(timezone=True), nullable=True)
+    cancelled_at = Column(DateTime(timezone=True), nullable=True)
+    broker_order_id = Column(String(128), nullable=True)
+    avg_fill_price = Column(Float, nullable=True)
+    filled_quantity = Column(Integer, nullable=False, default=0)
+    slippage_bps = Column(Float, nullable=True)
+    model_version = Column(String(128), nullable=False)
+    compliance_check_passed = Column(Boolean, nullable=False, default=True)
+    rejection_reason = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class OrderFillDB(Base):
+    __tablename__ = "order_fills"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    order_id = Column(String(128), ForeignKey("orders.order_id"), nullable=False)
+    fill_timestamp = Column(DateTime(timezone=True), nullable=False)
+    fill_price = Column(Float, nullable=False)
+    fill_quantity = Column(Integer, nullable=False)
+    exchange_trade_id = Column(String(128), nullable=True)
+    fees = Column(Float, nullable=True)
+    impact_cost_bps = Column(Float, nullable=True)
+    schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class PortfolioSnapshotDB(Base):
+    __tablename__ = "portfolio_snapshots"
+
+    event_id = Column(String(64), primary_key=True, default=lambda: uuid4().hex)
+    timestamp = Column(DateTime(timezone=True), primary_key=True, nullable=False)
+    id = Column(Integer, nullable=True)
+    symbol = Column(String(32), nullable=False)
+    position_qty = Column(Integer, nullable=False)
+    avg_entry_price = Column(Float, nullable=False)
+    market_price = Column(Float, nullable=False)
+    unrealized_pnl = Column(Float, nullable=False)
+    realized_pnl_session = Column(Float, nullable=False)
+    realized_pnl_cumulative = Column(Float, nullable=False)
+    notional_exposure = Column(Float, nullable=False)
+    net_exposure = Column(Float, nullable=False)
+    gross_exposure = Column(Float, nullable=False)
+    sector = Column(String(32), nullable=True)
+    risk_budget_used_pct = Column(Float, nullable=True)
+    operating_mode = Column(String(16), nullable=False, default="normal")
+    decision_id = Column(Integer, ForeignKey("trade_decisions.id"), nullable=True)
+    schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class StudentPolicyDB(Base):
+    __tablename__ = "student_policies"
+
+    student_id = Column(String(128), primary_key=True)
+    teacher_policy_id = Column(String(128), ForeignKey("rl_policies.policy_id"), nullable=False)
+    version = Column(String(16), nullable=False)
+    status = Column(String(16), nullable=False, default="candidate")
+    compression_method = Column(String(32), nullable=False)
+    compression_ratio = Column(Float, nullable=True)
+    teacher_agreement_pct = Column(Float, nullable=False)
+    crisis_agreement_pct = Column(Float, nullable=False)
+    p99_inference_ms = Column(Float, nullable=False)
+    p999_inference_ms = Column(Float, nullable=False)
+    artifact_path = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    promoted_at = Column(DateTime(timezone=True), nullable=True)
+    demoted_at = Column(DateTime(timezone=True), nullable=True)
+    drift_threshold = Column(Float, nullable=False)
+    schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class DistillationRunDB(Base):
+    __tablename__ = "distillation_runs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    student_id = Column(String(128), ForeignKey("student_policies.student_id"), nullable=False)
+    teacher_policy_id = Column(String(128), ForeignKey("rl_policies.policy_id"), nullable=False)
+    run_timestamp = Column(DateTime(timezone=True), nullable=False)
+    epochs = Column(Integer, nullable=False)
+    avg_day_agreement = Column(Float, nullable=False)
+    crisis_slice_agreement = Column(Float, nullable=False)
+    kl_divergence = Column(Float, nullable=True)
+    inference_latency_p99 = Column(Float, nullable=False)
+    dataset_snapshot_id = Column(String(128), nullable=True)
+    code_hash = Column(String(64), nullable=True)
+    notes = Column(Text, nullable=True)
+    schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class DeliberationLogDB(Base):
+    __tablename__ = "deliberation_logs"
+
+    event_id = Column(String(64), primary_key=True, default=lambda: uuid4().hex)
+    timestamp = Column(DateTime(timezone=True), primary_key=True, nullable=False)
+    id = Column(Integer, nullable=True)
+    symbol = Column(String(32), nullable=False)
+    deliberation_type = Column(String(32), nullable=False)
+    input_snapshot_id = Column(String(128), nullable=True)
+    output_snapshot_id = Column(String(128), nullable=True)
+    duration_ms = Column(Float, nullable=False)
+    result_json = Column(Text, nullable=True)
+    triggered_refresh = Column(Boolean, nullable=False, default=False)
+    schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class ImpactEventDB(Base):
+    __tablename__ = "impact_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    symbol = Column(String(32), nullable=False)
+    bucket = Column(String(32), nullable=False)
+    event_type = Column(String(32), nullable=False)
+    breach = Column(Boolean, nullable=False, default=False)
+    participation_rate = Column(Float, nullable=False, default=0.0)
+    slippage_delta_bps = Column(Float, nullable=False, default=0.0)
+    impact_score = Column(Float, nullable=False, default=0.0)
+    size_multiplier = Column(Float, nullable=False, default=1.0)
+    cooldown_until = Column(DateTime(timezone=True), nullable=True)
+    risk_override = Column(String(16), nullable=True)
+    reasons_json = Column(Text, nullable=True)
+    schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class RiskCapEventDB(Base):
+    __tablename__ = "risk_cap_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    symbol = Column(String(32), nullable=False)
+    asset_cluster = Column(String(64), nullable=False)
+    regime = Column(String(16), nullable=False)
+    cap_fraction = Column(Float, nullable=False)
+    changed = Column(Boolean, nullable=False, default=False)
+    event_type = Column(String(32), nullable=False)
+    false_trigger_rate = Column(Float, nullable=False, default=0.0)
+    auto_adjustment_paused = Column(Boolean, nullable=False, default=False)
+    schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class OrderBookFeatureEventDB(Base):
+    __tablename__ = "orderbook_feature_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    symbol = Column(String(32), nullable=False)
+    quality_flag = Column(String(16), nullable=False)
+    degraded = Column(Boolean, nullable=False, default=False)
+    degradation_reason = Column(String(64), nullable=True)
+    imbalance = Column(Float, nullable=False, default=0.0)
+    queue_pressure = Column(Float, nullable=False, default=0.0)
+    schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class FastLoopLatencyEventDB(Base):
+    __tablename__ = "fastloop_latency_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    stage = Column(String(64), nullable=False)
+    mode = Column(String(16), nullable=False, default="normal")
+    event_type = Column(String(32), nullable=False)
+    reason = Column(String(128), nullable=False, default="")
+    sample_count = Column(Integer, nullable=False, default=0)
+    p50_ms = Column(Float, nullable=False, default=0.0)
+    p95_ms = Column(Float, nullable=False, default=0.0)
+    p99_ms = Column(Float, nullable=False, default=0.0)
+    p999_ms = Column(Float, nullable=False, default=0.0)
+    jitter_ms = Column(Float, nullable=False, default=0.0)
+    schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class LatencyBenchmarkArtifactDB(Base):
+    __tablename__ = "latency_benchmark_artifacts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    run_id = Column(String(128), nullable=False)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    passed = Column(Boolean, nullable=False, default=False)
+    reasons_json = Column(Text, nullable=True)
+    artifact_json = Column(Text, nullable=False)
+    schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class PromotionGateEventDB(Base):
+    __tablename__ = "promotion_gate_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    policy_id = Column(String(128), nullable=False)
+    from_stage = Column(String(16), nullable=False)
+    to_stage = Column(String(16), nullable=False)
+    approved = Column(Boolean, nullable=False, default=False)
+    reasons_json = Column(Text, nullable=True)
+    evidence_json = Column(Text, nullable=True)
+    schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class RollbackDrillEventDB(Base):
+    __tablename__ = "rollback_drill_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    failed_model_id = Column(String(128), nullable=False)
+    reverted_to = Column(String(128), nullable=True)
+    executed = Column(Boolean, nullable=False, default=False)
+    mttr_seconds = Column(Float, nullable=False, default=0.0)
+    reasons_json = Column(Text, nullable=True)
+    schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class XAITradeExplanationDB(Base):
+    __tablename__ = "xai_trade_explanations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    trade_id = Column(String(128), nullable=False)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    symbol = Column(String(32), nullable=False)
+    top_feature_contributions_json = Column(Text, nullable=False)
+    agent_contributions_json = Column(Text, nullable=False)
+    signal_family_contributions_json = Column(Text, nullable=False)
+    metadata_json = Column(Text, nullable=True)
+    schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class PnLAttributionEventDB(Base):
+    __tablename__ = "pnl_attribution_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    trade_id = Column(String(128), nullable=False)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    symbol = Column(String(32), nullable=False)
+    sector = Column(String(64), nullable=False)
+    agent = Column(String(64), nullable=False)
+    signal_family = Column(String(64), nullable=False)
+    realized_pnl = Column(Float, nullable=False)
+    schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class OperationalMetricsSnapshotDB(Base):
+    __tablename__ = "operational_metrics_snapshots"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    decision_staleness_avg_s = Column(Float, nullable=False, default=0.0)
+    feature_lag_avg_s = Column(Float, nullable=False, default=0.0)
+    mode_switch_frequency = Column(Integer, nullable=False, default=0)
+    ood_trigger_rate = Column(Integer, nullable=False, default=0)
+    kill_switch_false_positives = Column(Integer, nullable=False, default=0)
+    mttr_avg_s = Column(Float, nullable=False, default=0.0)
     schema_version = Column(String(8), nullable=False, default="1.0")

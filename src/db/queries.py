@@ -261,7 +261,7 @@ def get_reward_logs(symbol: str, start: datetime, end: datetime) -> pd.DataFrame
             RewardLogDB.timestamp >= start,
             RewardLogDB.timestamp <= end,
         )
-    ).order_by(RewardLogDB.timestamp.asc(), RewardLogDB.id.asc())
+    ).order_by(RewardLogDB.timestamp.asc(), RewardLogDB.event_id.asc())
     return _parse_json_column(_read_dataframe(stmt), "components_json")
 
 
