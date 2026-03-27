@@ -73,7 +73,7 @@ def test_sentiment_lane_schema_supports_daily_aggregate():
 
 def test_technical_prediction_upsert_and_prediction_log(monkeypatch):
     engine, session_factory, recorder = _build_sqlite_recorder()
-    monkeypatch.setattr(db_queries, "get_engine", lambda: engine)
+    monkeypatch.setattr(db_queries, "get_engine", lambda database_url=None: engine)
 
     ts = datetime(2026, 3, 15, 9, 0, tzinfo=timezone.utc)
     first = TechnicalPrediction(
@@ -116,7 +116,7 @@ def test_technical_prediction_upsert_and_prediction_log(monkeypatch):
 
 def test_regime_prediction_round_trip(monkeypatch):
     engine, session_factory, recorder = _build_sqlite_recorder()
-    monkeypatch.setattr(db_queries, "get_engine", lambda: engine)
+    monkeypatch.setattr(db_queries, "get_engine", lambda database_url=None: engine)
 
     ts = datetime(2026, 3, 15, 9, 5, tzinfo=timezone.utc)
     prediction = RegimePrediction(
@@ -144,7 +144,7 @@ def test_regime_prediction_round_trip(monkeypatch):
 
 def test_model_card_crud_and_backtest_query(monkeypatch):
     engine, _, recorder = _build_sqlite_recorder()
-    monkeypatch.setattr(db_queries, "get_engine", lambda: engine)
+    monkeypatch.setattr(db_queries, "get_engine", lambda database_url=None: engine)
 
     now = datetime(2026, 3, 15, 10, 0, tzinfo=timezone.utc)
     card = {
@@ -263,7 +263,7 @@ def test_get_sentiment_scores_supports_legacy_schema(monkeypatch):
             )
         )
 
-    monkeypatch.setattr(db_queries, "get_engine", lambda: engine)
+    monkeypatch.setattr(db_queries, "get_engine", lambda database_url=None: engine)
 
     start = datetime(2026, 3, 25, 8, 59)
     end = datetime(2026, 3, 25, 9, 1)

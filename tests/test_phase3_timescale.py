@@ -74,6 +74,9 @@ class _FakeInspector:
     def get_indexes(self, table_name):
         return []
 
+    def get_foreign_keys(self, table_name):
+        return []
+
 
 def test_apply_phase3_timescale_skips_non_postgres():
     engine = create_engine("sqlite:///:memory:")
@@ -93,6 +96,9 @@ def test_find_incompatible_unique_constraints_detects_pk_and_unique_indexes():
 
         def get_indexes(self, table_name):
             return [{"name": "uidx_symbol", "column_names": ["symbol"], "unique": True}]
+
+        def get_foreign_keys(self, table_name):
+            return []
 
     incompatible = phase3_timescale._find_incompatible_unique_constraints(
         _Inspector(), "trade_decisions", "timestamp"
