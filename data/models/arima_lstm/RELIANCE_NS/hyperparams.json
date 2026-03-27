@@ -1,5 +1,10 @@
 {
   "symbol": "RELIANCE.NS",
+  "symbol_canonical": "RELIANCE.NS",
+  "run_id": "20260326T190648Z",
+  "interval": "1h",
+  "source_script": "train_universe_arima_lstm.py",
+  "feature_schema_version": "technical_features_v1",
   "trained_as_part_of_universe": true,
   "base_model_symbol": "GLOBAL",
   "arima_order": [
@@ -45,19 +50,22 @@
     "daily_trend_bullish"
   ],
   "class_threshold": 0.005,
-  "effective_class_threshold": 0.005,
+  "class_threshold_min": 0.001,
+  "effective_class_threshold": 0.001,
   "threshold_selection": {
     "min_neutral_ratio": 0.15,
     "max_neutral_ratio": 0.2,
     "target_neutral_ratio": 0.175,
-    "selected_train_neutral_ratio": 0.9036918138041734
+    "selected_train_neutral_ratio": 0.22391653290529695
   },
   "recalibrate_only": false,
   "include_daily_features": true,
   "apply_daily_trend_filter": true,
+  "daily_filter_mode": "soft",
+  "daily_up_penalty": 0.15,
   "finetune": {
     "applied": true,
-    "epochs_requested": 12,
+    "epochs_requested": 25,
     "patience": 8
   }
 }

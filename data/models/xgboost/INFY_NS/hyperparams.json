@@ -1,7 +1,16 @@
 {
   "symbol": "INFY.NS",
   "class_threshold": 0.005,
+  "confidence_threshold": 0.15,
   "seed": 42,
+  "strict_artifact_match": true,
+  "expected_run_id": "20260326T190648Z",
+  "run_id": "20260326T190648Z",
+  "interval": "1h",
+  "source_script": "train_universe_xgboost.py",
+  "feature_schema_version": "technical_features_v1",
+  "min_directional_coverage": 0.12,
+  "daily_regime_filter_mode": "long_only_above_ma200",
   "features": [
     "cnn_prob_up",
     "cnn_prob_neutral",

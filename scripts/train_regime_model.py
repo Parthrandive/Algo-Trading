@@ -28,6 +28,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Target symbols (defaults to EQUITY_SYMBOLS)",
     )
     parser.add_argument("--limit", type=int, default=2000, help="Max Gold feature rows to load (default: 2000)")
+    parser.add_argument(
+        "--min-gold-rows",
+        type=int,
+        default=120,
+        help="Minimum acceptable Gold rows before falling back to ohlcv_bars for regime training.",
+    )
     parser.add_argument("--interval", type=str, default="1d", help="Interval to load (e.g., 1d, 1h)")
     parser.add_argument("--output-dir", default="data/models/regime", help="Output directory for model artifacts")
     parser.add_argument("--database-url", default=None, help="Database URL")
@@ -60,7 +66,12 @@ def train_for_symbol(symbol: str, args: argparse.Namespace) -> bool:
     out_dir.mkdir(parents=True, exist_ok=True)
     
     loader = RegimeDataLoader(database_url=args.database_url)
-    raw = loader.load_features(symbol=symbol, limit=args.limit, interval=args.interval)
+    raw = loader.load_features(
+        symbol=symbol,
+        limit=args.limit,
+        interval=args.interval,
+        min_gold_rows=int(args.min_gold_rows),
+    )
     
     if raw.empty:
         logger.error(f"[{symbol}] No gold features available for training.")
@@ -141,6 +152,7 @@ def train_for_symbol(symbol: str, args: argparse.Namespace) -> bool:
         "hyperparameters": {
             "interval": args.interval,
             "limit": int(args.limit),
+            "min_gold_rows": int(args.min_gold_rows),
             "warmup_rows": int(agent.warmup_rows),
             "hmm_components": int(agent.hmm.n_components),
         },

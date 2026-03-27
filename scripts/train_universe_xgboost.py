@@ -48,6 +48,62 @@ CLASS_NEUTRAL = 1
 CLASS_UP = 2
 ANNUALIZATION_1H = int(252.0 * 6.0)
 COST_PER_SIDE = 0.0010  # 10 bps per side (20 bps round trip)
+SOURCE_SCRIPT = str(Path(__file__).name)
+DEFAULT_FEATURE_SCHEMA_VERSION = "technical_features_v1"
+REQUIRED_ARTIFACT_META_FIELDS = (
+    "run_id",
+    "interval",
+    "symbol_canonical",
+    "source_script",
+    "feature_schema_version",
+)
+
+
+def build_daily_regime_block_mask(frame: pd.DataFrame, mode: str) -> np.ndarray:
+    mode_normalized = str(mode).strip().lower()
+    if mode_normalized == "off":
+        return np.zeros(len(frame), dtype=bool)
+    if mode_normalized != "long_only_above_ma200":
+        raise ValueError(f"Unsupported daily regime filter mode: {mode}")
+
+    if "close" not in frame.columns or "daily_ma_200" not in frame.columns:
+        return np.zeros(len(frame), dtype=bool)
+
+    close = pd.to_numeric(frame["close"], errors="coerce")
+    ma200 = pd.to_numeric(frame["daily_ma_200"], errors="coerce")
+    return (close.notna() & ma200.notna() & (close < ma200)).to_numpy(dtype=bool)
+
+
+def apply_daily_regime_filter_to_labels(preds: np.ndarray, block_up_mask: np.ndarray) -> np.ndarray:
+    if len(preds) == 0:
+        return preds
+    adjusted = np.asarray(preds, dtype=np.int64).copy()
+    mask = np.asarray(block_up_mask, dtype=bool)
+    if len(mask) != len(adjusted):
+        return adjusted
+    adjusted[(adjusted == CLASS_UP) & mask] = CLASS_NEUTRAL
+    return adjusted
+
+
+def apply_daily_regime_filter_to_probs(probs: np.ndarray, block_up_mask: np.ndarray) -> np.ndarray:
+    if len(probs) == 0:
+        return probs
+    adjusted = np.asarray(probs, dtype=np.float64).copy()
+    mask = np.asarray(block_up_mask, dtype=bool)
+    if len(mask) != len(adjusted):
+        return adjusted
+    if adjusted.shape[1] <= CLASS_UP:
+        return adjusted
+    blocked = np.where(mask)[0]
+    if len(blocked) == 0:
+        return adjusted
+
+    up_prob = adjusted[blocked, CLASS_UP].copy()
+    adjusted[blocked, CLASS_UP] = 0.0
+    adjusted[blocked, CLASS_NEUTRAL] = np.clip(adjusted[blocked, CLASS_NEUTRAL] + up_prob, 0.0, 1.0)
+    row_sum = adjusted[blocked].sum(axis=1, keepdims=True)
+    adjusted[blocked] = np.divide(adjusted[blocked], np.where(row_sum == 0.0, 1.0, row_sum))
+    return adjusted
 
 def compute_backtest_metrics(
     probs: np.ndarray,
@@ -122,11 +178,12 @@ def compute_backtest_metrics(
 
     mean_return = float(np.mean(net_returns)) if len(net_returns) else 0.0
     std_return = float(np.std(net_returns, ddof=0)) if len(net_returns) else 0.0
-    sharpe = float(mean_return / std_return * ANNUALIZATION_1H) if std_return > 1e-12 else 0.0
+    annualization_scale = float(np.sqrt(ANNUALIZATION_1H))
+    sharpe = float(mean_return / std_return * annualization_scale) if std_return > 1e-12 else 0.0
 
     downside = net_returns[net_returns < 0.0]
     downside_std = float(np.std(downside, ddof=0)) if len(downside) else 0.0
-    sortino = float(mean_return / downside_std * ANNUALIZATION_1H) if downside_std > 1e-12 else 0.0
+    sortino = float(mean_return / downside_std * annualization_scale) if downside_std > 1e-12 else 0.0
 
     equity_curve = np.cumprod(1.0 + net_returns)
     if len(equity_curve):
@@ -149,10 +206,13 @@ def compute_backtest_metrics(
 
     return {
         "sharpe": sharpe,
+        "sortino": sortino,
         "max_drawdown": max_drawdown,
         "win_rate": win_rate,
         "profit_factor": float(profit_factor),
         "total_trades": total_trades,
+        "average_trade_return": average_trade_return,
+        "coverage": coverage,
     }
 
 
@@ -166,6 +226,41 @@ def parse_args():
     parser.add_argument("--interval", type=str, default=PRIMARY_FREQ, help="Candle interval")
     parser.add_argument("--limit", type=int, default=4000, help="Rows to load per symbol")
     parser.add_argument("--class-threshold", type=float, default=0.005, help="Return threshold used to derive down/neutral/up labels.")
+    parser.add_argument(
+        "--strict-artifact-match",
+        action="store_true",
+        help="Require canonical SYMBOL_NS artifact paths and fail on mixed SYMBOL.NS/SYMBOL_NS collisions.",
+    )
+    parser.add_argument(
+        "--expected-run-id",
+        type=str,
+        default=None,
+        help="Expected upstream run_id from ARIMA/CNN artifacts; strict mode enforces exact match.",
+    )
+    parser.add_argument(
+        "--min-directional-coverage",
+        type=float,
+        default=0.12,
+        help="Minimum base-model directional coverage required before XGBoost training is allowed for a symbol.",
+    )
+    parser.add_argument(
+        "--run-id",
+        type=str,
+        default=None,
+        help="Optional output run identifier; defaults to expected-run-id or generated timestamp.",
+    )
+    parser.add_argument(
+        "--feature-schema-version",
+        type=str,
+        default=DEFAULT_FEATURE_SCHEMA_VERSION,
+        help="Feature schema version tag persisted in XGBoost artifacts.",
+    )
+    parser.add_argument(
+        "--daily-regime-filter-mode",
+        choices=["off", "long_only_above_ma200"],
+        default="off",
+        help="Optional regime filter applied to UP predictions before metrics/backtest.",
+    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     return parser.parse_args()
 
@@ -182,6 +277,108 @@ def safe_write_json(path: Path, payload: dict[str, Any]) -> None:
         path.unlink()
     with open(path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2)
+
+
+def load_json(path: Path) -> dict[str, Any]:
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def resolve_symbol_artifact_dir(base_dir: Path, symbol: str, strict: bool) -> Path | None:
+    canonical_dir = base_dir / sanitize_symbol(symbol)
+    legacy_dir = base_dir / symbol
+    canonical_exists = canonical_dir.exists()
+    legacy_exists = legacy_dir.exists() and legacy_dir.resolve() != canonical_dir.resolve()
+
+    if strict and canonical_exists and legacy_exists:
+        raise ValueError(
+            f"Mixed artifact collision for {symbol}: both {canonical_dir} and {legacy_dir} exist."
+        )
+
+    if strict:
+        if not canonical_exists:
+            raise FileNotFoundError(f"Missing canonical artifact directory for {symbol}: {canonical_dir}")
+        return canonical_dir
+
+    if canonical_exists:
+        return canonical_dir
+    if legacy_exists:
+        return legacy_dir
+    return None
+
+
+def validate_artifact_contract(
+    *,
+    symbol: str,
+    meta: dict[str, Any],
+    strict: bool,
+    expected_interval: str,
+    expected_run_id: str | None,
+) -> tuple[bool, str]:
+    missing = [field for field in REQUIRED_ARTIFACT_META_FIELDS if field not in meta]
+    if missing:
+        return False, f"missing metadata fields: {missing}"
+
+    symbol_canonical = canonicalize_symbol(str(meta.get("symbol_canonical", "")).strip())
+    if symbol_canonical != canonicalize_symbol(symbol):
+        return False, f"symbol_canonical mismatch: {symbol_canonical} != {symbol}"
+
+    artifact_interval = str(meta.get("interval", "")).strip()
+    if artifact_interval != str(expected_interval).strip():
+        return False, f"interval mismatch: {artifact_interval} != {expected_interval}"
+
+    artifact_run_id = str(meta.get("run_id", "")).strip()
+    if expected_run_id and artifact_run_id != expected_run_id:
+        return False, f"run_id mismatch: {artifact_run_id} != {expected_run_id}"
+
+    if strict and not artifact_run_id:
+        return False, "run_id is empty under strict artifact match mode"
+
+    return True, ""
+
+
+def tune_confidence_threshold(
+    y_val: np.ndarray,
+    probs_val: np.ndarray,
+    min_directional_coverage: float,
+    regime_block_up_mask: np.ndarray | None = None,
+) -> tuple[float, float, float, dict[str, Any]]:
+    best_threshold = 0.35
+    best_score = float("-inf")
+    best_coverage = 0.0
+    best_metrics: dict[str, Any] = {
+        "test_accuracy": 0.0,
+        "directional_accuracy": 0.0,
+        "up_precision": 0.0,
+        "up_recall": 0.0,
+        "up_f1": 0.0,
+        "up_support": 0,
+        "down_precision": 0.0,
+        "down_recall": 0.0,
+        "down_f1": 0.0,
+        "down_support": 0,
+        "test_confusion_matrix": [],
+    }
+    for threshold in np.arange(0.15, 0.85, 0.05):
+        preds = apply_confidence_threshold(probs_val, threshold=float(threshold))
+        if regime_block_up_mask is not None:
+            preds = apply_daily_regime_filter_to_labels(preds, np.asarray(regime_block_up_mask, dtype=bool))
+        cls_metrics = directional_metrics(y_true=y_val, y_pred=preds)
+        directional_coverage = float(np.mean(np.isin(preds, [CLASS_UP, CLASS_DOWN])))
+        directional_recall = float((cls_metrics["up_recall"] + cls_metrics["down_recall"]) / 2.0)
+        shortfall = max(0.0, float(min_directional_coverage) - directional_coverage)
+        score = (
+            (0.65 * float(cls_metrics["directional_accuracy"]))
+            + (0.25 * directional_recall)
+            + (0.10 * directional_coverage)
+            - (1.5 * shortfall)
+        )
+        if score > best_score or (np.isclose(score, best_score) and directional_coverage > best_coverage):
+            best_score = score
+            best_threshold = float(threshold)
+            best_coverage = directional_coverage
+            best_metrics = cls_metrics
+    return best_threshold, best_score, best_coverage, best_metrics
 
 
 def directional_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, Any]:
@@ -215,6 +412,15 @@ def directional_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, Any
             labels=[CLASS_DOWN, CLASS_NEUTRAL, CLASS_UP],
         ).tolist(),
     }
+
+
+def apply_confidence_threshold(probs: np.ndarray, threshold: float) -> np.ndarray:
+    if len(probs) == 0:
+        return np.empty((0,), dtype=np.int64)
+    preds = np.argmax(probs, axis=1).astype(np.int64)
+    confidence = np.max(probs, axis=1)
+    preds[confidence < float(threshold)] = CLASS_NEUTRAL
+    return preds
 
 def maybe_load_regime_labels(symbol: str, base_path: Path, frame: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     default_regime = np.full(len(frame), -1, dtype=np.int64)
@@ -258,31 +464,88 @@ def maybe_load_regime_labels(symbol: str, base_path: Path, frame: pd.DataFrame) 
 
     return hmm_regime, shift_flag
 
-def build_symbol_data(symbol: str, cnn_dir: Path, lstm_dir: Path, loader: DataLoader, args) -> dict[str, pd.DataFrame] | None:
+def build_symbol_data(symbol: str, cnn_dir: Path, lstm_dir: Path, loader: DataLoader, args) -> dict[str, Any] | None:
     """
     Loads CNN and LSTM predictions, engineers technical features, 
     and merges them into a single dataset.
     """
-    cnn_path = first_existing(
-        [
-            cnn_dir / sanitize_symbol(symbol) / "predictions.parquet",
-            cnn_dir / symbol / "predictions.parquet",
-        ]
-    )
-    lstm_path = first_existing(
-        [
-            lstm_dir / sanitize_symbol(symbol) / "predictions.parquet",
-            lstm_dir / symbol / "predictions.parquet",
-        ]
-    )
-    
-    if cnn_path is None:
+    try:
+        cnn_symbol_dir = resolve_symbol_artifact_dir(cnn_dir, symbol, strict=bool(args.strict_artifact_match))
+        lstm_symbol_dir = resolve_symbol_artifact_dir(lstm_dir, symbol, strict=bool(args.strict_artifact_match))
+    except (ValueError, FileNotFoundError) as exc:
+        if bool(args.strict_artifact_match):
+            raise
+        logger.warning("[%s] Artifact resolution failed: %s", symbol, exc)
+        return None
+
+    if cnn_symbol_dir is None:
+        logger.warning("[%s] Missing CNN artifact directory under %s", symbol, cnn_dir)
+        return None
+    if lstm_symbol_dir is None:
+        logger.warning("[%s] Missing ARIMA-LSTM artifact directory under %s", symbol, lstm_dir)
+        return None
+
+    cnn_path = cnn_symbol_dir / "predictions.parquet"
+    lstm_path = lstm_symbol_dir / "predictions.parquet"
+    cnn_meta_path = cnn_symbol_dir / "training_meta.json"
+    lstm_meta_path = lstm_symbol_dir / "training_meta.json"
+
+    if not cnn_path.exists():
         logger.warning("[%s] Missing CNN predictions: %s", symbol, cnn_path)
         return None
-    if lstm_path is None:
+    if not lstm_path.exists():
         logger.warning("[%s] Missing LSTM predictions: %s", symbol, lstm_path)
         return None
-        
+    if not cnn_meta_path.exists():
+        logger.warning("[%s] Missing CNN metadata: %s", symbol, cnn_meta_path)
+        return None
+    if not lstm_meta_path.exists():
+        logger.warning("[%s] Missing ARIMA-LSTM metadata: %s", symbol, lstm_meta_path)
+        return None
+
+    cnn_meta = load_json(cnn_meta_path)
+    lstm_meta = load_json(lstm_meta_path)
+    cnn_ok, cnn_reason = validate_artifact_contract(
+        symbol=symbol,
+        meta=cnn_meta,
+        strict=bool(args.strict_artifact_match),
+        expected_interval=args.interval,
+        expected_run_id=args.expected_run_id,
+    )
+    lstm_ok, lstm_reason = validate_artifact_contract(
+        symbol=symbol,
+        meta=lstm_meta,
+        strict=bool(args.strict_artifact_match),
+        expected_interval=args.interval,
+        expected_run_id=args.expected_run_id,
+    )
+    if not cnn_ok:
+        if bool(args.strict_artifact_match):
+            raise ValueError(f"[{symbol}] CNN artifact contract rejected: {cnn_reason}")
+        logger.warning("[%s] CNN artifact contract rejected: %s", symbol, cnn_reason)
+        return None
+    if not lstm_ok:
+        if bool(args.strict_artifact_match):
+            raise ValueError(f"[{symbol}] LSTM artifact contract rejected: {lstm_reason}")
+        logger.warning("[%s] LSTM artifact contract rejected: %s", symbol, lstm_reason)
+        return None
+
+    cnn_run_id = str(cnn_meta.get("run_id", "")).strip()
+    lstm_run_id = str(lstm_meta.get("run_id", "")).strip()
+    if cnn_run_id != lstm_run_id:
+        message = f"Artifact run_id mismatch: cnn={cnn_run_id} vs lstm={lstm_run_id}"
+        if bool(args.strict_artifact_match):
+            raise ValueError(f"[{symbol}] {message}")
+        logger.warning("[%s] %s. Symbol skipped.", symbol, message)
+        return None
+
+    if args.expected_run_id and cnn_run_id != str(args.expected_run_id).strip():
+        message = f"Expected run_id={args.expected_run_id} but artifacts have run_id={cnn_run_id}"
+        if bool(args.strict_artifact_match):
+            raise ValueError(f"[{symbol}] {message}")
+        logger.warning("[%s] %s. Symbol skipped.", symbol, message)
+        return None
+
     cnn_df = pd.read_parquet(cnn_path)
     lstm_df = pd.read_parquet(lstm_path)
     
@@ -335,15 +598,49 @@ def build_symbol_data(symbol: str, cnn_dir: Path, lstm_dir: Path, loader: DataLo
     lstm_argmax = np.argmax(final_df[["lstm_prob_down", "lstm_prob_neutral", "lstm_prob_up"]].to_numpy(), axis=1)
     final_df["model_agreement"] = (cnn_argmax == lstm_argmax).astype(np.int64)
 
+    train_split = final_df[final_df["split"] == "train"].copy()
+    if len(train_split) == 0:
+        logger.warning("[%s] Empty aligned train split after merge; symbol skipped.", symbol)
+        return None
+
+    cnn_train_argmax = np.argmax(
+        train_split[["cnn_prob_down", "cnn_prob_neutral", "cnn_prob_up"]].to_numpy(dtype=np.float64),
+        axis=1,
+    )
+    lstm_train_argmax = np.argmax(
+        train_split[["lstm_prob_down", "lstm_prob_neutral", "lstm_prob_up"]].to_numpy(dtype=np.float64),
+        axis=1,
+    )
+    cnn_directional_coverage = float(np.mean(np.isin(cnn_train_argmax, [CLASS_DOWN, CLASS_UP])))
+    lstm_directional_coverage = float(np.mean(np.isin(lstm_train_argmax, [CLASS_DOWN, CLASS_UP])))
+    base_directional_coverage = float((cnn_directional_coverage + lstm_directional_coverage) / 2.0)
+
     return {
-        "train": final_df[final_df["split"] == "train"].copy(),
+        "train": train_split,
         "val": final_df[final_df["split"] == "val"].copy(),
         "test": final_df[final_df["split"] == "test"].copy(),
+        "artifact_contract": {
+            "run_id": cnn_run_id,
+            "interval": str(cnn_meta.get("interval", "")),
+            "feature_schema_version": str(cnn_meta.get("feature_schema_version", "")),
+            "cnn_source_script": str(cnn_meta.get("source_script", "")),
+            "lstm_source_script": str(lstm_meta.get("source_script", "")),
+        },
+        "readiness": {
+            "cnn_directional_coverage": cnn_directional_coverage,
+            "lstm_directional_coverage": lstm_directional_coverage,
+            "base_directional_coverage": base_directional_coverage,
+        },
     }
 
 def main():
     args = parse_args()
     np.random.seed(args.seed)
+    run_id = str(args.run_id).strip() if args.run_id else ""
+    expected_run_id = str(args.expected_run_id).strip() if args.expected_run_id else ""
+    if not run_id:
+        run_id = expected_run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    feature_schema_version = str(args.feature_schema_version).strip()
     
     db_url = os.getenv("DATABASE_URL", "postgresql://sentinel:sentinel@localhost:5432/sentinel_db")
     loader = DataLoader(db_url)
@@ -352,6 +649,13 @@ def main():
     lstm_dir = Path(args.lstm_dir)
     output_root = Path(args.output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
+    logger.info(
+        "XGBoost run_id=%s | interval=%s | strict_artifact_match=%s | expected_run_id=%s",
+        run_id,
+        args.interval,
+        bool(args.strict_artifact_match),
+        expected_run_id or "none",
+    )
     
     discovered_symbols = [canonicalize_symbol(d.name) for d in cnn_dir.iterdir() if d.is_dir() and d.name != "GLOBAL"]
     symbols = dedupe_symbols([*EQUITY_SYMBOLS, *discovered_symbols])
@@ -364,18 +668,54 @@ def main():
     requested = dedupe_symbols(requested)
     if requested:
         symbols = [s for s in symbols if s in requested]
+
+    run_report: dict[str, Any] = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "run_id": run_id,
+        "expected_run_id": expected_run_id or None,
+        "interval": args.interval,
+        "source_script": SOURCE_SCRIPT,
+        "feature_schema_version": feature_schema_version,
+        "strict_artifact_match": bool(args.strict_artifact_match),
+        "daily_regime_filter_mode": str(args.daily_regime_filter_mode).strip().lower(),
+        "symbols_requested": symbols,
+        "symbols_processed": [],
+        "symbols_skipped": [],
+    }
     
     for symbol in symbols:
         if symbol in FOREX_SYMBOLS: continue
         logger.info("========== Processing XGBoost for %s ==========", symbol)
         
         splits = build_symbol_data(symbol, cnn_dir, lstm_dir, loader, args)
-        if not splits: continue
+        if not splits:
+            run_report["symbols_skipped"].append(
+                {"symbol": symbol, "reason": "artifact_or_alignment_validation_failed"}
+            )
+            continue
         
         train_df, val_df, test_df = splits["train"], splits["val"], splits["test"]
+        readiness = dict(splits.get("readiness", {}))
+        artifact_contract = dict(splits.get("artifact_contract", {}))
+        base_directional_coverage = float(readiness.get("base_directional_coverage", 0.0))
+        if base_directional_coverage < float(args.min_directional_coverage):
+            reason = (
+                f"base directional coverage {base_directional_coverage:.4f} below "
+                f"min-directional-coverage={float(args.min_directional_coverage):.4f}"
+            )
+            logger.warning("[%s] %s. Skipping XGBoost training.", symbol, reason)
+            run_report["symbols_skipped"].append({"symbol": symbol, "reason": reason, "readiness": readiness})
+            continue
         valid_train = train_df[train_df["y_label"] >= 0]
         valid_val = val_df[val_df["y_label"] >= 0]
         valid_test = test_df[test_df["y_label"] >= 0]
+        if min(len(valid_train), len(valid_val), len(valid_test)) == 0:
+            reason = (
+                f"empty aligned split(s): train={len(valid_train)}, val={len(valid_val)}, test={len(valid_test)}"
+            )
+            logger.warning("[%s] %s", symbol, reason)
+            run_report["symbols_skipped"].append({"symbol": symbol, "reason": reason})
+            continue
         
         feature_cols = [
             c for c in train_df.columns 
@@ -411,16 +751,35 @@ def main():
         xgb.save_model(sym_out / "model.json")
 
         if len(X_test) > 0:
+            probs_val = xgb.predict_proba(X_val)
             probs_test = xgb.predict_proba(X_test)
-            y_pred_test = xgb.predict(X_test).astype(np.int64)
-            cls_metrics = directional_metrics(y_true=y_test, y_pred=y_pred_test)
-            trade_stats = compute_backtest_metrics(
-                probs=probs_test,
-                actual_next_log_returns=valid_test["actual_next_log_return"].to_numpy(dtype=np.float64),
-                threshold=args.class_threshold,
-                min_hold_bars=0
+            regime_filter_mode = str(args.daily_regime_filter_mode).strip().lower()
+            val_block_up_mask = build_daily_regime_block_mask(valid_val, regime_filter_mode)
+            test_block_up_mask = build_daily_regime_block_mask(valid_test, regime_filter_mode)
+            probs_val_filtered = apply_daily_regime_filter_to_probs(probs_val, val_block_up_mask)
+            probs_test_filtered = apply_daily_regime_filter_to_probs(probs_test, test_block_up_mask)
+            best_conf_threshold, threshold_score, val_directional_coverage, val_cls_metrics = tune_confidence_threshold(
+                y_val=y_val,
+                probs_val=probs_val_filtered,
+                min_directional_coverage=float(args.min_directional_coverage),
+                regime_block_up_mask=val_block_up_mask,
             )
-            
+            y_pred_test = apply_confidence_threshold(probs_test_filtered, threshold=best_conf_threshold)
+            y_pred_test = apply_daily_regime_filter_to_labels(y_pred_test, test_block_up_mask)
+            cls_metrics = directional_metrics(y_true=y_test, y_pred=y_pred_test)
+            test_directional_coverage = float(np.mean(np.isin(y_pred_test, [CLASS_UP, CLASS_DOWN]))) if len(y_pred_test) else 0.0
+            trade_stats = compute_backtest_metrics(
+                probs=probs_test_filtered,
+                actual_next_log_returns=valid_test["actual_next_log_return"].to_numpy(dtype=np.float64),
+                threshold=best_conf_threshold,
+                min_hold_bars=0,
+            )
+            regime_filter_stats = {
+                "mode": regime_filter_mode,
+                "val_up_blocked_rows": int(np.sum(val_block_up_mask)),
+                "test_up_blocked_rows": int(np.sum(test_block_up_mask)),
+            }
+
             gate_failed = False
             gate_reasons = []
             if cls_metrics["up_recall"] < 0.15 or cls_metrics["down_recall"] < 0.15:
@@ -429,29 +788,44 @@ def main():
             if cls_metrics["directional_accuracy"] <= 0.40:
                 gate_failed = True
                 gate_reasons.append("Directional accuracy <= 40%")
+            if test_directional_coverage < float(args.min_directional_coverage):
+                gate_failed = True
+                gate_reasons.append(
+                    f"Directional coverage {test_directional_coverage:.3f} < min {float(args.min_directional_coverage):.3f}"
+                )
             if getattr(xgb, "best_iteration", 0) < 20:
                 gate_failed = True
-                gate_reasons.append(f"Early stopping too early (best_iteration < 20)")
-                
+                gate_reasons.append("Early stopping too early (best_iteration < 20)")
+
             gate_status = "FAILED" if gate_failed else "PASSED"
-            
             logger.info(
-                "[%s] XGBoost Test Acc: %.4f | Sharpe: %.4f | Drawdown: %.4f | WinRate: %.4f | Gates: %s",
+                "[%s] XGBoost Test Acc: %.4f | Sharpe: %.4f | Drawdown: %.4f | WinRate: %.4f | Coverage: %.2f%% | Gates: %s",
                 symbol,
                 cls_metrics["test_accuracy"],
                 trade_stats["sharpe"],
                 trade_stats["max_drawdown"],
                 trade_stats["win_rate"],
-                gate_status
+                test_directional_coverage * 100.0,
+                gate_status,
             )
             if gate_failed:
                 logger.warning("[%s] Gate failure reasons: %s", symbol, ", ".join(gate_reasons))
         else:
+            probs_val = np.empty((0, 3), dtype=np.float32)
             probs_test = np.empty((0, 3), dtype=np.float32)
             y_pred_test = np.empty((0,), dtype=np.int64)
             gate_failed = True
             gate_reasons = ["No test data"]
-            cls_metrics = {
+            best_conf_threshold = float(args.class_threshold)
+            threshold_score = 0.0
+            val_directional_coverage = 0.0
+            test_directional_coverage = 0.0
+            regime_filter_stats = {
+                "mode": str(args.daily_regime_filter_mode).strip().lower(),
+                "val_up_blocked_rows": 0,
+                "test_up_blocked_rows": 0,
+            }
+            val_cls_metrics = {
                 "test_accuracy": 0.0,
                 "directional_accuracy": 0.0,
                 "up_precision": 0.0,
@@ -464,6 +838,17 @@ def main():
                 "down_support": 0,
                 "test_confusion_matrix": [],
             }
+            cls_metrics = dict(val_cls_metrics)
+            trade_stats = {
+                "sharpe": 0.0,
+                "sortino": 0.0,
+                "max_drawdown": 0.0,
+                "win_rate": 0.0,
+                "profit_factor": 0.0,
+                "total_trades": 0,
+                "average_trade_return": 0.0,
+                "coverage": 0.0,
+            }
 
         test_pred_df = pd.DataFrame(
             {
@@ -474,6 +859,7 @@ def main():
                 "xgb_prob_up": probs_test[:, 2] if len(probs_test) else np.array([], dtype=np.float32),
                 "predicted_label": y_pred_test,
                 "actual_label": y_test if len(y_test) else np.array([], dtype=np.int64),
+                "confidence_threshold": best_conf_threshold,
             }
         )
         test_pred_df.to_parquet(sym_out / "predictions.parquet", index=False)
@@ -486,7 +872,16 @@ def main():
         hyperparams = {
             "symbol": symbol,
             "class_threshold": float(args.class_threshold),
+            "confidence_threshold": float(best_conf_threshold),
             "seed": int(args.seed),
+            "strict_artifact_match": bool(args.strict_artifact_match),
+            "expected_run_id": expected_run_id or None,
+            "run_id": run_id,
+            "interval": args.interval,
+            "source_script": SOURCE_SCRIPT,
+            "feature_schema_version": feature_schema_version,
+            "min_directional_coverage": float(args.min_directional_coverage),
+            "daily_regime_filter_mode": str(args.daily_regime_filter_mode).strip().lower(),
             "features": feature_cols,
             "model": {
                 "n_estimators": 500,
@@ -501,11 +896,50 @@ def main():
             },
         }
         safe_write_json(sym_out / "hyperparams.json", hyperparams)
+        evaluation_bundle = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "symbol": symbol,
+            "symbol_canonical": symbol,
+            "run_id": run_id,
+            "interval": args.interval,
+            "source_script": SOURCE_SCRIPT,
+            "feature_schema_version": feature_schema_version,
+            "artifact_contract": artifact_contract,
+            "readiness": readiness,
+            "split_counts": split_counts,
+            "classification": {
+                "validation": {
+                    **val_cls_metrics,
+                    "directional_coverage": val_directional_coverage,
+                    "threshold_score": float(threshold_score),
+                },
+                "test": {
+                    **cls_metrics,
+                    "directional_coverage": test_directional_coverage,
+                },
+            },
+            "backtest": trade_stats,
+            "gates": {
+                "passed": not gate_failed,
+                "status": "PASSED" if not gate_failed else "FAILED",
+                "reasons": gate_reasons,
+                "best_iteration": int(getattr(xgb, "best_iteration", 0) or 0),
+                "confidence_threshold": float(best_conf_threshold),
+                "min_directional_coverage": float(args.min_directional_coverage),
+            },
+            "daily_regime_filter": regime_filter_stats,
+        }
+        safe_write_json(sym_out / "evaluation_bundle.json", evaluation_bundle)
         safe_write_json(
             sym_out / "training_meta.json",
             {
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "symbol": symbol,
+                "symbol_canonical": symbol,
+                "run_id": run_id,
+                "interval": args.interval,
+                "source_script": SOURCE_SCRIPT,
+                "feature_schema_version": feature_schema_version,
                 "split_counts": split_counts,
                 "hyperparameters": hyperparams,
                 "metrics": {
@@ -513,11 +947,34 @@ def main():
                     "best_iteration": int(getattr(xgb, "best_iteration", 0) or 0),
                     "gate_passed": not gate_failed,
                     "gate_reasons": gate_reasons,
+                    "confidence_threshold": float(best_conf_threshold),
+                    "directional_coverage": test_directional_coverage,
+                    "backtest": trade_stats,
+                    "daily_regime_filter": regime_filter_stats,
                 },
             },
         )
 
+        run_report["symbols_processed"].append(
+            {
+                "symbol": symbol,
+                "run_id": run_id,
+                "artifact_run_id": artifact_contract.get("run_id"),
+                "confidence_threshold": float(best_conf_threshold),
+                "gate_passed": not gate_failed,
+                "gate_reasons": gate_reasons,
+                "directional_coverage": test_directional_coverage,
+                "backtest": trade_stats,
+                "readiness": readiness,
+                "daily_regime_filter": regime_filter_stats,
+            }
+        )
+
         logger.info("[%s] XGBoost trained. Best iteration: %s", symbol, getattr(xgb, "best_iteration", 0))
+
+    run_report_path = output_root / f"xgboost_run_report_{run_id}.json"
+    safe_write_json(run_report_path, run_report)
+    logger.info("Saved XGBoost run report: %s", run_report_path)
 
 if __name__ == "__main__":
     main()

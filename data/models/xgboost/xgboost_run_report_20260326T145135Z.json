@@ -1,0 +1,150 @@
+{
+  "timestamp": "2026-03-26T14:56:20.914889+00:00",
+  "run_id": "20260326T145135Z",
+  "expected_run_id": "20260326T145135Z",
+  "interval": "1h",
+  "source_script": "train_universe_xgboost.py",
+  "feature_schema_version": "technical_features_v1",
+  "strict_artifact_match": true,
+  "symbols_requested": [
+    "INFY.NS",
+    "TATASTEEL.NS",
+    "HDFCBANK.NS",
+    "RELIANCE.NS",
+    "TCS.NS"
+  ],
+  "symbols_processed": [
+    {
+      "symbol": "INFY.NS",
+      "run_id": "20260326T145135Z",
+      "artifact_run_id": "20260326T145135Z",
+      "confidence_threshold": 0.15,
+      "gate_passed": false,
+      "gate_reasons": [
+        "Low directional recall (< 15%)"
+      ],
+      "directional_coverage": 0.8781431334622823,
+      "backtest": {
+        "sharpe": -0.9971916934137016,
+        "sortino": -1.2678652621661215,
+        "max_drawdown": 0.08759919772306013,
+        "win_rate": 0.43832599118942733,
+        "profit_factor": 0.9332272541197311,
+        "total_trades": 110,
+        "average_trade_return": -6.194331115740189e-05,
+        "coverage": 0.8781431334622823
+      },
+      "readiness": {
+        "cnn_directional_coverage": 0.6669351590817559,
+        "lstm_directional_coverage": 0.8505839710028191,
+        "base_directional_coverage": 0.7587595650422876
+      }
+    },
+    {
+      "symbol": "TATASTEEL.NS",
+      "run_id": "20260326T145135Z",
+      "artifact_run_id": "20260326T145135Z",
+      "confidence_threshold": 0.15,
+      "gate_passed": false,
+      "gate_reasons": [
+        "Low directional recall (< 15%)",
+        "Directional accuracy <= 40%"
+      ],
+      "directional_coverage": 0.7408123791102514,
+      "backtest": {
+        "sharpe": -3.396423386228719,
+        "sortino": -4.366462781594774,
+        "max_drawdown": 0.14274275111794077,
+        "win_rate": 0.4308093994778068,
+        "profit_factor": 0.7554204241647431,
+        "total_trades": 209,
+        "average_trade_return": -0.00026543767533022863,
+        "coverage": 0.7408123791102514
+      },
+      "readiness": {
+        "cnn_directional_coverage": 0.743455497382199,
+        "lstm_directional_coverage": 0.8066854611357229,
+        "base_directional_coverage": 0.7750704792589609
+      }
+    },
+    {
+      "symbol": "HDFCBANK.NS",
+      "run_id": "20260326T145135Z",
+      "artifact_run_id": "20260326T145135Z",
+      "confidence_threshold": 0.15,
+      "gate_passed": false,
+      "gate_reasons": [
+        "Low directional recall (< 15%)",
+        "Directional accuracy <= 40%"
+      ],
+      "directional_coverage": 0.85546875,
+      "backtest": {
+        "sharpe": -6.329635841612894,
+        "sortino": -7.240701849226309,
+        "max_drawdown": 0.14219509275072706,
+        "win_rate": 0.4200913242009132,
+        "profit_factor": 0.5643210061030467,
+        "total_trades": 100,
+        "average_trade_return": -0.00031839630355881045,
+        "coverage": 0.85546875
+      },
+      "readiness": {
+        "cnn_directional_coverage": 0.6208299430431244,
+        "lstm_directional_coverage": 0.7807160292921074,
+        "base_directional_coverage": 0.700772986167616
+      }
+    },
+    {
+      "symbol": "RELIANCE.NS",
+      "run_id": "20260326T145135Z",
+      "artifact_run_id": "20260326T145135Z",
+      "confidence_threshold": 0.15,
+      "gate_passed": true,
+      "gate_reasons": [],
+      "directional_coverage": 0.8529980657640233,
+      "backtest": {
+        "sharpe": -2.085851448244071,
+        "sortino": -2.9017212141762148,
+        "max_drawdown": 0.06663986643851283,
+        "win_rate": 0.46485260770975056,
+        "profit_factor": 0.8800576028574466,
+        "total_trades": 133,
+        "average_trade_return": -6.817355694410066e-05,
+        "coverage": 0.8529980657640233
+      },
+      "readiness": {
+        "cnn_directional_coverage": 0.6161900926298832,
+        "lstm_directional_coverage": 0.7752718485702779,
+        "base_directional_coverage": 0.6957309706000805
+      }
+    },
+    {
+      "symbol": "TCS.NS",
+      "run_id": "20260326T145135Z",
+      "artifact_run_id": "20260326T145135Z",
+      "confidence_threshold": 0.15,
+      "gate_passed": false,
+      "gate_reasons": [
+        "Low directional recall (< 15%)",
+        "Directional accuracy <= 40%"
+      ],
+      "directional_coverage": 0.23449612403100775,
+      "backtest": {
+        "sharpe": -5.276524753161647,
+        "sortino": -3.592828084669415,
+        "max_drawdown": 0.1435763314858911,
+        "win_rate": 0.34710743801652894,
+        "profit_factor": 0.43953236695797165,
+        "total_trades": 146,
+        "average_trade_return": -0.0010042573541450878,
+        "coverage": 0.23449612403100775
+      },
+      "readiness": {
+        "cnn_directional_coverage": 0.4064516129032258,
+        "lstm_directional_coverage": 0.8491935483870968,
+        "base_directional_coverage": 0.6278225806451613
+      }
+    }
+  ],
+  "symbols_skipped": []
+}

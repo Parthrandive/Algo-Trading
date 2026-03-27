@@ -1,6 +1,11 @@
 {
-  "timestamp": "2026-03-26T10:39:12.718689+00:00",
+  "timestamp": "2026-03-26T14:56:23.675587+00:00",
   "symbol": "HDFCBANK.NS",
+  "symbol_canonical": "HDFCBANK.NS",
+  "run_id": "20260326T145135Z",
+  "interval": "1h",
+  "source_script": "train_universe_xgboost.py",
+  "feature_schema_version": "technical_features_v1",
   "split_counts": {
     "train": 2458,
     "val": 511,
@@ -9,7 +14,15 @@
   "hyperparameters": {
     "symbol": "HDFCBANK.NS",
     "class_threshold": 0.005,
+    "confidence_threshold": 0.15,
     "seed": 42,
+    "strict_artifact_match": true,
+    "expected_run_id": "20260326T145135Z",
+    "run_id": "20260326T145135Z",
+    "interval": "1h",
+    "source_script": "train_universe_xgboost.py",
+    "feature_schema_version": "technical_features_v1",
+    "min_directional_coverage": 0.12,
     "features": [
       "cnn_prob_up",
       "cnn_prob_neutral",
@@ -17,6 +30,8 @@
       "lstm_prob_down",
       "lstm_prob_neutral",
       "lstm_prob_up",
+      "daily_trend_bullish",
+      "daily_trend_up_neutralized",
       "tech_open",
       "tech_high",
       "tech_low",
@@ -58,6 +73,16 @@
       "tech_macro_regime_index",
       "tech_macro_regime_shock",
       "tech_macro_directional_flag",
+      "tech_daily_ma_20",
+      "tech_daily_ma_50",
+      "tech_daily_ma_200",
+      "tech_daily_rsi",
+      "tech_daily_bollinger_upper",
+      "tech_daily_bollinger_lower",
+      "tech_daily_bollinger_width",
+      "tech_daily_adx",
+      "tech_daily_trend_strength",
+      "tech_daily_trend_bullish",
       "hmm_regime",
       "regime_shift_flag",
       "cnn_up_reliable",
@@ -78,38 +103,50 @@
     }
   },
   "metrics": {
-    "test_accuracy": 0.640625,
-    "directional_accuracy": 0.2608695652173913,
-    "up_precision": 0.058823529411764705,
-    "up_recall": 0.06666666666666667,
-    "up_f1": 0.0625,
-    "up_support": 30,
-    "down_precision": 0.12598425196850394,
-    "down_recall": 0.41025641025641024,
-    "down_f1": 0.1927710843373494,
-    "down_support": 39,
+    "test_accuracy": 0.3046875,
+    "directional_accuracy": 0.37790697674418605,
+    "up_precision": 0.27900552486187846,
+    "up_recall": 0.6778523489932886,
+    "up_f1": 0.3953033268101761,
+    "up_support": 149,
+    "down_precision": 0.3815789473684211,
+    "down_recall": 0.14871794871794872,
+    "down_f1": 0.2140221402214022,
+    "down_support": 195,
     "test_confusion_matrix": [
       [
-        16,
+        29,
+        26,
+        140
+      ],
+      [
+        21,
+        26,
+        121
+      ],
+      [
+        26,
         22,
-        1
-      ],
-      [
-        102,
-        310,
-        31
-      ],
-      [
-        9,
-        19,
-        2
+        101
       ]
     ],
-    "best_iteration": 499,
+    "best_iteration": 75,
     "gate_passed": false,
     "gate_reasons": [
       "Low directional recall (< 15%)",
       "Directional accuracy <= 40%"
-    ]
+    ],
+    "confidence_threshold": 0.15,
+    "directional_coverage": 0.85546875,
+    "backtest": {
+      "sharpe": -6.329635841612894,
+      "sortino": -7.240701849226309,
+      "max_drawdown": 0.14219509275072706,
+      "win_rate": 0.4200913242009132,
+      "profit_factor": 0.5643210061030467,
+      "total_trades": 100,
+      "average_trade_return": -0.00031839630355881045,
+      "coverage": 0.85546875
+    }
   }
 }

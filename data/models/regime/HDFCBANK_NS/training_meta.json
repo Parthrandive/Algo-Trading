@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-03-23T12:54:55.260495+00:00",
+  "timestamp": "2026-03-26T19:07:17.419139+00:00",
   "symbol": "HDFCBANK.NS",
-  "run_timestamp_utc": "2026-03-23T12:54:55.260495+00:00",
-  "rows_trained": 500,
-  "start_timestamp": "2026-02-27 04:45:00+00:00",
+  "run_timestamp_utc": "2026-03-26T19:07:17.419139+00:00",
+  "rows_trained": 945,
+  "start_timestamp": "2026-02-23 03:45:00+00:00",
   "end_timestamp": "2026-03-06 09:45:00+00:00",
   "artifacts_saved": [
     "hmm_regime.parquet",
@@ -11,14 +11,18 @@
   ],
   "hmm_components": 4,
   "hyperparameters": {
+    "interval": "1h",
+    "limit": 2000,
+    "min_gold_rows": 120,
+    "warmup_rows": 120,
     "hmm_components": 4
   },
   "metrics": {
     "regime_distribution": {
-      "2": 0.48947368421052634,
-      "1": 0.2394736842105263,
-      "3": 0.1394736842105263,
-      "0": 0.13157894736842105
+      "1": 0.38666666666666666,
+      "2": 0.38181818181818183,
+      "0": 0.12727272727272726,
+      "3": 0.10424242424242425
     }
   }
 }

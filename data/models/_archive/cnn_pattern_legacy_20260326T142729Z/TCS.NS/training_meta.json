@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-03-26T12:49:12.198450+00:00",
-  "symbol": "RELIANCE.NS",
+  "timestamp": "2026-03-26T13:45:22.873754+00:00",
+  "symbol": "TCS.NS",
   "hyperparameters": {
-    "symbol": "RELIANCE.NS",
+    "symbol": "TCS.NS",
     "window_size": 20,
     "learning_rate": 0.001,
     "feature_columns": [
@@ -11,6 +11,15 @@
       "low",
       "close",
       "volume",
+      "CPI",
+      "WPI",
+      "IIP",
+      "FII_FLOW",
+      "FX_RESERVES",
+      "INDIA_US_10Y_SPREAD",
+      "RBI_BULLETIN",
+      "REPO_RATE",
+      "US_10Y",
       "usdinr_close",
       "usdinr_return",
       "usdinr_zscore",
@@ -30,6 +39,14 @@
       "macd",
       "macd_signal",
       "macd_hist",
+      "CPI_z",
+      "WPI_z",
+      "IIP_z",
+      "FII_FLOW_z",
+      "FX_RESERVES_z",
+      "INDIA_US_10Y_SPREAD_z",
+      "REPO_RATE_z",
+      "US_10Y_z",
       "macro_coverage_ratio",
       "macro_regime_index",
       "macro_regime_shock",
@@ -54,61 +71,61 @@
     "include_daily_features": true,
     "neutral_threshold": 0.005,
     "use_binary": false,
-    "confidence_threshold": 0.49999999999999994,
+    "confidence_threshold": 0.5499999999999999,
     "class_weight_dict": {
-      "0": 11.164948453608247,
-      "1": 0.1990077177508269,
-      "2": 9.139240506329115
+      "0": 2.943089430894309,
+      "1": 0.5027777777777778,
+      "2": 2.0280112044817926
     }
   },
-  "epochs_requested": 8,
-  "epochs_run": 8,
+  "epochs_requested": 150,
+  "epochs_run": 16,
   "split_counts": {
-    "train": 1083,
-    "val": 516,
-    "test": 517
+    "train": 362,
+    "val": 285,
+    "test": 286
   },
   "class_distribution_pct": {
     "train": {
-      "up": 8.956602031394276,
-      "neutral": 83.7488457987073,
-      "down": 7.29455216989843
+      "up": 33.97790055248619,
+      "neutral": 33.14917127071823,
+      "down": 32.87292817679558
     },
     "val": {
-      "up": 6.007751937984496,
-      "neutral": 88.17829457364341,
-      "down": 5.813953488372093
+      "up": 29.82456140350877,
+      "neutral": 40.35087719298245,
+      "down": 29.82456140350877
     },
     "test": {
-      "up": 6.5764023210831715,
-      "neutral": 85.49323017408123,
-      "down": 7.930367504835589
+      "up": 26.923076923076923,
+      "neutral": 37.41258741258741,
+      "down": 35.66433566433567
     }
   },
   "metrics": {
-    "train_loss": 0.9524262629497524,
-    "val_loss": 1.0410929724227551,
-    "train_accuracy": 0.5013850415512465,
-    "val_accuracy": 0.8701550387596899,
-    "test_accuracy": 0.8278529980657641,
-    "best_val_f1": 0.8283362831598011,
-    "sharpe": 0.012339559054693267,
-    "max_drawdown": -0.008707046508789062,
-    "win_rate": 0.4117647058823529,
+    "train_loss": 0.9341793511453913,
+    "val_loss": 0.9802455029989544,
+    "train_accuracy": 0.3370165745856354,
+    "val_accuracy": 0.40350877192982454,
+    "test_accuracy": 0.3741258741258741,
+    "best_val_f1": 0.23201754385964912,
+    "sharpe": NaN,
+    "max_drawdown": 0.0,
+    "win_rate": NaN,
     "confusion_matrix": [
       [
-        1,
-        33,
+        0,
+        77,
         0
       ],
       [
-        15,
-        427,
+        0,
+        107,
         0
       ],
       [
-        1,
-        40,
+        0,
+        102,
         0
       ]
     ]

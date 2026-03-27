@@ -48,6 +48,7 @@ EPS = 1e-8
 UP_WEIGHT_MULTIPLIER = 3.0
 BEARISH_DOMINANCE_RATIO = 0.70
 REGIME_SHIFT_THRESHOLD = 0.10
+PIPELINE_ROLE = "exploratory_only"
 
 
 @dataclass
@@ -987,6 +988,7 @@ def train_single_symbol(
     training_meta = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "symbol": symbol,
+        "pipeline_role": PIPELINE_ROLE,
         "hyperparameters": hyperparams,
         "epochs_requested": epochs,
         "epochs_run": train_stats["epochs_run"],
@@ -1072,6 +1074,10 @@ def main() -> None:
     args = parser.parse_args()
 
     set_seed(args.seed)
+    logger.warning(
+        "train_cnn_pattern.py is exploratory_only. "
+        "Use scripts/train_universe_cnn.py for production 3-layer retraining artifacts."
+    )
     include_daily_features = not bool(args.disable_daily_features)
     logger.info(
         "Daily feature fusion: %s",
