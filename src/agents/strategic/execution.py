@@ -7,6 +7,7 @@ from typing import Any, Mapping, Sequence
 from uuid import uuid4
 
 from src.agents.strategic.config import ExecutionConfig
+from src.agents.strategic.impact_monitor import ImpactSlippageMonitor
 from src.agents.strategic.schemas import (
     ComplianceCheckResult,
     ExecutionPlan,
@@ -106,11 +107,13 @@ class ExecutionEngine:
         self,
         config: ExecutionConfig | None = None,
         compliance: PreTradeComplianceChecker | None = None,
+        impact_monitor: ImpactSlippageMonitor | None = None,
     ):
         self.config = config or ExecutionConfig()
         self.compliance = compliance or PreTradeComplianceChecker()
         self.slippage = SlippageModel()
         self.routing = RoutingHealthMonitor(failure_limit=self.config.routing_health_failure_limit)
+        self.impact_monitor = impact_monitor
 
     def plan_execution(
         self,
@@ -129,19 +132,32 @@ class ExecutionEngine:
 
         # 2. Slippage Estimation
         est_slippage = self.slippage.estimate_bps(context, request.target_quantity)
-        
+        effective_qty = int(request.target_quantity)
+        size_multiplier = 1.0
+        if self.impact_monitor is not None:
+            size_multiplier = self.impact_monitor.size_multiplier(request.symbol)
+            effective_qty = int(math.floor(max(0, request.target_quantity) * size_multiplier))
+
         # 3. Instruction Generation
         instruction = OrderInstruction(
             event_id=str(uuid4()),
             timestamp=context.timestamp,
             symbol=request.symbol,
             direction=request.direction,
-            quantity=request.target_quantity,
+            quantity=effective_qty,
             order_type=request.order_type,
             participation_limit=float(self.compliance.limits.max_participation),
             risk_mode=compliance_result.risk_mode,
-            rationale=f"strategic_exec_v1; slippage={est_slippage:.1f}bps",
+            rationale=f"strategic_exec_v1; slippage={est_slippage:.1f}bps; size_multiplier={size_multiplier:.2f}",
             metadata=request.metadata,
+        )
+        audit_events.append(
+            {
+                "event": "impact_size_multiplier",
+                "symbol": request.symbol,
+                "size_multiplier": size_multiplier,
+                "effective_quantity": effective_qty,
+            }
         )
 
         return ExecutionPlan(
