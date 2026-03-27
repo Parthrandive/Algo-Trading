@@ -1,6 +1,11 @@
 {
-  "timestamp": "2026-03-26T12:50:06.705055+00:00",
+  "timestamp": "2026-03-26T14:56:24.451549+00:00",
   "symbol": "RELIANCE.NS",
+  "symbol_canonical": "RELIANCE.NS",
+  "run_id": "20260326T145135Z",
+  "interval": "1h",
+  "source_script": "train_universe_xgboost.py",
+  "feature_schema_version": "technical_features_v1",
   "split_counts": {
     "train": 2483,
     "val": 516,
@@ -9,7 +14,15 @@
   "hyperparameters": {
     "symbol": "RELIANCE.NS",
     "class_threshold": 0.005,
+    "confidence_threshold": 0.15,
     "seed": 42,
+    "strict_artifact_match": true,
+    "expected_run_id": "20260326T145135Z",
+    "run_id": "20260326T145135Z",
+    "interval": "1h",
+    "source_script": "train_universe_xgboost.py",
+    "feature_schema_version": "technical_features_v1",
+    "min_directional_coverage": 0.12,
     "features": [
       "cnn_prob_up",
       "cnn_prob_neutral",
@@ -90,38 +103,47 @@
     }
   },
   "metrics": {
-    "test_accuracy": 0.6150870406189555,
-    "directional_accuracy": 0.25675675675675674,
-    "up_precision": 0.25,
-    "up_recall": 0.09090909090909091,
-    "up_f1": 0.13333333333333333,
-    "up_support": 33,
-    "down_precision": 0.0963855421686747,
-    "down_recall": 0.3902439024390244,
-    "down_f1": 0.15458937198067632,
-    "down_support": 41,
+    "test_accuracy": 0.33849129593810445,
+    "directional_accuracy": 0.4173669467787115,
+    "up_precision": 0.32228915662650603,
+    "up_recall": 0.6331360946745562,
+    "up_f1": 0.42714570858283435,
+    "up_support": 169,
+    "down_precision": 0.3853211009174312,
+    "down_recall": 0.22340425531914893,
+    "down_f1": 0.2828282828282828,
+    "down_support": 188,
     "test_confusion_matrix": [
       [
-        16,
-        22,
-        3
+        42,
+        25,
+        121
       ],
       [
-        138,
-        299,
-        6
+        30,
+        26,
+        104
       ],
       [
-        12,
-        18,
-        3
+        37,
+        25,
+        107
       ]
     ],
-    "best_iteration": 499,
-    "gate_passed": false,
-    "gate_reasons": [
-      "Low directional recall (< 15%)",
-      "Directional accuracy <= 40%"
-    ]
+    "best_iteration": 74,
+    "gate_passed": true,
+    "gate_reasons": [],
+    "confidence_threshold": 0.15,
+    "directional_coverage": 0.8529980657640233,
+    "backtest": {
+      "sharpe": -2.085851448244071,
+      "sortino": -2.9017212141762148,
+      "max_drawdown": 0.06663986643851283,
+      "win_rate": 0.46485260770975056,
+      "profit_factor": 0.8800576028574466,
+      "total_trades": 133,
+      "average_trade_return": -6.817355694410066e-05,
+      "coverage": 0.8529980657640233
+    }
   }
 }

@@ -35,13 +35,18 @@ def apply_daily_trend_confirmation(
     *,
     up_label: int = 2,
     neutral_label: int = 1,
+    mode: str = "hard",
+    up_penalty: float = 0.5,
+    soft_confidence_cut: float = 0.5,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Enforce daily trend confirmation on directional long signals.
 
     Rule:
-    - If predicted label is `up_label` and daily trend is not bullish, downgrade
-      to `neutral_label`.
+    - hard: If predicted label is `up_label` and daily trend is not bullish,
+      downgrade to `neutral_label`.
+    - soft: Penalize UP probability first; neutralize only if adjusted UP
+      confidence drops below `soft_confidence_cut`.
     """
     labels = np.asarray(pred_labels, dtype=np.int64).copy()
     adjusted_probs = np.asarray(probs, dtype=np.float64).copy()
@@ -51,25 +56,63 @@ def apply_daily_trend_confirmation(
         return labels, adjusted_probs, np.zeros(len(labels), dtype=bool)
 
     bullish = trend >= 0.5
-    neutralize_mask = (labels == int(up_label)) & (~bullish)
-    if not neutralize_mask.any():
-        return labels, adjusted_probs, neutralize_mask
+    candidate_mask = (labels == int(up_label)) & (~bullish)
+    if not candidate_mask.any():
+        return labels, adjusted_probs, candidate_mask
 
-    labels[neutralize_mask] = int(neutral_label)
+    mode_normalized = str(mode).strip().lower()
+    if mode_normalized not in {"hard", "soft"}:
+        raise ValueError(f"Unsupported daily trend confirmation mode: {mode}")
+
     if adjusted_probs.ndim == 2 and adjusted_probs.shape[1] >= 3:
-        up_prob = adjusted_probs[neutralize_mask, int(up_label)].copy()
-        adjusted_probs[neutralize_mask, int(neutral_label)] = np.clip(
-            adjusted_probs[neutralize_mask, int(neutral_label)] + up_prob,
+        up_idx = int(up_label)
+        neutral_idx = int(neutral_label)
+
+        if mode_normalized == "hard":
+            up_prob = adjusted_probs[candidate_mask, up_idx].copy()
+            adjusted_probs[candidate_mask, neutral_idx] = np.clip(
+                adjusted_probs[candidate_mask, neutral_idx] + up_prob,
+                0.0,
+                1.0,
+            )
+            adjusted_probs[candidate_mask, up_idx] = 0.0
+            row_sum = adjusted_probs[candidate_mask].sum(axis=1, keepdims=True)
+            adjusted_probs[candidate_mask] = np.divide(
+                adjusted_probs[candidate_mask],
+                np.where(row_sum == 0.0, 1.0, row_sum),
+            )
+            labels[candidate_mask] = int(neutral_label)
+            return labels, adjusted_probs, candidate_mask
+
+        clipped_penalty = float(np.clip(up_penalty, 0.0, 1.0))
+        removed = adjusted_probs[candidate_mask, up_idx] * clipped_penalty
+        adjusted_probs[candidate_mask, up_idx] = np.clip(
+            adjusted_probs[candidate_mask, up_idx] - removed,
             0.0,
             1.0,
         )
-        adjusted_probs[neutralize_mask, int(up_label)] = 0.0
-        row_sum = adjusted_probs[neutralize_mask].sum(axis=1, keepdims=True)
-        adjusted_probs[neutralize_mask] = np.divide(
-            adjusted_probs[neutralize_mask],
+        adjusted_probs[candidate_mask, neutral_idx] = np.clip(
+            adjusted_probs[candidate_mask, neutral_idx] + removed,
+            0.0,
+            1.0,
+        )
+        row_sum = adjusted_probs[candidate_mask].sum(axis=1, keepdims=True)
+        adjusted_probs[candidate_mask] = np.divide(
+            adjusted_probs[candidate_mask],
             np.where(row_sum == 0.0, 1.0, row_sum),
         )
-    return labels, adjusted_probs, neutralize_mask
+        adjusted_up_conf = adjusted_probs[candidate_mask, up_idx]
+        soft_neutralized = np.zeros(len(labels), dtype=bool)
+        soft_neutralized[candidate_mask] = adjusted_up_conf < float(soft_confidence_cut)
+        labels[soft_neutralized] = int(neutral_label)
+        return labels, adjusted_probs, soft_neutralized
+
+    if mode_normalized == "hard":
+        labels[candidate_mask] = int(neutral_label)
+        return labels, adjusted_probs, candidate_mask
+
+    # Soft mode without probabilities cannot penalize confidence; fallback to label-only no-op.
+    return labels, adjusted_probs, np.zeros(len(labels), dtype=bool)
 
 
 def add_lag_features(df: pd.DataFrame, target_col: str, lags: int) -> pd.DataFrame:

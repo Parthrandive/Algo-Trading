@@ -34,19 +34,46 @@ class RegimeDataLoader:
         self.database_url = database_url
         self.gold_dir = Path(gold_dir)
 
-    def load_features(self, symbol: str, limit: int = 500, interval: str = "1d") -> pd.DataFrame:
-        df = self._load_from_db(symbol=symbol, limit=limit, interval=interval)
-        if df.empty:
-            df = self._load_from_parquet(symbol=symbol, limit=limit, interval=interval)
+    def load_features(
+        self,
+        symbol: str,
+        limit: int = 500,
+        interval: str = "1d",
+        min_gold_rows: int = 120,
+    ) -> pd.DataFrame:
+        """
+        Loads regime features with sparse-gold fallback:
+        1) Gold table
+        2) Silver OHLCV bars + macro enrichment (if gold is missing/sparse)
+        3) Local parquet fallback
+        """
+        min_rows = max(int(min_gold_rows), 0)
+        gold_df = self._load_from_db(symbol=symbol, limit=limit, interval=interval)
+        if not gold_df.empty and (min_rows == 0 or len(gold_df) >= min_rows):
+            return self._finalize(gold_df)
 
-        if df.empty:
-            return df
+        if not gold_df.empty and min_rows > 0 and len(gold_df) < min_rows:
+            logger.warning(
+                "RegimeDataLoader sparse gold features for %s (%s rows < min_gold_rows=%s). Falling back to ohlcv_bars.",
+                symbol,
+                len(gold_df),
+                min_rows,
+            )
 
-        if "timestamp" in df.columns:
-            df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
-            df = df.dropna(subset=["timestamp"])
+        ohlcv_df = self._load_from_ohlcv(symbol=symbol, limit=limit, interval=interval)
+        if not ohlcv_df.empty and (min_rows == 0 or len(ohlcv_df) >= min_rows):
+            return self._finalize(ohlcv_df)
 
-        return df.sort_values("timestamp").reset_index(drop=True)
+        parquet_df = self._load_from_parquet(symbol=symbol, limit=limit, interval=interval)
+        if not parquet_df.empty:
+            return self._finalize(parquet_df)
+
+        # Last resort: return whichever non-empty frame we had, preferring ohlcv over sparse gold.
+        if not ohlcv_df.empty:
+            return self._finalize(ohlcv_df)
+        if not gold_df.empty:
+            return self._finalize(gold_df)
+        return pd.DataFrame()
 
     def build_labeled_dataset(self, symbol: str, limit: int = 2000, interval: str = "1d") -> pd.DataFrame:
         """
@@ -128,6 +155,36 @@ class RegimeDataLoader:
         except Exception as exc:
             logger.warning("RegimeDataLoader DB read failed for %s: %s", symbol, exc)
             return pd.DataFrame()
+
+    def _load_from_ohlcv(self, symbol: str, limit: int, interval: str) -> pd.DataFrame:
+        try:
+            engine = get_engine(self.database_url)
+            query = """
+                SELECT *
+                FROM (
+                    SELECT *
+                    FROM ohlcv_bars
+                    WHERE symbol = %(symbol)s AND interval = %(interval)s
+                    ORDER BY timestamp DESC
+                    LIMIT %(limit)s
+                ) AS latest
+                ORDER BY timestamp ASC
+            """
+            df = pd.read_sql(query, engine, params={"symbol": symbol, "limit": int(limit), "interval": interval})
+            if df.empty:
+                return df
+            return self._augment_macro_from_db(engine, df)
+        except Exception as exc:
+            logger.warning("RegimeDataLoader ohlcv fallback failed for %s: %s", symbol, exc)
+            return pd.DataFrame()
+
+    @staticmethod
+    def _finalize(df: pd.DataFrame) -> pd.DataFrame:
+        out = df.copy()
+        if "timestamp" in out.columns:
+            out["timestamp"] = pd.to_datetime(out["timestamp"], utc=True, errors="coerce")
+            out = out.dropna(subset=["timestamp"])
+        return out.sort_values("timestamp").reset_index(drop=True)
 
     def _augment_macro_from_db(self, engine, gold_df: pd.DataFrame) -> pd.DataFrame:
         """

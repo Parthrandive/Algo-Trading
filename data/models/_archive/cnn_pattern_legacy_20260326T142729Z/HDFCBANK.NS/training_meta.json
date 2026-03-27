@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-03-26T10:38:19.770421+00:00",
-  "symbol": "TCS.NS",
+  "timestamp": "2026-03-26T13:45:29.105899+00:00",
+  "symbol": "HDFCBANK.NS",
   "hyperparameters": {
-    "symbol": "TCS.NS",
+    "symbol": "HDFCBANK.NS",
     "window_size": 20,
     "learning_rate": 0.001,
     "feature_columns": [
@@ -51,6 +51,16 @@
       "macro_regime_index",
       "macro_regime_shock",
       "macro_directional_flag",
+      "daily_ma_20",
+      "daily_ma_50",
+      "daily_ma_200",
+      "daily_rsi",
+      "daily_bollinger_upper",
+      "daily_bollinger_lower",
+      "daily_bollinger_width",
+      "daily_adx",
+      "daily_trend_strength",
+      "daily_trend_bullish",
       "returns",
       "vol_regime",
       "return_zscore",
@@ -58,17 +68,18 @@
       "arima_forecast",
       "arima_residual"
     ],
+    "include_daily_features": true,
     "neutral_threshold": 0.005,
     "use_binary": false,
     "confidence_threshold": 0.5499999999999999,
     "class_weight_dict": {
-      "0": 2.943089430894309,
-      "1": 0.5027777777777778,
-      "2": 2.0280112044817926
+      "0": 3.0677966101694913,
+      "1": 0.47883597883597884,
+      "2": 2.0451977401129944
     }
   },
-  "epochs_requested": 30,
-  "epochs_run": 20,
+  "epochs_requested": 150,
+  "epochs_run": 17,
   "split_counts": {
     "train": 362,
     "val": 285,
@@ -76,45 +87,45 @@
   },
   "class_distribution_pct": {
     "train": {
-      "up": 33.97790055248619,
-      "neutral": 33.14917127071823,
-      "down": 32.87292817679558
+      "up": 32.59668508287293,
+      "neutral": 34.806629834254146,
+      "down": 32.59668508287293
     },
     "val": {
-      "up": 29.82456140350877,
-      "neutral": 40.35087719298245,
-      "down": 29.82456140350877
+      "up": 32.631578947368425,
+      "neutral": 41.05263157894737,
+      "down": 26.31578947368421
     },
     "test": {
-      "up": 26.923076923076923,
-      "neutral": 37.41258741258741,
-      "down": 35.66433566433567
+      "up": 29.02097902097902,
+      "neutral": 41.95804195804196,
+      "down": 29.02097902097902
     }
   },
   "metrics": {
-    "train_loss": 0.9068581181995118,
-    "val_loss": 0.9821127391698068,
-    "train_accuracy": 0.4143646408839779,
-    "val_accuracy": 0.35789473684210527,
-    "test_accuracy": 0.3111888111888112,
-    "best_val_f1": 0.27420911215925065,
-    "sharpe": -1.9508943744688834,
-    "max_drawdown": -0.32786983251571655,
-    "win_rate": 0.4244604316546763,
+    "train_loss": 0.9351622722425513,
+    "val_loss": 0.9380733889445924,
+    "train_accuracy": 0.3729281767955801,
+    "val_accuracy": 0.36140350877192984,
+    "test_accuracy": 0.2902097902097902,
+    "best_val_f1": 0.29601427297056193,
+    "sharpe": -0.1831951475611328,
+    "max_drawdown": -0.22948896884918213,
+    "win_rate": 0.486013986013986,
     "confusion_matrix": [
       [
-        34,
-        43,
+        83,
+        0,
         0
       ],
       [
-        52,
-        55,
+        120,
+        0,
         0
       ],
       [
-        53,
-        49,
+        83,
+        0,
         0
       ]
     ]

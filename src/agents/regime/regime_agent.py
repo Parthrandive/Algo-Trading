@@ -228,7 +228,13 @@ class RegimeAgent:
         out["macro_regime_shock"] = out["macro_regime_index"].diff().fillna(0.0).clip(-5.0, 5.0)
 
         # Preserve upstream directional flag if present and informative, otherwise derive from macro composite.
-        upstream_flag = pd.to_numeric(out.get("macro_directional_flag", 0.0), errors="coerce").fillna(0.0)
+        upstream_raw = out["macro_directional_flag"] if "macro_directional_flag" in out.columns else pd.Series(
+            0.0, index=out.index, dtype=float
+        )
+        upstream_flag = pd.to_numeric(upstream_raw, errors="coerce")
+        if not isinstance(upstream_flag, pd.Series):
+            upstream_flag = pd.Series(float(upstream_flag), index=out.index, dtype=float)
+        upstream_flag = upstream_flag.fillna(0.0)
         derived_flag = np.select(
             [out["macro_regime_shock"] >= 0.15, out["macro_regime_shock"] <= -0.15],
             [1, -1],

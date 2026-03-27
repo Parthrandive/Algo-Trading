@@ -38,3 +38,29 @@ def test_apply_daily_trend_confirmation_noops_on_misaligned_lengths():
     assert adjusted_labels.tolist() == labels.tolist()
     assert np.array_equal(adjusted_probs, probs)
     assert neutralized_mask.tolist() == [False]
+
+
+def test_apply_daily_trend_confirmation_soft_mode_penalizes_before_neutralizing():
+    labels = np.array([CLASS_UP, CLASS_UP], dtype=np.int64)
+    probs = np.array(
+        [
+            [0.05, 0.15, 0.80],  # stays UP after mild penalty
+            [0.05, 0.45, 0.50],  # flips to neutral after stronger penalty
+        ],
+        dtype=np.float64,
+    )
+    trend = np.array([0.0, 0.0], dtype=np.float64)
+
+    adjusted_labels, adjusted_probs, neutralized_mask = apply_daily_trend_confirmation(
+        labels,
+        probs,
+        trend,
+        mode="soft",
+        up_penalty=0.3,
+        soft_confidence_cut=0.4,
+    )
+
+    assert adjusted_probs[0, CLASS_UP] < probs[0, CLASS_UP]
+    assert adjusted_labels[0] == CLASS_UP
+    assert adjusted_labels[1] == CLASS_NEUTRAL
+    assert neutralized_mask.tolist() == [False, True]

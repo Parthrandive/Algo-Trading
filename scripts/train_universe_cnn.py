@@ -853,7 +853,18 @@ def label_to_signal(labels: np.ndarray, use_binary: bool) -> np.ndarray:
     return signals
 
 
-def trading_metrics(pred_labels: np.ndarray, realized_returns: np.ndarray, use_binary: bool) -> Dict[str, float]:
+def _annualization_periods(interval: str) -> float:
+    value = str(interval or "").strip().lower()
+    if value.endswith("h"):
+        hours = pd.Timedelta(value).total_seconds() / 3600.0
+        return float((252.0 * 6.0) / max(hours, EPS))
+    if value.endswith("d"):
+        days = pd.Timedelta(value).total_seconds() / 86400.0
+        return float(252.0 / max(days, EPS))
+    return 252.0
+
+
+def trading_metrics(pred_labels: np.ndarray, realized_returns: np.ndarray, use_binary: bool, interval: str) -> Dict[str, float]:
     if len(pred_labels) == 0:
         return {"sharpe": float("nan"), "max_drawdown": float("nan"), "win_rate": float("nan")}
 
@@ -861,12 +872,13 @@ def trading_metrics(pred_labels: np.ndarray, realized_returns: np.ndarray, use_b
     strategy_returns = signals * realized_returns
     mean_ret = float(np.mean(strategy_returns))
     vol = float(np.std(strategy_returns))
-    sharpe = float((mean_ret / vol) * np.sqrt(252.0)) if vol > 0 else float("nan")
+    annualization_scale = float(np.sqrt(_annualization_periods(interval)))
+    sharpe = float((mean_ret / vol) * annualization_scale) if vol > 0 else float("nan")
 
     equity = np.cumprod(1.0 + strategy_returns)
     peaks = np.maximum.accumulate(equity)
     drawdown = equity / np.maximum(peaks, EPS) - 1.0
-    max_drawdown = float(np.min(drawdown))
+    max_drawdown = float(abs(np.min(drawdown)))
 
     active = strategy_returns[np.abs(signals) > 0]
     if len(active) == 0:
@@ -970,9 +982,19 @@ def main() -> None:
     parser.add_argument("--local-silver-dir", default=None, help="Optional local OHLCV parquet root.")
     parser.add_argument("--min-rows", type=int, default=180, help="Minimum rows required per symbol.")
     parser.add_argument("--finetune-patience", type=int, default=8, help="Early-stopping patience for per-symbol fine-tuning.")
+    parser.add_argument("--run-id", type=str, default=None, help="Optional orchestration run identifier for artifact alignment.")
+    parser.add_argument(
+        "--feature-schema-version",
+        type=str,
+        default="technical_features_v1",
+        help="Feature schema version tag persisted in training artifacts.",
+    )
     args = parser.parse_args()
 
     set_seed(args.seed)
+    run_id = str(args.run_id).strip() if args.run_id else datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    source_script = str(Path(__file__).name)
+    feature_schema_version = str(args.feature_schema_version).strip()
     output_root = Path(args.output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
     arima_order = tuple(int(x.strip()) for x in args.arima_order.split(","))
@@ -981,6 +1003,7 @@ def main() -> None:
     loader = DataLoader(db_url)
     fx_context = load_fx_context_frame(loader, local_silver_dir=args.local_silver_dir, limit=args.limit, use_nse=args.use_nse, interval=args.interval)
     logger.info("USDINR context rows available: %s", len(fx_context))
+    logger.info("Universe CNN run_id=%s | interval=%s", run_id, args.interval)
 
     requested_symbols = dedupe_symbols(parse_symbols(args.symbol, args.symbols))
 
@@ -1117,6 +1140,11 @@ def main() -> None:
         
     hyperparams = {
         "symbol": "GLOBAL",
+        "symbol_canonical": "GLOBAL",
+        "run_id": run_id,
+        "interval": args.interval,
+        "source_script": source_script,
+        "feature_schema_version": feature_schema_version,
         "trained_on": list(symbol_data.keys()),
         "window_size": args.window_size,
         "learning_rate": args.lr,
@@ -1231,7 +1259,7 @@ def main() -> None:
             if s_name == "test":
                 preds_test = apply_confidence_threshold(probs, threshold=symbol_threshold, use_binary=args.use_binary)
                 test_acc = float(accuracy_score(y_data, preds_test))
-                trade_stats = trading_metrics(preds_test, ret_data, use_binary=args.use_binary)
+                trade_stats = trading_metrics(preds_test, ret_data, use_binary=args.use_binary, interval=args.interval)
                 direction_stats = directional_class_metrics(y_true=y_data, y_pred=preds_test, use_binary=args.use_binary)
                 test_labels = [0, 1] if args.use_binary else [0, 1, 2]
                 test_confusion_matrix = confusion_matrix(y_data, preds_test, labels=test_labels).tolist()
@@ -1265,6 +1293,11 @@ def main() -> None:
 
         symbol_hyperparams = {
             "symbol": symbol,
+            "symbol_canonical": symbol,
+            "run_id": run_id,
+            "interval": args.interval,
+            "source_script": source_script,
+            "feature_schema_version": feature_schema_version,
             "trained_as_part_of_universe": True,
             "base_model_symbol": "GLOBAL",
             "window_size": args.window_size,
@@ -1292,6 +1325,11 @@ def main() -> None:
         meta = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "symbol": symbol,
+            "symbol_canonical": symbol,
+            "run_id": run_id,
+            "interval": args.interval,
+            "source_script": source_script,
+            "feature_schema_version": feature_schema_version,
             "trained_as_part_of_universe": True,
             "hyperparameters": {
                 "window_size": args.window_size,
