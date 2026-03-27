@@ -336,8 +336,9 @@ class ObservationDB(Base):
         UniqueConstraint("symbol", "timestamp", "snapshot_id", name="uq_observations_sym_ts_snapshot"),
     )
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    timestamp = Column(DateTime(timezone=True), nullable=False)
+    event_id = Column(String(64), primary_key=True, default=lambda: uuid4().hex)
+    timestamp = Column(DateTime(timezone=True), primary_key=True, nullable=False)
+    id = Column(Integer, nullable=True)
     symbol = Column(String(32), nullable=False)
     snapshot_id = Column(String(128), nullable=False)
     technical_direction = Column(String(8), nullable=False)
@@ -414,10 +415,13 @@ class TradeDecisionDB(Base):
         UniqueConstraint("symbol", "timestamp", "policy_snapshot_id", name="uq_trade_decisions_sym_ts_snapshot"),
     )
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    timestamp = Column(DateTime(timezone=True), nullable=False)
+    event_id = Column(String(64), primary_key=True, default=lambda: uuid4().hex)
+    timestamp = Column(DateTime(timezone=True), primary_key=True, nullable=False)
+    id = Column(Integer, nullable=True)
     symbol = Column(String(32), nullable=False)
-    observation_id = Column(Integer, ForeignKey("observations.id"), nullable=True)
+    observation_id = Column(Integer, nullable=True)
+    observation_event_id = Column(String(64), nullable=True)
+    observation_timestamp = Column(DateTime(timezone=True), nullable=True)
     policy_snapshot_id = Column(String(128), nullable=True)
     policy_id = Column(String(128), nullable=False)
     action = Column(String(16), nullable=False)
@@ -445,7 +449,7 @@ class RewardLogDB(Base):
     event_id = Column(String(64), primary_key=True, default=lambda: uuid4().hex)
     timestamp = Column(DateTime(timezone=True), primary_key=True, nullable=False)
     id = Column(Integer, nullable=True)
-    decision_id = Column(Integer, ForeignKey("trade_decisions.id"), nullable=True)
+    decision_id = Column(Integer, nullable=True)
     symbol = Column(String(32), nullable=False)
     policy_id = Column(String(128), nullable=False)
     reward_name = Column(String(32), nullable=False)  # backward-compatible alias
@@ -479,10 +483,17 @@ class PolicySnapshotDB(Base):
 
 class OrderDB(Base):
     __tablename__ = "orders"
+    __table_args__ = (
+        UniqueConstraint("order_id", "created_at", name="uq_orders_orderid_created"),
+    )
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    order_id = Column(String(128), nullable=False, unique=True)
-    decision_id = Column(Integer, ForeignKey("trade_decisions.id"), nullable=True)
+    event_id = Column(String(64), primary_key=True, default=lambda: uuid4().hex)
+    created_at = Column(DateTime(timezone=True), primary_key=True, nullable=False, default=lambda: datetime.now(timezone.utc))
+    id = Column(Integer, nullable=True)
+    order_id = Column(String(128), nullable=False)
+    decision_id = Column(Integer, nullable=True)
+    decision_event_id = Column(String(64), nullable=True)
+    decision_timestamp = Column(DateTime(timezone=True), nullable=True)
     symbol = Column(String(32), nullable=False)
     exchange = Column(String(16), nullable=False, default="NSE")
     product_type = Column(String(16), nullable=False, default="equity")
@@ -502,7 +513,6 @@ class OrderDB(Base):
     model_version = Column(String(128), nullable=False)
     compliance_check_passed = Column(Boolean, nullable=False, default=True)
     rejection_reason = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     schema_version = Column(String(8), nullable=False, default="1.0")
 
@@ -510,9 +520,12 @@ class OrderDB(Base):
 class OrderFillDB(Base):
     __tablename__ = "order_fills"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    order_id = Column(String(128), ForeignKey("orders.order_id"), nullable=False)
-    fill_timestamp = Column(DateTime(timezone=True), nullable=False)
+    event_id = Column(String(64), primary_key=True, default=lambda: uuid4().hex)
+    fill_timestamp = Column(DateTime(timezone=True), primary_key=True, nullable=False)
+    id = Column(Integer, nullable=True)
+    order_id = Column(String(128), nullable=False)
+    order_event_id = Column(String(64), nullable=True)
+    order_created_at = Column(DateTime(timezone=True), nullable=True)
     fill_price = Column(Float, nullable=False)
     fill_quantity = Column(Integer, nullable=False)
     exchange_trade_id = Column(String(128), nullable=True)
@@ -540,7 +553,7 @@ class PortfolioSnapshotDB(Base):
     sector = Column(String(32), nullable=True)
     risk_budget_used_pct = Column(Float, nullable=True)
     operating_mode = Column(String(16), nullable=False, default="normal")
-    decision_id = Column(Integer, ForeignKey("trade_decisions.id"), nullable=True)
+    decision_id = Column(Integer, nullable=True)
     schema_version = Column(String(8), nullable=False, default="1.0")
 
 

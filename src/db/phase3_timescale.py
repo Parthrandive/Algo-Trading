@@ -32,9 +32,25 @@ PHASE3_HYPERTABLE_SPECS: tuple[HypertableSpec, ...] = (
 )
 
 PHASE3_PK_REFACTOR_TABLES: dict[str, str] = {
+    "observations": "event_id",
+    "trade_decisions": "event_id",
+    "orders": "event_id",
+    "order_fills": "event_id",
     "reward_logs": "event_id",
     "portfolio_snapshots": "event_id",
     "deliberation_logs": "event_id",
+}
+
+LEGACY_FK_COLUMNS_TO_DROP: dict[str, set[tuple[str, ...]]] = {
+    "trade_decisions": {("observation_id",)},
+    "orders": {("decision_id",)},
+    "order_fills": {("order_id",)},
+    "reward_logs": {("decision_id",)},
+    "portfolio_snapshots": {("decision_id",)},
+}
+
+UNIQUE_REPLACEMENTS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
+    "orders": (("uq_orders_orderid_created", ("order_id", "created_at")),),
 }
 
 
@@ -77,6 +93,7 @@ def apply_phase3_timescale_hypertables(
             }
 
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS timescaledb;"))
+        _drop_legacy_foreign_keys(conn)
         for spec in PHASE3_HYPERTABLE_SPECS:
             try:
                 table_scope = conn.begin_nested() if hasattr(conn, "begin_nested") else nullcontext()
@@ -91,6 +108,9 @@ def apply_phase3_timescale_hypertables(
                         _refactor_primary_key_for_timescale(conn, inspector, spec.table, spec.time_column)
                         inspector = inspect(conn)
                         table_names = set(inspector.get_table_names())
+
+                    _refactor_unique_constraints_for_timescale(conn, inspector, spec.table, spec.time_column)
+                    inspector = inspect(conn)
 
                     columns = {col["name"] for col in inspector.get_columns(spec.table)}
                     if spec.time_column not in columns:
@@ -220,6 +240,76 @@ def _refactor_primary_key_for_timescale(conn, inspector, table_name: str, time_c
         conn.execute(text(f"ALTER TABLE {table_identifier} DROP CONSTRAINT IF EXISTS {pk_identifier};"))
 
     conn.execute(text(f"ALTER TABLE {table_identifier} ADD PRIMARY KEY ({event_identifier}, {time_identifier});"))
+
+
+def _refactor_unique_constraints_for_timescale(conn, inspector, table_name: str, time_column: str) -> None:
+    table_identifier = _quote_identifier(table_name)
+
+    for constraint in inspector.get_unique_constraints(table_name) or []:
+        cols = tuple(constraint.get("column_names") or ())
+        name = constraint.get("name")
+        if not cols or time_column in cols or not name:
+            continue
+        constraint_identifier = _quote_identifier(name)
+        conn.execute(text(f"ALTER TABLE {table_identifier} DROP CONSTRAINT IF EXISTS {constraint_identifier};"))
+
+    inspector = inspect(conn)
+    for index in inspector.get_indexes(table_name) or []:
+        if not index.get("unique"):
+            continue
+        cols = tuple(index.get("column_names") or ())
+        name = index.get("name")
+        if not cols or time_column in cols or not name:
+            continue
+        index_identifier = _quote_identifier(name)
+        conn.execute(text(f"DROP INDEX IF EXISTS {index_identifier};"))
+
+    replacements = UNIQUE_REPLACEMENTS.get(table_name, ())
+    if not replacements:
+        return
+
+    inspector = inspect(conn)
+    for replacement_name, replacement_cols in replacements:
+        if _has_unique_constraint_or_index(inspector, table_name, replacement_cols):
+            continue
+        cols_sql = ", ".join(_quote_identifier(column) for column in replacement_cols)
+        replacement_identifier = _quote_identifier(replacement_name)
+        conn.execute(
+            text(
+                f"ALTER TABLE {table_identifier} "
+                f"ADD CONSTRAINT {replacement_identifier} UNIQUE ({cols_sql});"
+            )
+        )
+
+
+def _has_unique_constraint_or_index(inspector, table_name: str, column_names: tuple[str, ...]) -> bool:
+    for constraint in inspector.get_unique_constraints(table_name) or []:
+        cols = tuple(constraint.get("column_names") or ())
+        if cols == column_names:
+            return True
+    for index in inspector.get_indexes(table_name) or []:
+        if not index.get("unique"):
+            continue
+        cols = tuple(index.get("column_names") or ())
+        if cols == column_names:
+            return True
+    return False
+
+
+def _drop_legacy_foreign_keys(conn) -> None:
+    inspector = inspect(conn)
+    table_names = set(inspector.get_table_names())
+    for table_name, legacy_col_sets in LEGACY_FK_COLUMNS_TO_DROP.items():
+        if table_name not in table_names:
+            continue
+        table_identifier = _quote_identifier(table_name)
+        for foreign_key in inspector.get_foreign_keys(table_name) or []:
+            columns = tuple(foreign_key.get("constrained_columns") or ())
+            name = foreign_key.get("name")
+            if columns not in legacy_col_sets or not name:
+                continue
+            fk_identifier = _quote_identifier(name)
+            conn.execute(text(f"ALTER TABLE {table_identifier} DROP CONSTRAINT IF EXISTS {fk_identifier};"))
 
 
 def _quote_identifier(name: str) -> str:

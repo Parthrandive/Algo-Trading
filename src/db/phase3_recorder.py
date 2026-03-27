@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from datetime import datetime, timezone
@@ -93,12 +94,28 @@ PHASE3_INDEX_DDL = (
 )
 
 PHASE3_COLUMN_REPAIR_DDL: dict[str, dict[str, str]] = {
+    "observations": {
+        "event_id": "ALTER TABLE observations ADD COLUMN event_id VARCHAR(64);",
+    },
     "trade_decisions": {
+        "event_id": "ALTER TABLE trade_decisions ADD COLUMN event_id VARCHAR(64);",
         "policy_snapshot_id": "ALTER TABLE trade_decisions ADD COLUMN policy_snapshot_id VARCHAR(128);",
+        "observation_event_id": "ALTER TABLE trade_decisions ADD COLUMN observation_event_id VARCHAR(64);",
+        "observation_timestamp": "ALTER TABLE trade_decisions ADD COLUMN observation_timestamp TIMESTAMPTZ;",
         "genetic_threshold": "ALTER TABLE trade_decisions ADD COLUMN genetic_threshold FLOAT;",
         "deliberation_used": (
-            "ALTER TABLE trade_decisions ADD COLUMN deliberation_used BOOLEAN NOT NULL DEFAULT 0;"
+            "ALTER TABLE trade_decisions ADD COLUMN deliberation_used BOOLEAN NOT NULL DEFAULT FALSE;"
         ),
+    },
+    "orders": {
+        "event_id": "ALTER TABLE orders ADD COLUMN event_id VARCHAR(64);",
+        "decision_event_id": "ALTER TABLE orders ADD COLUMN decision_event_id VARCHAR(64);",
+        "decision_timestamp": "ALTER TABLE orders ADD COLUMN decision_timestamp TIMESTAMPTZ;",
+    },
+    "order_fills": {
+        "event_id": "ALTER TABLE order_fills ADD COLUMN event_id VARCHAR(64);",
+        "order_event_id": "ALTER TABLE order_fills ADD COLUMN order_event_id VARCHAR(64);",
+        "order_created_at": "ALTER TABLE order_fills ADD COLUMN order_created_at TIMESTAMPTZ;",
     },
     "reward_logs": {
         "event_id": "ALTER TABLE reward_logs ADD COLUMN event_id VARCHAR(64);",
@@ -151,7 +168,9 @@ class Phase3Recorder:
                 for ddl in PHASE3_INDEX_DDL:
                     conn.execute(text(ddl))
         except Exception as exc:
-            raise RuntimeError("Failed to bootstrap Phase 3 recorder schema.") from exc
+            raise RuntimeError(
+                f"Failed to bootstrap Phase 3 recorder schema: {type(exc).__name__}: {exc}"
+            ) from exc
 
     def _repair_phase3_columns(self, conn) -> None:
         inspector = inspect(conn)
@@ -237,10 +256,33 @@ class Phase3Recorder:
         self.save_rl_training_run(run)
 
     def save_trade_decision(self, decision: dict[str, Any]) -> None:
+        timestamp = self._coerce_datetime(decision["timestamp"])
+        event_id = str(
+            decision.get("event_id")
+            or self._stable_event_id(
+                "trade_decision",
+                decision.get("symbol"),
+                timestamp.isoformat(),
+                decision.get("policy_snapshot_id"),
+                decision.get("policy_id"),
+                decision.get("action"),
+            )
+        )
         row = {
-            "timestamp": self._coerce_datetime(decision["timestamp"]),
+            "event_id": event_id,
+            "id": self._coerce_or_stable_id(
+                decision.get("id"),
+                "trade_decision",
+                decision.get("symbol"),
+                timestamp.isoformat(),
+                decision.get("policy_id"),
+                decision.get("action"),
+            ),
+            "timestamp": timestamp,
             "symbol": str(decision["symbol"]),
             "observation_id": decision.get("observation_id"),
+            "observation_event_id": decision.get("observation_event_id"),
+            "observation_timestamp": self._optional_datetime(decision.get("observation_timestamp")),
             "policy_snapshot_id": decision.get("policy_snapshot_id"),
             "policy_id": str(decision["policy_id"]),
             "action": str(decision["action"]),
@@ -271,10 +313,33 @@ class Phase3Recorder:
         with self.Session() as session:
             for decision in decisions:
                 decision = self._ensure_dict(decision)
+                timestamp = self._coerce_datetime(decision["timestamp"])
+                event_id = str(
+                    decision.get("event_id")
+                    or self._stable_event_id(
+                        "trade_decision",
+                        decision.get("symbol"),
+                        timestamp.isoformat(),
+                        decision.get("policy_snapshot_id"),
+                        decision.get("policy_id"),
+                        decision.get("action"),
+                    )
+                )
                 row = {
-                    "timestamp": self._coerce_datetime(decision["timestamp"]),
+                    "event_id": event_id,
+                    "id": self._coerce_or_stable_id(
+                        decision.get("id"),
+                        "trade_decision",
+                        decision.get("symbol"),
+                        timestamp.isoformat(),
+                        decision.get("policy_id"),
+                        decision.get("action"),
+                    ),
+                    "timestamp": timestamp,
                     "symbol": str(decision["symbol"]),
                     "observation_id": decision.get("observation_id"),
+                    "observation_event_id": decision.get("observation_event_id"),
+                    "observation_timestamp": self._optional_datetime(decision.get("observation_timestamp")),
                     "policy_snapshot_id": decision.get("policy_snapshot_id"),
                     "policy_id": str(decision["policy_id"]),
                     "action": str(decision["action"]),
@@ -302,9 +367,18 @@ class Phase3Recorder:
         reward = self._ensure_dict(reward)
         reward_name = str(reward.get("reward_name", reward.get("reward_function", "ra_drl_composite")))
         reward_value = float(reward.get("reward_value", reward.get("total_reward", 0.0)))
+        reward_timestamp = self._coerce_datetime(reward["timestamp"])
         row = {
+            "id": self._coerce_or_stable_id(
+                reward.get("id"),
+                "reward_log",
+                reward.get("symbol"),
+                reward_timestamp.isoformat(),
+                reward.get("policy_id"),
+                reward_name,
+            ),
             "decision_id": reward.get("decision_id"),
-            "timestamp": self._coerce_datetime(reward["timestamp"]),
+            "timestamp": reward_timestamp,
             "symbol": str(reward["symbol"]),
             "policy_id": str(reward.get("policy_id", "foundation")),
             "reward_name": reward_name,
@@ -332,9 +406,18 @@ class Phase3Recorder:
                 reward = self._ensure_dict(reward)
                 reward_name = str(reward.get("reward_name", reward.get("reward_function", "ra_drl_composite")))
                 reward_value = float(reward.get("reward_value", reward.get("total_reward", 0.0)))
+                reward_timestamp = self._coerce_datetime(reward["timestamp"])
                 row = {
+                    "id": self._coerce_or_stable_id(
+                        reward.get("id"),
+                        "reward_log",
+                        reward.get("symbol"),
+                        reward_timestamp.isoformat(),
+                        reward.get("policy_id"),
+                        reward_name,
+                    ),
                     "decision_id": reward.get("decision_id"),
-                    "timestamp": self._coerce_datetime(reward["timestamp"]),
+                    "timestamp": reward_timestamp,
                     "symbol": str(reward["symbol"]),
                     "policy_id": str(reward.get("policy_id", "foundation")),
                     "reward_name": reward_name,
@@ -397,9 +480,28 @@ class Phase3Recorder:
     def save_order(self, order: Any) -> None:
         order = self._ensure_dict(order)
         now = datetime.now(timezone.utc)
+        created_at = self._coerce_datetime(order.get("created_at", now))
+        event_id = str(
+            order.get("event_id")
+            or self._stable_event_id(
+                "order",
+                order.get("order_id"),
+                created_at.isoformat(),
+            )
+        )
         row = {
+            "event_id": event_id,
+            "id": self._coerce_or_stable_id(
+                order.get("id"),
+                "order",
+                order.get("order_id"),
+                created_at.isoformat(),
+            ),
+            "created_at": created_at,
             "order_id": str(order["order_id"]),
             "decision_id": order.get("decision_id"),
+            "decision_event_id": order.get("decision_event_id"),
+            "decision_timestamp": self._optional_datetime(order.get("decision_timestamp")),
             "symbol": str(order["symbol"]),
             "exchange": str(order.get("exchange", "NSE")),
             "product_type": str(order.get("product_type", "equity")),
@@ -419,12 +521,11 @@ class Phase3Recorder:
             "model_version": str(order.get("model_version", "unknown")),
             "compliance_check_passed": bool(order.get("compliance_check_passed", True)),
             "rejection_reason": order.get("rejection_reason"),
-            "created_at": self._coerce_datetime(order.get("created_at", now)),
             "updated_at": self._coerce_datetime(order.get("updated_at", now)),
             "schema_version": str(order.get("schema_version", "1.0")),
         }
         with self.Session() as session:
-            self._upsert(session, OrderDB, row, key_fields=("order_id",))
+            self._upsert(session, OrderDB, row, key_fields=("order_id", "created_at"))
             session.commit()
 
     def save_order_batch(self, orders: list[Any]) -> None:
@@ -434,9 +535,28 @@ class Phase3Recorder:
             now = datetime.now(timezone.utc)
             for order in orders:
                 order = self._ensure_dict(order)
+                created_at = self._coerce_datetime(order.get("created_at", now))
+                event_id = str(
+                    order.get("event_id")
+                    or self._stable_event_id(
+                        "order",
+                        order.get("order_id"),
+                        created_at.isoformat(),
+                    )
+                )
                 row = {
+                    "event_id": event_id,
+                    "id": self._coerce_or_stable_id(
+                        order.get("id"),
+                        "order",
+                        order.get("order_id"),
+                        created_at.isoformat(),
+                    ),
+                    "created_at": created_at,
                     "order_id": str(order["order_id"]),
                     "decision_id": order.get("decision_id"),
+                    "decision_event_id": order.get("decision_event_id"),
+                    "decision_timestamp": self._optional_datetime(order.get("decision_timestamp")),
                     "symbol": str(order["symbol"]),
                     "exchange": str(order.get("exchange", "NSE")),
                     "product_type": str(order.get("product_type", "equity")),
@@ -456,18 +576,38 @@ class Phase3Recorder:
                     "model_version": str(order.get("model_version", "unknown")),
                     "compliance_check_passed": bool(order.get("compliance_check_passed", True)),
                     "rejection_reason": order.get("rejection_reason"),
-                    "created_at": self._coerce_datetime(order.get("created_at", now)),
                     "updated_at": self._coerce_datetime(order.get("updated_at", now)),
                     "schema_version": str(order.get("schema_version", "1.0")),
                 }
-                self._upsert(session, OrderDB, row, key_fields=("order_id",))
+                self._upsert(session, OrderDB, row, key_fields=("order_id", "created_at"))
             session.commit()
 
     def save_order_fill(self, fill: Any) -> None:
         fill = self._ensure_dict(fill)
+        fill_timestamp = self._coerce_datetime(fill["fill_timestamp"])
+        event_id = str(
+            fill.get("event_id")
+            or self._stable_event_id(
+                "order_fill",
+                fill.get("order_id"),
+                fill_timestamp.isoformat(),
+                fill.get("exchange_trade_id"),
+                fill.get("fill_quantity"),
+            )
+        )
         row = {
+            "event_id": event_id,
+            "id": self._coerce_or_stable_id(
+                fill.get("id"),
+                "order_fill",
+                fill.get("order_id"),
+                fill_timestamp.isoformat(),
+                fill.get("exchange_trade_id"),
+            ),
             "order_id": str(fill["order_id"]),
-            "fill_timestamp": self._coerce_datetime(fill["fill_timestamp"]),
+            "order_event_id": fill.get("order_event_id"),
+            "order_created_at": self._optional_datetime(fill.get("order_created_at")),
+            "fill_timestamp": fill_timestamp,
             "fill_price": float(fill["fill_price"]),
             "fill_quantity": int(fill["fill_quantity"]),
             "exchange_trade_id": fill.get("exchange_trade_id"),
@@ -476,7 +616,7 @@ class Phase3Recorder:
             "schema_version": str(fill.get("schema_version", "1.0")),
         }
         with self.Session() as session:
-            session.add(OrderFillDB(**row))
+            self._upsert(session, OrderFillDB, row, key_fields=("event_id", "fill_timestamp"))
             session.commit()
 
     def save_order_fill_batch(self, fills: list[Any]) -> None:
@@ -485,9 +625,30 @@ class Phase3Recorder:
         with self.Session() as session:
             for fill in fills:
                 fill = self._ensure_dict(fill)
+                fill_timestamp = self._coerce_datetime(fill["fill_timestamp"])
+                event_id = str(
+                    fill.get("event_id")
+                    or self._stable_event_id(
+                        "order_fill",
+                        fill.get("order_id"),
+                        fill_timestamp.isoformat(),
+                        fill.get("exchange_trade_id"),
+                        fill.get("fill_quantity"),
+                    )
+                )
                 row = {
+                    "event_id": event_id,
+                    "id": self._coerce_or_stable_id(
+                        fill.get("id"),
+                        "order_fill",
+                        fill.get("order_id"),
+                        fill_timestamp.isoformat(),
+                        fill.get("exchange_trade_id"),
+                    ),
                     "order_id": str(fill["order_id"]),
-                    "fill_timestamp": self._coerce_datetime(fill["fill_timestamp"]),
+                    "order_event_id": fill.get("order_event_id"),
+                    "order_created_at": self._optional_datetime(fill.get("order_created_at")),
+                    "fill_timestamp": fill_timestamp,
                     "fill_price": float(fill["fill_price"]),
                     "fill_quantity": int(fill["fill_quantity"]),
                     "exchange_trade_id": fill.get("exchange_trade_id"),
@@ -495,7 +656,7 @@ class Phase3Recorder:
                     "impact_cost_bps": self._optional_float(fill.get("impact_cost_bps")),
                     "schema_version": str(fill.get("schema_version", "1.0")),
                 }
-                session.add(OrderFillDB(**row))
+                self._upsert(session, OrderFillDB, row, key_fields=("event_id", "fill_timestamp"))
             session.commit()
 
     def save_portfolio_snapshot(self, snapshot: Any) -> None:
@@ -902,10 +1063,22 @@ class Phase3Recorder:
             session.commit()
 
     def _normalize_observation(self, observation: dict[str, Any]) -> dict[str, Any]:
+        timestamp = self._coerce_datetime(observation["timestamp"])
+        symbol = str(observation["symbol"])
+        snapshot_id = str(observation["snapshot_id"])
+        event_id = str(observation.get("event_id") or self._stable_event_id("obs", symbol, timestamp.isoformat(), snapshot_id))
         return {
-            "timestamp": self._coerce_datetime(observation["timestamp"]),
-            "symbol": str(observation["symbol"]),
-            "snapshot_id": str(observation["snapshot_id"]),
+            "event_id": event_id,
+            "id": self._coerce_or_stable_id(
+                observation.get("id"),
+                "observation",
+                symbol,
+                timestamp.isoformat(),
+                snapshot_id,
+            ),
+            "timestamp": timestamp,
+            "symbol": symbol,
+            "snapshot_id": snapshot_id,
             "technical_direction": str(observation["technical_direction"]),
             "technical_confidence": float(observation.get("technical_confidence", 0.0)),
             "price_forecast": float(observation.get("price_forecast", 0.0)),
@@ -957,6 +1130,26 @@ class Phase3Recorder:
             if key in key_fields:
                 continue
             setattr(existing, key, value)
+
+    @staticmethod
+    def _stable_event_id(*parts: Any) -> str:
+        normalized = "|".join("" if part is None else str(part) for part in parts)
+        return hashlib.md5(normalized.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _stable_numeric_id(*parts: Any) -> int:
+        normalized = "|".join("" if part is None else str(part) for part in parts)
+        digest = hashlib.md5(normalized.encode("utf-8")).hexdigest()
+        # Keep within signed 32-bit integer range for broad DB compatibility.
+        return (int(digest[:8], 16) % 2_147_483_647) or 1
+
+    def _coerce_or_stable_id(self, raw_id: Any, *parts: Any) -> int:
+        if raw_id is None:
+            return self._stable_numeric_id(*parts)
+        try:
+            return int(raw_id)
+        except Exception:
+            return self._stable_numeric_id(*parts)
 
     @staticmethod
     def _coerce_datetime(value: Any) -> datetime:

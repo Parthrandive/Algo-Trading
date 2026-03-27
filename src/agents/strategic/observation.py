@@ -55,6 +55,7 @@ class ObservationAssembler:
             start=start_utc,
             end=end_utc,
             sentiment_lane=self.config.sentiment_lane,
+            database_url=self.database_url,
         )
         merged = self._merge_bundle(bundle)
         return self._build_from_merged(merged, symbol)

@@ -5,8 +5,10 @@ import json
 import sys
 from statistics import mean
 from time import perf_counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+from sqlalchemy import func
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -30,8 +32,16 @@ from src.agents.strategic.placeholder_teacher import generate_placeholder_teache
 from src.agents.strategic.promotion_gates import PolicyStage, PromotionEvidence, RollbackDrillManager
 from src.agents.strategic.risk_budgets import VolatilityReading
 from src.agents.strategic.registry import register_placeholder_teacher_policies
-from src.agents.strategic.schemas import ActionType
+from src.agents.strategic.schemas import ActionType, RiskMode
+from src.agents.strategic.week4 import (
+    PaperTradeDecision,
+    StressScenarioResult,
+    Week4Controller,
+    build_week4_bundle,
+)
 from src.agents.strategic.week3 import build_week3_bundle
+from src.db.connection import get_engine, get_session
+from src.db.models import ConsensusSignalDB, RegimePredictionDB, TechnicalPredictionDB
 from src.db.phase3_recorder import Phase3Recorder
 
 
@@ -53,6 +63,40 @@ def _parse_symbols(value: str) -> list[str]:
         deduped.append(symbol)
         seen.add(symbol)
     return deduped
+
+
+def _resolve_latest_phase2_timestamp(symbols: list[str], database_url: str | None) -> datetime:
+    engine = get_engine(database_url)
+    session_factory = get_session(engine)
+    latest_candidates: list[datetime] = []
+    with session_factory() as session:
+        for model in (TechnicalPredictionDB, RegimePredictionDB, ConsensusSignalDB):
+            latest = session.query(func.max(model.timestamp)).filter(model.symbol.in_(symbols)).scalar()
+            if isinstance(latest, datetime):
+                if latest.tzinfo is None:
+                    latest_candidates.append(latest.replace(tzinfo=timezone.utc))
+                else:
+                    latest_candidates.append(latest.astimezone(timezone.utc))
+
+    if not latest_candidates:
+        joined = ",".join(symbols)
+        raise ValueError(
+            f"No Phase 2 timestamps found for symbols [{joined}]. "
+            "Generate Phase 2 signals first or provide explicit --start/--end."
+        )
+    return max(latest_candidates)
+
+
+def _json_safe(value: object) -> object:
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc).isoformat()
+        return value.astimezone(timezone.utc).isoformat()
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    return value
 
 
 def _bucket_for_symbol(symbol: str) -> InstrumentBucket:
@@ -97,9 +141,25 @@ def _build_orderbook_snapshot(symbol: str, timestamp: datetime, imbalance: float
     )
 
 
+def _risk_mode_from_override(value: str | None) -> RiskMode:
+    if not value:
+        return RiskMode.NORMAL
+    normalized = str(value).strip().lower()
+    if normalized == "reduce_only":
+        return RiskMode.REDUCE_ONLY
+    if normalized == "close_only":
+        return RiskMode.CLOSE_ONLY
+    if normalized == "kill_switch":
+        return RiskMode.KILL_SWITCH
+    return RiskMode.NORMAL
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="DB-backed Week 1 dry-run for placeholder teacher actions (Phase 3 strategic foundation)."
+        description=(
+            "DB-backed Phase 3 dry-run for placeholder teacher actions with optional "
+            "Week 3 (Tier 1) and Week 4 (readiness) wiring."
+        )
     )
     parser.add_argument("--symbols", required=True, help="Comma-separated symbols (e.g. RELIANCE.NS,TCS.NS).")
     parser.add_argument("--start", required=True, help="ISO8601 start timestamp (UTC recommended).")
@@ -167,12 +227,45 @@ def build_parser() -> argparse.ArgumentParser:
         default=8.0,
         help="Baseline p99 used by latency CI benchmark artifact in dry runs.",
     )
+    parser.add_argument(
+        "--enable-week4",
+        action="store_true",
+        help="Run Week 4 readiness wiring (backtest/stress/paper/governance/gates) using dry-run artifacts.",
+    )
+    parser.add_argument(
+        "--week4-outage-minutes",
+        type=float,
+        default=0.0,
+        help="Synthetic paper-trading outage duration (minutes) to evaluate uptime handling.",
+    )
+    parser.add_argument(
+        "--week4-crisis-agreement",
+        type=float,
+        default=0.86,
+        help="Synthetic teacher-student crisis agreement used for Week 4 gate evidence.",
+    )
+    parser.add_argument(
+        "--week4-blocking-defects",
+        type=int,
+        default=0,
+        help="Open blocking defects count used by Week 4 GO/NO-GO evaluation.",
+    )
+    parser.add_argument(
+        "--week4-compliance-violations",
+        type=int,
+        default=0,
+        help="Critical compliance violations count used by Week 4 GO/NO-GO evaluation.",
+    )
     return parser
 
 
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
+    if args.database_url and ("<" in args.database_url or ">" in args.database_url):
+        raise ValueError(
+            "database-url contains placeholder text. Replace <user>/<pass>/<host>/<port>/<db> with actual values."
+        )
 
     symbols = _parse_symbols(args.symbols)
     if not symbols:
@@ -233,6 +326,10 @@ def main() -> int:
     latency_gate_payload: dict[str, object] | None = None
     promotion_payload: list[dict[str, object]] = []
     rollback_payload: dict[str, object] | None = None
+    week4_enabled = bool(args.enable_week4)
+    week4_summary: dict[str, object] = {}
+    week4_gate_payload: dict[str, object] | None = None
+    week4_gonogo_payload: dict[str, object] | None = None
 
     if week3_enabled:
         sigma_baselines = {
@@ -593,6 +690,185 @@ def main() -> int:
             "xai_coverage": bundle.xai_logger.coverage(),
         }
 
+    if week4_enabled:
+        week4_controller = Week4Controller(build_week4_bundle())
+
+        reward_values = [float(item["reward_value"]) for item in rewards]
+        if reward_values:
+            split_at = max(1, len(reward_values) // 2)
+            returns_by_fold = [reward_values[:split_at], reward_values[split_at:] or reward_values[:split_at]]
+        else:
+            returns_by_fold = [[]]
+
+        leakage_rows = []
+        for action, observation in zip(actions, observations):
+            leakage_rows.append(
+                {
+                    "observation_timestamp": observation.timestamp,
+                    "feature_timestamp": observation.timestamp,
+                    "decision_timestamp": action.timestamp + timedelta(seconds=1),
+                }
+            )
+
+        universe_rows = [
+            {
+                "symbol": symbol,
+                "as_of": run_started,
+                "point_in_time_version": "phase3_week4_pit_v1",
+                "is_active": True,
+                "delisted_at": None,
+            }
+            for symbol in symbols
+        ]
+        if symbols:
+            universe_rows.append(
+                {
+                    "symbol": f"DELISTED_{symbols[0]}",
+                    "as_of": run_started,
+                    "point_in_time_version": "phase3_week4_pit_v1",
+                    "is_active": False,
+                    "delisted_at": run_started - timedelta(days=365),
+                }
+            )
+
+        day1 = week4_controller.run_day1_backtesting(
+            returns_by_fold=returns_by_fold,
+            leakage_rows=leakage_rows,
+            universe_rows=universe_rows,
+        )
+
+        day2 = week4_controller.run_day2_stress(
+            [
+                StressScenarioResult(
+                    scenario_id="rbi_surprise_rate_hike",
+                    protective_mode=RiskMode.REDUCE_ONLY,
+                    expected_min_mode=RiskMode.REDUCE_ONLY,
+                    snapback_ticks=9,
+                    max_snapback_ticks=30,
+                    capacity_multiplier=1.0,
+                    impact_bps=18.0,
+                ),
+                StressScenarioResult(
+                    scenario_id="liquidity_drought_3x",
+                    protective_mode=RiskMode.CLOSE_ONLY,
+                    expected_min_mode=RiskMode.REDUCE_ONLY,
+                    snapback_ticks=14,
+                    max_snapback_ticks=30,
+                    capacity_multiplier=3.0,
+                    impact_bps=22.0,
+                ),
+            ]
+        )
+
+        paper_decisions: list[PaperTradeDecision] = []
+        for index, action in enumerate(actions):
+            if index >= len(observations):
+                break
+            if action.action == ActionType.HOLD:
+                continue
+            observation = observations[index]
+            decision_payload = week3_decisions_payload[index] if index < len(week3_decisions_payload) else {}
+            risk_override = decision_payload.get("risk_override") if isinstance(decision_payload, dict) else None
+            paper_decisions.append(
+                PaperTradeDecision(
+                    timestamp=action.timestamp,
+                    symbol=action.symbol,
+                    direction="BUY" if action.action == ActionType.BUY else "SELL",
+                    quantity=max(1, int(float(action.action_size) * int(args.week3_base_quantity))),
+                    confidence=float(action.confidence),
+                    price=float(max(observation.price_forecast, 1.0)),
+                    signal_source="strategic_ensemble",
+                    model_version=f"{args.policy_id}_student_placeholder",
+                    universe_version="phase3_week4_pit_v1",
+                    data_source_tags=("primary_api",),
+                    risk_mode=_risk_mode_from_override(risk_override if isinstance(risk_override, str) else None),
+                    order_type=OrderType.LIMIT,
+                )
+            )
+        day3 = week4_controller.run_day3_paper_trading(
+            paper_decisions,
+            outage_minutes=float(args.week4_outage_minutes),
+            seed=11,
+        )
+
+        code_hash = resolve_code_hash() or "unknown"
+        governance_models = [
+            {
+                "model_id": f"{args.policy_id}_artifact_{idx}",
+                "version": "1.0.0",
+                "training_data_snapshot_hash": f"{run_id}:dataset:{idx}",
+                "code_hash": code_hash,
+                "feature_schema_version": observations[0].observation_schema_version if observations else "1.0",
+                "hyperparameters": {"seed": 42 + idx},
+                "validation_metrics": {"sharpe": 2.0, "sortino": 2.2},
+                "baseline_comparison": {"status": "non_regression"},
+                "plan_version": "v1.3.7",
+                "created_by": "owner",
+                "reviewed_by": "partner",
+            }
+            for idx in range(6)
+        ]
+        rollback_for_week4 = week4_controller.bundle.governance.run_rollback_drill(
+            champions=(f"{args.policy_id}_student_v1", f"{args.policy_id}_student_v2"),
+            failed_model_id=f"{args.policy_id}_student_v2",
+            started_at=run_started,
+            ended_at=utc_now(),
+        )
+        day4 = week4_controller.run_day4_governance(
+            models=governance_models,
+            rollback_result=rollback_for_week4,
+        )
+
+        tier1_status = {
+            "impact_monitor_functional": bool(week3_enabled),
+            "risk_budgets_functional": bool(week3_enabled),
+            "orderbook_imbalance_integrated": bool(week3_enabled),
+            "latency_ci_gate_ready": bool(latency_gate_payload and latency_gate_payload.get("passed")),
+        }
+        evidence, assessment = week4_controller.run_day5_and_day6_gates(
+            latency_p99_ms=float(week3_summary.get("latency_p99_ms", 0.0)),
+            latency_p999_ms=float(week3_summary.get("latency_p99_ms", 0.0)),
+            degrade_path_passed=bool(latency_gate_payload.get("passed")) if latency_gate_payload else bool(week3_enabled),
+            crisis_slice_agreement=float(args.week4_crisis_agreement),
+            rollback_result=rollback_for_week4,
+            backtest_metrics=day1["walk_forward"].aggregate_metrics,
+            observation_schema_version=observations[0].observation_schema_version if observations else "1.0",
+            tier1_status=tier1_status,
+            compliance_violations=int(args.week4_compliance_violations),
+            blocking_defects=int(args.week4_blocking_defects),
+        )
+
+        week4_gate_payload = {
+            "latency_gate_passed": evidence.latency_gate_passed,
+            "crisis_agreement_passed": evidence.crisis_agreement_passed,
+            "rollback_tested": evidence.rollback_tested,
+            "walk_forward_passed": evidence.walk_forward_passed,
+            "observation_schema_validated": evidence.observation_schema_validated,
+            "tier1_operational": evidence.tier1_operational,
+            "compliance_audit_complete": evidence.compliance_audit_complete,
+            "blocking_defects": evidence.blocking_defects,
+            "checks": evidence.checks,
+        }
+        week4_gonogo_payload = {
+            "go": assessment.go,
+            "checklist": assessment.checklist,
+            "at_risk_items": assessment.at_risk_items,
+        }
+        week4_summary = {
+            "backtest_target_pass": day1["walk_forward"].target_pass,
+            "leakage_passed": day1["leakage"].passed,
+            "survivorship_passed": day1["survivorship"].passed,
+            "stress_passed": day2.passed,
+            "paper_uptime_ratio": day3.uptime_ratio,
+            "paper_audit_trail_complete": day3.audit_trail_complete,
+            "governance_registry_complete": day4.registry_complete,
+            "governance_reproducibility_ready": day4.reproducibility_ready,
+            "governance_promotion_gate_passed": day4.promotion_gate_passed,
+            "governance_rollback_passed": day4.rollback_passed,
+            "gate_evidence": week4_gate_payload,
+            "go_no_go": week4_gonogo_payload,
+        }
+
     if args.write_decisions and actions:
         payload = []
         for row in week3_decisions_payload:
@@ -664,6 +940,10 @@ def main() -> int:
             "week3_latency_gate": latency_gate_payload,
             "week3_promotion_events": promotion_payload,
             "week3_rollback_event": rollback_payload,
+            "week4_enabled": week4_enabled,
+            "week4_summary": week4_summary,
+            "week4_gate_evidence": week4_gate_payload,
+            "week4_go_no_go": week4_gonogo_payload,
         },
         notes=[
             "Teacher actions are placeholder-only and restricted to offline/slow-loop usage.",
@@ -686,8 +966,12 @@ def main() -> int:
         "week3_enabled": week3_enabled,
         "week3_summary": week3_summary,
         "week3_latency_gate": latency_gate_payload,
+        "week4_enabled": week4_enabled,
+        "week4_summary": week4_summary,
+        "week4_gate_evidence": week4_gate_payload,
+        "week4_go_no_go": week4_gonogo_payload,
     }
-    print(json.dumps(summary, indent=2))
+    print(json.dumps(_json_safe(summary), indent=2))
     return 0
 
 
