@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from src.agents.strategic.schemas import ActionType, RiskMode
+from src.agents.strategic_types import ActionType, RiskMode
 
 
 class CrisisState(str, Enum):

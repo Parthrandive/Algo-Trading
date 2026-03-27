@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import asdict, is_dataclass
 import hashlib
 import json
 import logging
@@ -1276,6 +1277,8 @@ class Phase3Recorder:
         return getattr(value, "value", value)
 
     def _ensure_dict(self, value: Any) -> dict[str, Any]:
+        if is_dataclass(value) and not isinstance(value, type):
+            return asdict(value)
         if hasattr(value, "model_dump"):
             return value.model_dump()
         if hasattr(value, "dict"):

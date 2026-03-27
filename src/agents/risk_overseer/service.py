@@ -14,7 +14,7 @@ from src.agents.risk_overseer.schemas import (
     RiskTriggerEvent,
     RiskTriggerLayer,
 )
-from src.agents.strategic.schemas import RiskMode
+from src.agents.strategic_types import RiskMode
 
 
 @dataclass(frozen=True)
@@ -283,7 +283,17 @@ class RiskOverseerService:
                 )
             )
 
-        if self._manual_latch is not None:
+        manual_recovery_requested = (
+            self._manual_latch is not None
+            and inputs.recovery.requested
+            and inputs.recovery.all_conditions_resolved
+            and inputs.recovery.clear_manual_override
+            and (
+                not self.config.manual_operator_ack_required
+                or inputs.recovery.operator_acknowledged
+            )
+        )
+        if self._manual_latch is not None and not manual_recovery_requested:
             events.append(
                 RiskTriggerEvent(
                     event_id=_event_id(),
