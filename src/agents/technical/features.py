@@ -1,5 +1,5 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 MACRO_COLUMNS = [
     "CPI",
@@ -13,6 +13,107 @@ MACRO_COLUMNS = [
     "REPO_RATE",
     "US_10Y",
 ]
+
+DAILY_FEATURE_COLUMNS = [
+    "daily_ma_20",
+    "daily_ma_50",
+    "daily_ma_200",
+    "daily_rsi",
+    "daily_bollinger_upper",
+    "daily_bollinger_lower",
+    "daily_bollinger_width",
+    "daily_adx",
+    "daily_trend_strength",
+    "daily_trend_bullish",
+]
+
+
+def apply_daily_trend_confirmation(
+    pred_labels: np.ndarray,
+    probs: np.ndarray,
+    daily_trend_bullish: np.ndarray,
+    *,
+    up_label: int = 2,
+    neutral_label: int = 1,
+    mode: str = "hard",
+    up_penalty: float = 0.5,
+    soft_confidence_cut: float = 0.5,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Enforce daily trend confirmation on directional long signals.
+
+    Rule:
+    - hard: If predicted label is `up_label` and daily trend is not bullish,
+      downgrade to `neutral_label`.
+    - soft: Penalize UP probability first; neutralize only if adjusted UP
+      confidence drops below `soft_confidence_cut`.
+    """
+    labels = np.asarray(pred_labels, dtype=np.int64).copy()
+    adjusted_probs = np.asarray(probs, dtype=np.float64).copy()
+    trend = np.asarray(daily_trend_bullish, dtype=np.float64)
+
+    if len(labels) == 0 or len(trend) != len(labels):
+        return labels, adjusted_probs, np.zeros(len(labels), dtype=bool)
+
+    bullish = trend >= 0.5
+    candidate_mask = (labels == int(up_label)) & (~bullish)
+    if not candidate_mask.any():
+        return labels, adjusted_probs, candidate_mask
+
+    mode_normalized = str(mode).strip().lower()
+    if mode_normalized not in {"hard", "soft"}:
+        raise ValueError(f"Unsupported daily trend confirmation mode: {mode}")
+
+    if adjusted_probs.ndim == 2 and adjusted_probs.shape[1] >= 3:
+        up_idx = int(up_label)
+        neutral_idx = int(neutral_label)
+
+        if mode_normalized == "hard":
+            up_prob = adjusted_probs[candidate_mask, up_idx].copy()
+            adjusted_probs[candidate_mask, neutral_idx] = np.clip(
+                adjusted_probs[candidate_mask, neutral_idx] + up_prob,
+                0.0,
+                1.0,
+            )
+            adjusted_probs[candidate_mask, up_idx] = 0.0
+            row_sum = adjusted_probs[candidate_mask].sum(axis=1, keepdims=True)
+            adjusted_probs[candidate_mask] = np.divide(
+                adjusted_probs[candidate_mask],
+                np.where(row_sum == 0.0, 1.0, row_sum),
+            )
+            labels[candidate_mask] = int(neutral_label)
+            return labels, adjusted_probs, candidate_mask
+
+        clipped_penalty = float(np.clip(up_penalty, 0.0, 1.0))
+        removed = adjusted_probs[candidate_mask, up_idx] * clipped_penalty
+        adjusted_probs[candidate_mask, up_idx] = np.clip(
+            adjusted_probs[candidate_mask, up_idx] - removed,
+            0.0,
+            1.0,
+        )
+        adjusted_probs[candidate_mask, neutral_idx] = np.clip(
+            adjusted_probs[candidate_mask, neutral_idx] + removed,
+            0.0,
+            1.0,
+        )
+        row_sum = adjusted_probs[candidate_mask].sum(axis=1, keepdims=True)
+        adjusted_probs[candidate_mask] = np.divide(
+            adjusted_probs[candidate_mask],
+            np.where(row_sum == 0.0, 1.0, row_sum),
+        )
+        adjusted_up_conf = adjusted_probs[candidate_mask, up_idx]
+        soft_neutralized = np.zeros(len(labels), dtype=bool)
+        soft_neutralized[candidate_mask] = adjusted_up_conf < float(soft_confidence_cut)
+        labels[soft_neutralized] = int(neutral_label)
+        return labels, adjusted_probs, soft_neutralized
+
+    if mode_normalized == "hard":
+        labels[candidate_mask] = int(neutral_label)
+        return labels, adjusted_probs, candidate_mask
+
+    # Soft mode without probabilities cannot penalize confidence; fallback to label-only no-op.
+    return labels, adjusted_probs, np.zeros(len(labels), dtype=bool)
+
 
 def add_lag_features(df: pd.DataFrame, target_col: str, lags: int) -> pd.DataFrame:
     """
@@ -81,6 +182,7 @@ def add_rsi(df: pd.DataFrame, target_col: str = 'close', period: int = 14) -> pd
     result.loc[result.index[:period], 'rsi'] = np.nan
     return result
 
+
 def add_macd(df: pd.DataFrame, target_col: str = 'close', fast: int = 12, slow: int = 26, signal: int = 9) -> pd.DataFrame:
     """
     Calculates the Moving Average Convergence Divergence (MACD).
@@ -105,6 +207,7 @@ def add_macd(df: pd.DataFrame, target_col: str = 'close', fast: int = 12, slow: 
     result['macd_hist'] = result['macd'] - result['macd_signal']
     
     return result
+
 
 def add_macro_regime_features(df: pd.DataFrame, lookback: int = 120) -> pd.DataFrame:
     """
@@ -174,7 +277,157 @@ def add_macro_regime_features(df: pd.DataFrame, lookback: int = 120) -> pd.DataF
     result["macro_directional_flag"] = np.where(upstream_flag != 0.0, upstream_flag, derived_flag).astype(float)
     return result
 
-def engineer_features(df: pd.DataFrame, is_forex: bool = False) -> pd.DataFrame:
+
+def _compute_adx(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> pd.Series:
+    high = pd.to_numeric(high, errors="coerce")
+    low = pd.to_numeric(low, errors="coerce")
+    close = pd.to_numeric(close, errors="coerce")
+
+    up_move = high.diff()
+    down_move = -low.diff()
+
+    plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
+    minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
+    plus_dm = pd.Series(plus_dm, index=high.index, dtype=float)
+    minus_dm = pd.Series(minus_dm, index=high.index, dtype=float)
+
+    tr_components = pd.concat(
+        [
+            high - low,
+            (high - close.shift(1)).abs(),
+            (low - close.shift(1)).abs(),
+        ],
+        axis=1,
+    )
+    true_range = tr_components.max(axis=1)
+    atr = true_range.rolling(window=period, min_periods=period).mean()
+
+    plus_di = 100.0 * plus_dm.rolling(window=period, min_periods=period).mean() / atr.replace(0, np.nan)
+    minus_di = 100.0 * minus_dm.rolling(window=period, min_periods=period).mean() / atr.replace(0, np.nan)
+    dx = ((plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan)) * 100.0
+    adx = dx.rolling(window=period, min_periods=period).mean()
+    return adx
+
+
+def _compute_daily_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
+    if "timestamp" not in df.columns:
+        return pd.DataFrame(columns=["availability_timestamp", "open", "high", "low", "close", "volume"])
+
+    frame = df.copy()
+    frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True, errors="coerce")
+    frame = frame.dropna(subset=["timestamp"]).sort_values("timestamp")
+    if frame.empty:
+        return pd.DataFrame(columns=["availability_timestamp", "open", "high", "low", "close", "volume"])
+
+    for column in ["open", "high", "low", "close", "volume"]:
+        if column not in frame.columns:
+            frame[column] = np.nan
+        frame[column] = pd.to_numeric(frame[column], errors="coerce")
+
+    grouped = (
+        frame.set_index("timestamp")
+        .resample("1D")
+        .agg(
+            {
+                "open": "first",
+                "high": "max",
+                "low": "min",
+                "close": "last",
+                "volume": "sum",
+            }
+        )
+        .dropna(subset=["open", "high", "low", "close"])
+        .reset_index()
+    )
+    if grouped.empty:
+        return pd.DataFrame(columns=["availability_timestamp", "open", "high", "low", "close", "volume"])
+
+    # Daily candle t becomes usable at the start of t+1. This prevents same-day look-ahead.
+    grouped["availability_timestamp"] = grouped["timestamp"] + pd.Timedelta(days=1)
+    return grouped[["availability_timestamp", "open", "high", "low", "close", "volume"]]
+
+
+def _compute_daily_feature_frame(daily_ohlcv: pd.DataFrame) -> pd.DataFrame:
+    if daily_ohlcv.empty:
+        return pd.DataFrame(columns=["availability_timestamp", *DAILY_FEATURE_COLUMNS])
+
+    out = daily_ohlcv.copy()
+    close = pd.to_numeric(out["close"], errors="coerce")
+    out["daily_ma_20"] = close.rolling(window=20, min_periods=20).mean()
+    out["daily_ma_50"] = close.rolling(window=50, min_periods=50).mean()
+    out["daily_ma_200"] = close.rolling(window=200, min_periods=200).mean()
+
+    rsi_df = add_rsi(pd.DataFrame({"close": close}), target_col="close", period=14)
+    out["daily_rsi"] = rsi_df["rsi"]
+
+    roll_std = close.rolling(window=20, min_periods=20).std()
+    out["daily_bollinger_upper"] = out["daily_ma_20"] + (2.0 * roll_std)
+    out["daily_bollinger_lower"] = out["daily_ma_20"] - (2.0 * roll_std)
+    out["daily_bollinger_width"] = (
+        (out["daily_bollinger_upper"] - out["daily_bollinger_lower"]) / out["daily_ma_20"].replace(0, np.nan)
+    )
+
+    out["daily_adx"] = _compute_adx(out["high"], out["low"], out["close"], period=14)
+    out["daily_trend_strength"] = close / out["daily_ma_50"].replace(0, np.nan) - 1.0
+    bullish = (close > out["daily_ma_50"]) & (out["daily_ma_20"] > out["daily_ma_50"])
+    out["daily_trend_bullish"] = bullish.astype(float)
+    out.loc[out["daily_ma_50"].isna() | out["daily_ma_20"].isna(), "daily_trend_bullish"] = np.nan
+
+    return out[["availability_timestamp", *DAILY_FEATURE_COLUMNS]]
+
+
+def add_daily_timeframe_features(
+    df: pd.DataFrame,
+    daily_reference_df: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """
+    Adds daily indicators and aligns them onto intraday timestamps via as-of join.
+
+    Leakage guardrail:
+    - Daily candle for date t is only available from t+1 (availability_timestamp),
+      so intraday rows on t never consume same-day final close-derived values.
+    """
+    if "timestamp" not in df.columns:
+        result = df.copy()
+        for column in DAILY_FEATURE_COLUMNS:
+            if column not in result.columns:
+                result[column] = np.nan
+        return result
+
+    target = df.copy()
+    target["_row_order"] = np.arange(len(target))
+    target["timestamp"] = pd.to_datetime(target["timestamp"], utc=True, errors="coerce")
+    target = target.sort_values("timestamp")
+
+    daily_input = daily_reference_df if daily_reference_df is not None else df
+    daily_ohlcv = _compute_daily_ohlcv(daily_input)
+    daily_features = _compute_daily_feature_frame(daily_ohlcv)
+
+    if daily_features.empty:
+        for column in DAILY_FEATURE_COLUMNS:
+            target[column] = np.nan
+        target = target.sort_values("_row_order").drop(columns=["_row_order"])
+        return target
+
+    merged = pd.merge_asof(
+        target,
+        daily_features.sort_values("availability_timestamp"),
+        left_on="timestamp",
+        right_on="availability_timestamp",
+        direction="backward",
+    )
+    merged = merged.drop(columns=["availability_timestamp"], errors="ignore")
+    merged = merged.sort_values("_row_order").drop(columns=["_row_order"])
+    return merged
+
+
+def engineer_features(
+    df: pd.DataFrame,
+    is_forex: bool = False,
+    *,
+    include_daily_features: bool = True,
+    daily_reference_df: pd.DataFrame | None = None,
+) -> pd.DataFrame:
     """
     Complete feature engineering pipeline.
     Combines various indicators commonly used in predicting price action.
@@ -182,6 +435,9 @@ def engineer_features(df: pd.DataFrame, is_forex: bool = False) -> pd.DataFrame:
     Args:
         df: Input DataFrame with at least 'close' column, sorted by time.
         is_forex: If true, use shorter rolling windows for faster adaptation.
+        include_daily_features: Enables daily indicator fusion onto intraday rows.
+        daily_reference_df: Optional external daily/intraday frame used to compute
+            daily indicators before as-of alignment.
         
     Returns:
         DataFrame transformed with all features.
@@ -211,5 +467,8 @@ def engineer_features(df: pd.DataFrame, is_forex: bool = False) -> pd.DataFrame:
     # Use shorter lookback for forex/hourly dynamics.
     macro_lookback = 60 if is_forex else 120
     df = add_macro_regime_features(df, lookback=macro_lookback)
+
+    if include_daily_features:
+        df = add_daily_timeframe_features(df, daily_reference_df=daily_reference_df)
     
     return df

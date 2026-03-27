@@ -1,6 +1,6 @@
 # Technical Agent Backtest Report (Day 5)
 
-- Generated: `2026-03-20T18:12:26.811400+00:00`
+- Generated: `2026-03-25T16:34:53.200765+00:00`
 - Walk-forward config: `{'train_months': 6, 'test_months': 1, 'step_months': 1, 'train_days': None, 'test_days': None, 'step_days': None, 'start_date': '2019-01-01'}`
 
 ## Aggregate Metrics
@@ -8,7 +8,7 @@
 | Model | Sharpe | Sortino | Max Drawdown | Win Rate | Profit Factor | Directional Accuracy | Coverage | Predictions |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | arima_lstm | N/A | N/A | N/A | N/A | N/A | N/A | 0.0000 | 0 |
-| cnn_pattern | 0.0062 | 0.0090 | -0.5107 | 0.4927 | 1.0012 | 0.4927 | 1.0000 | 1652 |
+| cnn_pattern | -0.0827 | -0.1067 | -0.5452 | 0.4038 | 0.9829 | 0.4915 | 1.0000 | 1652 |
 | garch_var | 0.1732 | 0.2650 | -0.2965 | 0.5018 | 1.0311 | 0.5018 | 1.0000 | 1652 |
 
 ## Notes

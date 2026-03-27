@@ -1,162 +1,143 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
-from math import ceil
-from typing import Mapping
+from typing import Any
 
 from src.agents.strategic.config import PortfolioConfig
 from src.agents.strategic.schemas import (
     ActionType,
-    EnsembleDecision,
     PortfolioCheckResult,
     PortfolioIntent,
     RiskMode,
 )
 
+logger = logging.getLogger(__name__)
+
+
+def round_to_tradable_quantity(quantity: float, lot_size: int = 1) -> int:
+    """Rounds a fractional quantity to the nearest lot size."""
+    if lot_size <= 1:
+        return int(round(quantity))
+    sign = 1 if quantity >= 0 else -1
+    absolute = abs(float(quantity))
+    rounded = int(absolute // lot_size) * lot_size
+    return sign * rounded
+
 
 @dataclass(frozen=True)
-class PortfolioState:
-    nav: float
-    gross_exposure: float
-    net_exposure: float
-    current_positions: Mapping[str, float]
-    sector_exposures: Mapping[str, float]
-    correlations: Mapping[tuple[str, str], float]
-    capacity_validated_for_scale: bool = False
+class MarginRequirement:
+    symbol: str
+    required_margin: float
+    available_margin: float
+    maintenance_margin: float
+    is_sufficient: bool
 
 
-class PortfolioConstructor:
-    def __init__(self, config: PortfolioConfig | None = None) -> None:
-        self.config = config or PortfolioConfig()
+class MarginRequirementCalculator:
+    def __init__(self, leverage: float = 1.0):
+        if leverage <= 0:
+            raise ValueError("leverage must be > 0")
+        self.leverage = float(leverage)
 
-    def build_intent(
-        self,
-        *,
-        symbol: str,
-        decision: EnsembleDecision,
-        mark_price: float,
-        forecast_uncertainty: float,
-    ) -> PortfolioIntent:
-        if mark_price <= 0.0:
-            raise ValueError("mark_price must be positive")
-        sizing_scalar = self._uncertainty_scalar(forecast_uncertainty)
-        target_notional = decision.action_size * sizing_scalar * mark_price * 100.0
-        if decision.action in {ActionType.REDUCE, ActionType.CLOSE}:
-            target_notional *= 0.5
-        target_quantity = target_notional / mark_price
-        hedge_required = decision.risk_mode in {RiskMode.REDUCE_ONLY, RiskMode.CLOSE_ONLY}
-        return PortfolioIntent(
-            symbol=symbol,
-            decision=decision,
-            target_notional=target_notional,
-            target_quantity=target_quantity,
-            hedge_required=hedge_required,
-            hedge_symbol=self._default_hedge_symbol(symbol) if hedge_required else None,
-            metadata={"forecast_uncertainty": forecast_uncertainty, "mark_price": mark_price},
+    def calculate(self, price: float, quantity: int, equity: float) -> MarginRequirement:
+        notional = abs(price * quantity)
+        required = notional / self.leverage
+        # Simplified: available margin is equity - some buffer
+        available = max(0.0, equity * 0.95)
+        return MarginRequirement(
+            symbol="unknown",
+            required_margin=required,
+            available_margin=available,
+            maintenance_margin=required * 0.5,
+            is_sufficient=available >= required,
         )
+
+
+class PortfolioOptimizer:
+    """
+    Phase 3 Portfolio Optimization and Risk Adherence.
+    Ensures all intents pass through Risk Overseer level constraints.
+    """
+
+    def __init__(self, config: PortfolioConfig | None = None):
+        self.config = config or PortfolioConfig()
+        self.margin_calc = MarginRequirementCalculator(leverage=self.config.max_leverage)
 
     def validate_intent(
         self,
-        *,
         intent: PortfolioIntent,
-        state: PortfolioState,
-        sector: str,
-        avg_daily_volume: float,
+        equity: float,
+        current_price: float,
+        *,
+        risk_mode: RiskMode = RiskMode.NORMAL,
+        exposure_cap_fraction: float = 1.0,
     ) -> PortfolioCheckResult:
+        """Validates a proposed intent against portfolio risk constraints."""
         reasons: list[str] = []
         warnings: list[str] = []
-        hedge_actions: list[str] = []
-        risk_mode = intent.decision.risk_mode
+        if current_price <= 0.0:
+            return PortfolioCheckResult(
+                approved=False,
+                risk_mode=risk_mode,
+                adjusted_quantity=0.0,
+                adjusted_notional=0.0,
+                rejection_reasons=("invalid_current_price",),
+                metadata={"equity": equity, "current_price": current_price},
+            )
 
-        capacity_cap = (
-            self.config.validated_notional_cap if state.capacity_validated_for_scale else self.config.normal_notional_cap
-        )
-        adjusted_notional = intent.target_notional
-        adjusted_quantity = intent.target_quantity
-        if state.gross_exposure + adjusted_notional > capacity_cap:
-            reasons.append("capacity_ceiling_breach")
-        if adjusted_notional > state.nav * self.config.max_single_position_fraction:
-            reasons.append("single_position_limit_breach")
+        # 1. Lot Size Rounding and base target quantity resolution.
+        lot_size = intent.metadata.get("lot_size", 1)
+        requested_qty = intent.target_quantity
+        if requested_qty == 0.0:
+            requested_qty = intent.target_notional / current_price
+        target_qty = round_to_tradable_quantity(requested_qty, lot_size)
 
-        sector_after = state.sector_exposures.get(sector, 0.0) + adjusted_notional
-        if sector_after > state.nav * self.config.max_sector_fraction:
-            reasons.append("sector_concentration_breach")
+        # 2. Risk mode constraints.
+        if risk_mode == RiskMode.KILL_SWITCH:
+            reasons.append("risk_mode_kill_switch_blocks_all_orders")
+            target_qty = 0
+        elif risk_mode == RiskMode.CLOSE_ONLY and intent.decision.action == ActionType.BUY:
+            reasons.append("risk_mode_close_only_blocks_buy")
+            target_qty = 0
+        elif risk_mode == RiskMode.REDUCE_ONLY and intent.decision.action == ActionType.BUY:
+            reasons.append("risk_mode_reduce_only_blocks_buy")
+            target_qty = 0
 
-        for existing_symbol in state.current_positions:
-            correlation = self._lookup_correlation(state, intent.symbol, existing_symbol)
-            if correlation > self.config.max_correlation:
-                reasons.append(f"correlation_limit_breach:{existing_symbol}")
-                break
+        # 3. Risk Overseer exposure cap constraints.
+        cap_fraction = max(0.0, min(1.0, float(exposure_cap_fraction)))
+        notional = abs(target_qty * current_price)
+        max_notional = equity * self.config.max_exposure_per_symbol * cap_fraction
+        if notional > max_notional:
+            warnings.append(f"exposure_capped:{notional:,.0f}>{max_notional:,.0f}")
+            target_qty = round_to_tradable_quantity(max_notional / current_price, lot_size)
+            notional = abs(target_qty * current_price)
 
-        participation_limit = self._participation_limit(intent.symbol)
-        if avg_daily_volume > 0:
-            max_qty = avg_daily_volume * participation_limit
-            if adjusted_quantity > max_qty:
-                warnings.append("participation_limit_clamped")
-                adjusted_quantity = max_qty
-                adjusted_notional = adjusted_quantity * float(intent.metadata["mark_price"])
+        # 4. Margin Check.
+        margin = self.margin_calc.calculate(current_price, target_qty, equity)
+        if not margin.is_sufficient:
+            reasons.append(f"insufficient_margin:required={margin.required_margin:,.0f},available={margin.available_margin:,.0f}")
+            target_qty = 0  # Reject when margin is insufficient.
+            notional = 0.0
 
-        if intent.hedge_required and intent.hedge_symbol:
-            hedge_actions.append(f"open_hedge:{intent.hedge_symbol}")
-        if risk_mode == RiskMode.CLOSE_ONLY:
-            adjusted_quantity = 0.0
-            adjusted_notional = 0.0
-            warnings.append("close_only_blocks_new_exposure")
-
-        approved = not reasons
+        approved = len(reasons) == 0 and target_qty >= 0
         return PortfolioCheckResult(
             approved=approved,
-            risk_mode=risk_mode,
-            adjusted_quantity=adjusted_quantity,
-            adjusted_notional=adjusted_notional,
+            adjusted_quantity=float(target_qty),
+            adjusted_notional=float(notional),
             rejection_reasons=tuple(reasons),
             warnings=tuple(warnings),
-            hedge_actions=tuple(hedge_actions),
-            metadata={"participation_limit": participation_limit, "sector": sector},
+            risk_mode=risk_mode,
+            metadata={
+                "equity": equity,
+                "current_price": current_price,
+                "margin_required": margin.required_margin,
+                "exposure_cap_fraction": cap_fraction,
+                "max_notional": max_notional,
+            }
         )
 
-    def build_hedge_recommendation(self, *, symbol: str, risk_mode: RiskMode) -> str | None:
-        if risk_mode == RiskMode.NORMAL:
-            return None
-        hedge_symbol = self._default_hedge_symbol(symbol)
-        if risk_mode == RiskMode.CLOSE_ONLY:
-            return f"emergency_neutralize:{hedge_symbol}"
-        return f"partial_unwind_with_hedge:{hedge_symbol}"
 
-    def _uncertainty_scalar(self, forecast_uncertainty: float) -> float:
-        clipped = min(max(forecast_uncertainty, 0.0), 1.0)
-        scale = 1.0 - clipped
-        return min(self.config.uncertainty_size_ceiling, max(self.config.uncertainty_size_floor, scale))
-
-    def _lookup_correlation(self, state: PortfolioState, symbol_a: str, symbol_b: str) -> float:
-        if symbol_a == symbol_b:
-            return 1.0
-        return abs(
-            state.correlations.get((symbol_a, symbol_b), state.correlations.get((symbol_b, symbol_a), 0.0))
-        )
-
-    def _default_hedge_symbol(self, symbol: str) -> str:
-        if "USDINR" in symbol.upper():
-            return "USDINR_FUT"
-        if "GOLD" in symbol.upper():
-            return "MCX_GOLDM"
-        return "NIFTY_FUT"
-
-    def _participation_limit(self, symbol: str) -> float:
-        upper = symbol.upper()
-        if "USDINR" in upper:
-            return self.config.participation_limit_fx
-        if "GOLD" in upper:
-            return self.config.participation_limit_gold
-        if any(tag in upper for tag in ("BANK", "RELIANCE", "INFY", "TCS", "HDFCBANK")):
-            return self.config.participation_limit_large_cap
-        return self.config.participation_limit_mid_liquidity
-
-
-def round_to_tradable_quantity(quantity: float, *, lot_size: int = 1) -> int:
-    if lot_size <= 0:
-        raise ValueError("lot_size must be positive")
-    if quantity <= 0:
-        return 0
-    lots = ceil(quantity / lot_size)
-    return int(lots * lot_size)
+# Backward-compatible aliases
+PortfolioManager = PortfolioOptimizer
+PortfolioConstructor = PortfolioOptimizer

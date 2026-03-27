@@ -17,6 +17,7 @@ Before writing any code, editing any file, or making any decision:
 | Any risk control, kill switch, stress test, drawdown limit | `trading-skills/risk-overseer/SKILL.md` |
 | Any model promotion, shadow testing, rollback, CI gate | `trading-skills/mlops-governance/SKILL.md` |
 | Any order submission, universe filter, compliance, audit log | `trading-skills/compliance-universe/SKILL.md` |
+| Any merge conflict, failing CI, PR checks red, branch behind | `trading-skills/green-prs/SKILL.md` |
 
 ## HARD RULES (always active, no exceptions)
 - Risk Overseer rules override all other agents and all other skills

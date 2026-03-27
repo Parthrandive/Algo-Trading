@@ -1,23 +1,27 @@
 {
-  "timestamp": "2026-03-23T12:54:56.647120+00:00",
+  "timestamp": "2026-03-26T19:07:10.106678+00:00",
   "symbol": "TATASTEEL.NS",
-  "run_timestamp_utc": "2026-03-23T12:54:56.647120+00:00",
-  "rows_trained": 172,
+  "run_timestamp_utc": "2026-03-26T19:07:10.106678+00:00",
+  "rows_trained": 168,
   "start_timestamp": "2026-02-09 03:45:00+00:00",
-  "end_timestamp": "2026-03-13 18:32:12.581641+00:00",
+  "end_timestamp": "2026-03-13 09:45:00+00:00",
   "artifacts_saved": [
     "hmm_regime.parquet",
     "training_meta.json"
   ],
   "hmm_components": 4,
   "hyperparameters": {
+    "interval": "1h",
+    "limit": 2000,
+    "min_gold_rows": 120,
+    "warmup_rows": 120,
     "hmm_components": 4
   },
   "metrics": {
     "regime_distribution": {
-      "1": 0.8653846153846154,
-      "2": 0.07692307692307693,
-      "0": 0.057692307692307696
+      "1": 0.8958333333333334,
+      "2": 0.0625,
+      "0": 0.041666666666666664
     }
   }
 }

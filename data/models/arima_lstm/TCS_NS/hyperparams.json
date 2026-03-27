@@ -1,5 +1,10 @@
 {
   "symbol": "TCS.NS",
+  "symbol_canonical": "TCS.NS",
+  "run_id": "20260326T190648Z",
+  "interval": "1h",
+  "source_script": "train_universe_arima_lstm.py",
+  "feature_schema_version": "technical_features_v1",
   "trained_as_part_of_universe": true,
   "base_model_symbol": "GLOBAL",
   "arima_order": [
@@ -33,19 +38,33 @@
     "macro_coverage_ratio",
     "macro_regime_index",
     "macro_regime_shock",
-    "macro_directional_flag"
+    "macro_directional_flag",
+    "daily_ma_20",
+    "daily_ma_50",
+    "daily_rsi",
+    "daily_bollinger_upper",
+    "daily_bollinger_lower",
+    "daily_bollinger_width",
+    "daily_adx",
+    "daily_trend_strength",
+    "daily_trend_bullish"
   ],
   "class_threshold": 0.005,
-  "effective_class_threshold": 0.002518658072996188,
+  "class_threshold_min": 0.001,
+  "effective_class_threshold": 0.004091349649731789,
   "threshold_selection": {
-    "min_neutral_ratio": 0.2,
-    "max_neutral_ratio": 0.3,
-    "target_neutral_ratio": 0.25,
-    "selected_train_neutral_ratio": 0.25030132583366815
+    "min_neutral_ratio": 0.15,
+    "max_neutral_ratio": 0.2,
+    "target_neutral_ratio": 0.175,
+    "selected_train_neutral_ratio": 0.15026114905584573
   },
-  "recalibrate_only": true,
+  "recalibrate_only": false,
+  "include_daily_features": true,
+  "apply_daily_trend_filter": true,
+  "daily_filter_mode": "soft",
+  "daily_up_penalty": 0.15,
   "finetune": {
-    "applied": false,
+    "applied": true,
     "epochs_requested": 25,
     "patience": 8
   }

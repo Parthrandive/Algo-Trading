@@ -22,7 +22,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from torch.utils.data import DataLoader as TorchDataLoader
 from torch.utils.data import TensorDataset
 from src.agents.technical.data_loader import DataLoader
-from src.agents.technical.features import engineer_features
+from src.agents.technical.features import apply_daily_trend_confirmation, engineer_features
 from src.agents.technical.models.arima_lstm import ArimaLstmHybrid, LSTMResidualModel
 from config.symbols import (
     EQUITY_SYMBOLS,
@@ -347,7 +347,9 @@ def returns_to_labels(returns: np.ndarray, threshold: float) -> np.ndarray:
 
 def choose_symbol_threshold(
     train_scores: np.ndarray,
+    train_actual_returns: np.ndarray,
     requested_threshold: float,
+    class_threshold_min: float,
     min_neutral_ratio: float,
     max_neutral_ratio: float,
     target_neutral_ratio: float,
@@ -355,36 +357,70 @@ def choose_symbol_threshold(
     abs_scores = np.abs(np.asarray(train_scores, dtype=np.float64))
     abs_scores = abs_scores[np.isfinite(abs_scores)]
     if len(abs_scores) == 0:
-        return float(requested_threshold), 0.0
+        return float(max(requested_threshold, class_threshold_min)), 0.0
 
     quantile_candidates = [
         float(np.quantile(abs_scores, q))
         for q in [0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25, 0.30, 0.35]
     ]
-    static_candidates = [0.0002, 0.0005, 0.0010, 0.0015, 0.0020, 0.0025, 0.0030, 0.0040, 0.0050, 0.0075, 0.0100]
+    static_candidates = [
+        0.0002, 0.0005, 0.0010, 0.0015, 0.0020, 0.0025, 0.0030, 0.0040, 0.0050, 
+        0.0075, 0.0100, 0.0150, 0.0200, 0.0250, 0.0300
+    ]
     candidates = sorted({float(requested_threshold), *quantile_candidates, *static_candidates})
+    min_threshold = max(float(class_threshold_min), 1e-6)
+    candidates = [c for c in candidates if c >= min_threshold]
 
-    candidate_stats: List[Tuple[float, float]] = []
+    actual_returns = np.asarray(train_actual_returns, dtype=np.float64)
+    has_actuals = len(actual_returns) == len(train_scores) and len(actual_returns) > 0
+    if has_actuals:
+        actual_returns = np.where(np.isfinite(actual_returns), actual_returns, 0.0)
+
+    candidate_stats: List[Tuple[float, float, float, float, float]] = []
     for threshold in candidates:
         threshold = max(float(threshold), 1e-6)
         neutral_ratio = float((abs_scores <= threshold).mean())
-        candidate_stats.append((threshold, neutral_ratio))
+        directional_accuracy = 0.0
+        mean_directional_recall = 0.0
+        directional_coverage = 0.0
+        if has_actuals:
+            y_pred = returns_to_labels(train_scores, threshold=threshold)
+            y_true = returns_to_labels(actual_returns, threshold=threshold)
+            cls_metrics = directional_classification_metrics(y_true=y_true, y_pred=y_pred)
+            directional_accuracy = float(cls_metrics["directional_accuracy"])
+            mean_directional_recall = float((cls_metrics["up_recall"] + cls_metrics["down_recall"]) / 2.0)
+            directional_coverage = float(np.mean(np.isin(y_pred, [CLASS_UP, CLASS_DOWN])))
+        # Optimize directional quality while respecting neutral-band constraint.
+        quality_score = (0.60 * directional_accuracy) + (0.30 * mean_directional_recall) + (0.10 * directional_coverage)
+        candidate_stats.append((threshold, neutral_ratio, quality_score, directional_accuracy, mean_directional_recall))
 
     in_band = [
-        (threshold, ratio)
-        for threshold, ratio in candidate_stats
+        (threshold, ratio, quality_score, directional_accuracy, mean_directional_recall)
+        for threshold, ratio, quality_score, directional_accuracy, mean_directional_recall in candidate_stats
         if float(min_neutral_ratio) <= ratio <= float(max_neutral_ratio)
     ]
     if in_band:
-        best_threshold, best_ratio = min(
+        best_threshold, best_ratio, _, _, _ = max(
             in_band,
-            key=lambda item: (abs(item[1] - float(target_neutral_ratio)), item[0]),
+            key=lambda item: (
+                item[2],
+                -abs(item[1] - float(target_neutral_ratio)),
+                -item[3],
+                -item[4],
+                -item[0],
+            ),
         )
         return float(best_threshold), float(best_ratio)
 
-    best_threshold, best_ratio = min(
+    best_threshold, best_ratio, _, _, _ = max(
         candidate_stats,
-        key=lambda item: (abs(item[1] - float(target_neutral_ratio)), item[0]),
+        key=lambda item: (
+            item[2],
+            -abs(item[1] - float(target_neutral_ratio)),
+            -item[3],
+            -item[4],
+            -item[0],
+        ),
     )
     logger.warning(
         "Symbol threshold fallback selected %.6f with neutral share %.2f%% (outside requested band %.2f%% - %.2f%%).",
@@ -480,12 +516,22 @@ def quality_gate_split_counts(df: pd.DataFrame) -> SplitCounts:
     )
 
 
-def extract_symbol_features(symbol: str, df: pd.DataFrame, hybrid: ArimaLstmHybrid) -> tuple:
+def extract_symbol_features(
+    symbol: str,
+    df: pd.DataFrame,
+    hybrid: ArimaLstmHybrid,
+    *,
+    include_daily_features: bool,
+) -> tuple:
     """Extracts features, splits chronologically, computes ARIMA residuals, entirely per-symbol."""
     validate_data(df)
     
     is_forex_target = is_forex(symbol)
-    df_features = engineer_features(df, is_forex=is_forex_target)
+    df_features = engineer_features(
+        df,
+        is_forex=is_forex_target,
+        include_daily_features=include_daily_features,
+    )
     df_features = df_features.sort_values('timestamp').reset_index(drop=True)
 
     n = len(df_features)
@@ -578,10 +624,50 @@ def main():
     parser.add_argument("--output-dir", default="data/models/arima_lstm/", help="Output directory")
     parser.add_argument("--use-nse", action="store_true", help="Fetch data natively from NSE if DB is empty/unavailable")
     parser.add_argument("--interval", default="1h", help="Candle interval, e.g. 1d, 1h. Default: 1h")
+    parser.add_argument(
+        "--disable-daily-features",
+        action="store_true",
+        help="Disable daily timeframe feature fusion onto hourly rows.",
+    )
+    parser.add_argument(
+        "--disable-daily-trend-filter",
+        action="store_true",
+        help="Disable UP->NEUTRAL gating when daily trend is not bullish.",
+    )
+    parser.add_argument(
+        "--daily-filter-mode",
+        choices=["hard", "soft"],
+        default="hard",
+        help="Daily trend confirmation mode. hard=force UP->NEUTRAL, soft=penalize UP confidence first.",
+    )
+    parser.add_argument(
+        "--daily-up-penalty",
+        type=float,
+        default=0.50,
+        help="Penalty factor (0-1) applied to UP probability in daily soft filter mode.",
+    )
     parser.add_argument("--class-threshold", type=float, default=0.005, help="Return threshold used to derive up/down/neutral labels for evaluation.")
-    parser.add_argument("--min-neutral-ratio", type=float, default=0.20, help="Minimum target neutral prediction ratio for per-symbol thresholding.")
-    parser.add_argument("--max-neutral-ratio", type=float, default=0.30, help="Maximum target neutral prediction ratio for per-symbol thresholding.")
-    parser.add_argument("--target-neutral-ratio", type=float, default=0.25, help="Target neutral prediction ratio for per-symbol thresholding.")
+    parser.add_argument(
+        "--class-threshold-min",
+        type=float,
+        default=0.001,
+        help="Minimum adaptive class threshold floor (supports tighter directional bands than 0.005).",
+    )
+    parser.add_argument("--min-neutral-ratio", type=float, default=0.15, help="Minimum target neutral prediction ratio for per-symbol thresholding.")
+    parser.add_argument("--max-neutral-ratio", type=float, default=0.20, help="Maximum target neutral prediction ratio for per-symbol thresholding.")
+    parser.add_argument("--target-neutral-ratio", type=float, default=0.175, help="Target neutral prediction ratio for per-symbol thresholding.")
+    parser.add_argument(
+        "--run-id",
+        type=str,
+        default=None,
+        help="Optional orchestration run identifier for artifact alignment.",
+    )
+    parser.add_argument(
+        "--feature-schema-version",
+        type=str,
+        default="technical_features_v1",
+        help="Feature schema version tag persisted in training artifacts.",
+    )
     parser.add_argument(
         "--recalibrate-only",
         action="store_true",
@@ -590,6 +676,20 @@ def main():
     args = parser.parse_args()
 
     set_seed(args.seed)
+    include_daily_features = not bool(args.disable_daily_features)
+    apply_daily_trend_filter = not bool(args.disable_daily_trend_filter)
+    run_id = str(args.run_id).strip() if args.run_id else datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    source_script = str(Path(__file__).name)
+    feature_schema_version = str(args.feature_schema_version).strip()
+    class_threshold_min = max(float(args.class_threshold_min), 1e-6)
+    logger.info(
+        "Daily feature fusion: %s | Daily trend UP filter: %s (mode=%s, up_penalty=%.2f) | run_id=%s",
+        "enabled" if include_daily_features else "disabled",
+        "enabled" if apply_daily_trend_filter else "disabled",
+        args.daily_filter_mode,
+        float(np.clip(args.daily_up_penalty, 0.0, 1.0)),
+        run_id,
+    )
     output_root = Path(args.output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
     arima_order = tuple(map(int, args.arima_order.split(',')))
@@ -633,7 +733,12 @@ def main():
         try:
             logger.info("Extracting features and ARIMA residuals for %s...", symbol)
             frame = loader.load_historical_bars(symbol, limit=args.limit, use_nse_fallback=args.use_nse, min_fallback_rows=40, interval=args.interval)
-            train_df, val_df, test_df, f_cols = extract_symbol_features(symbol, frame, hybrid)
+            train_df, val_df, test_df, f_cols = extract_symbol_features(
+                symbol,
+                frame,
+                hybrid,
+                include_daily_features=include_daily_features,
+            )
             symbol_data[symbol] = {"train": train_df, "val": val_df, "test": test_df}
             all_train_dfs.append(train_df[f_cols].copy())
             if not global_feature_columns:
@@ -681,12 +786,17 @@ def main():
             timestamps = df["timestamp"].iloc[hybrid.window_size:].values if len(df) > hybrid.window_size else np.empty(0)
             arima_forecasts = df["arima_forecast"].iloc[hybrid.window_size:].values if len(df) > hybrid.window_size else np.empty(0)
             actual_returns = df["log_return"].iloc[hybrid.window_size:].values if len(df) > hybrid.window_size else np.empty(0)
+            if len(df) > hybrid.window_size and "daily_trend_bullish" in df.columns:
+                daily_trend = df["daily_trend_bullish"].iloc[hybrid.window_size:].values
+            else:
+                daily_trend = np.full(len(timestamps), np.nan, dtype=np.float64)
             
             splits[f"X_{s_name}"] = X
             splits[f"y_{s_name}"] = y
             splits[f"timestamps_{s_name}"] = timestamps
             splits[f"arima_forecast_{s_name}"] = arima_forecasts
             splits[f"actual_return_{s_name}"] = actual_returns
+            splits[f"daily_trend_{s_name}"] = daily_trend
             
             if s_name == "train":
                 X_train_list.append(X)
@@ -740,6 +850,11 @@ def main():
         meta = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "symbol": "GLOBAL",
+            "symbol_canonical": "GLOBAL",
+            "run_id": run_id,
+            "interval": args.interval,
+            "source_script": source_script,
+            "feature_schema_version": feature_schema_version,
             "trained_on": list(symbol_data.keys()),
             "hyperparameters": {
                 "arima_order": hybrid.arima_order,
@@ -750,9 +865,17 @@ def main():
                 "patience": args.patience,
                 "seed": args.seed,
                 "class_threshold": args.class_threshold,
+                "class_threshold_min": class_threshold_min,
                 "min_neutral_ratio": args.min_neutral_ratio,
                 "max_neutral_ratio": args.max_neutral_ratio,
                 "target_neutral_ratio": args.target_neutral_ratio,
+                "include_daily_features": include_daily_features,
+                "apply_daily_trend_filter": apply_daily_trend_filter,
+                "daily_filter_mode": args.daily_filter_mode,
+                "daily_up_penalty": float(np.clip(args.daily_up_penalty, 0.0, 1.0)),
+                "run_id": run_id,
+                "interval": args.interval,
+                "feature_schema_version": feature_schema_version,
             },
             "metrics": {
                 "final_train_loss": metrics["train_loss"],
@@ -864,6 +987,7 @@ def main():
             timestamps = splits.get(f"timestamps_{s_name}")
             arima_forecasts = splits.get(f"arima_forecast_{s_name}")
             actual_returns = splits.get(f"actual_return_{s_name}")
+            daily_trend = splits.get(f"daily_trend_{s_name}")
             
             if X_data is None or len(X_data) == 0:
                 continue
@@ -883,12 +1007,16 @@ def main():
                 "timestamps": timestamps,
                 "actual_returns": actual_returns if isinstance(actual_returns, np.ndarray) else np.empty((0,), dtype=np.float64),
                 "final_scores": final_scores,
+                "daily_trend_bullish": daily_trend if isinstance(daily_trend, np.ndarray) else np.full(len(final_scores), np.nan),
             }
 
         train_scores = split_payloads.get("train", {}).get("final_scores", np.empty((0,), dtype=np.float64))
+        train_actual_returns = split_payloads.get("train", {}).get("actual_returns", np.empty((0,), dtype=np.float64))
         symbol_threshold, train_neutral_ratio = choose_symbol_threshold(
             train_scores=train_scores,
+            train_actual_returns=train_actual_returns,
             requested_threshold=float(args.class_threshold),
+            class_threshold_min=class_threshold_min,
             min_neutral_ratio=float(args.min_neutral_ratio),
             max_neutral_ratio=float(args.max_neutral_ratio),
             target_neutral_ratio=float(args.target_neutral_ratio),
@@ -907,15 +1035,61 @@ def main():
             final_scores = payload["final_scores"]
             timestamps = payload["timestamps"]
             actual_returns = payload["actual_returns"]
+            daily_trend_bullish = payload.get("daily_trend_bullish", np.full(len(final_scores), np.nan))
 
             probs = scores_to_soft_probs(final_scores, threshold=symbol_threshold)
             pred_labels = returns_to_labels(final_scores, threshold=symbol_threshold)
+            daily_filter_mask = np.zeros(len(pred_labels), dtype=bool)
+            if apply_daily_trend_filter:
+                pred_labels, probs, daily_filter_mask = apply_daily_trend_confirmation(
+                    pred_labels,
+                    probs,
+                    daily_trend_bullish=daily_trend_bullish,
+                    mode=args.daily_filter_mode,
+                    up_penalty=float(np.clip(args.daily_up_penalty, 0.0, 1.0)),
+                )
+                if daily_filter_mask.any():
+                    logger.info(
+                        "[%s][%s] Daily trend confirmation neutralized %d UP signal(s).",
+                        symbol,
+                        s_name,
+                        int(daily_filter_mask.sum()),
+                    )
             pred_dist = label_distribution(pred_labels)
+            pred_dist["daily_trend_up_neutralized"] = int(daily_filter_mask.sum())
+            pred_dist["daily_trend_neutralization_rate"] = (
+                float(daily_filter_mask.sum() / pred_dist["total"]) if pred_dist["total"] else 0.0
+            )
+            pred_dist["directional_coverage"] = (
+                float(np.mean(np.isin(pred_labels, [CLASS_UP, CLASS_DOWN]))) if len(pred_labels) else 0.0
+            )
+            split_cls_metrics: Dict[str, Any] = {
+                "test_accuracy": 0.0,
+                "directional_accuracy": 0.0,
+                "up_precision": 0.0,
+                "up_recall": 0.0,
+                "up_f1": 0.0,
+                "up_support": 0,
+                "down_precision": 0.0,
+                "down_recall": 0.0,
+                "down_f1": 0.0,
+                "down_support": 0,
+                "test_confusion_matrix": [],
+            }
+            if len(actual_returns) == len(pred_labels):
+                y_true_split = returns_to_labels(actual_returns, threshold=symbol_threshold)
+                split_cls_metrics = directional_classification_metrics(y_true=y_true_split, y_pred=pred_labels)
+            pred_dist["directional_metrics"] = {
+                "directional_accuracy": float(split_cls_metrics["directional_accuracy"]),
+                "up_recall": float(split_cls_metrics["up_recall"]),
+                "down_recall": float(split_cls_metrics["down_recall"]),
+                "up_precision": float(split_cls_metrics["up_precision"]),
+                "down_precision": float(split_cls_metrics["down_precision"]),
+            }
             split_prediction_distribution[s_name] = pred_dist
 
             if s_name == "test" and len(actual_returns) == len(pred_labels):
-                y_true_cls = returns_to_labels(actual_returns, threshold=symbol_threshold)
-                class_metrics = directional_classification_metrics(y_true=y_true_cls, y_pred=pred_labels)
+                class_metrics = split_cls_metrics
                 logger.info(
                     "[%s] Test Acc: %.4f | up(P/R): %.4f / %.4f | down(P/R): %.4f / %.4f",
                     symbol,
@@ -950,6 +1124,8 @@ def main():
                 "predicted_label": pred_labels,
                 "lstm_final_score": final_scores,
                 "actual_return": actual_returns if len(actual_returns) == len(pred_labels) else np.full(len(pred_labels), np.nan),
+                "daily_trend_bullish": daily_trend_bullish if len(daily_trend_bullish) == len(pred_labels) else np.full(len(pred_labels), np.nan),
+                "daily_trend_up_neutralized": daily_filter_mask.astype(int),
                 "class_threshold": symbol_threshold,
             })
             sym_dfs.append(prob_df)
@@ -964,6 +1140,11 @@ def main():
 
         symbol_hyperparams = {
             "symbol": symbol,
+            "symbol_canonical": symbol,
+            "run_id": run_id,
+            "interval": args.interval,
+            "source_script": source_script,
+            "feature_schema_version": feature_schema_version,
             "trained_as_part_of_universe": True,
             "base_model_symbol": "GLOBAL",
             "arima_order": hybrid.arima_order,
@@ -971,6 +1152,7 @@ def main():
             "learning_rate": hybrid.learning_rate,
             "feature_columns": list(global_feature_columns),
             "class_threshold": float(args.class_threshold),
+            "class_threshold_min": class_threshold_min,
             "effective_class_threshold": symbol_threshold,
             "threshold_selection": {
                 "min_neutral_ratio": float(args.min_neutral_ratio),
@@ -979,6 +1161,10 @@ def main():
                 "selected_train_neutral_ratio": float(train_neutral_ratio),
             },
             "recalibrate_only": bool(args.recalibrate_only),
+            "include_daily_features": include_daily_features,
+            "apply_daily_trend_filter": apply_daily_trend_filter,
+            "daily_filter_mode": args.daily_filter_mode,
+            "daily_up_penalty": float(np.clip(args.daily_up_penalty, 0.0, 1.0)),
             "finetune": {
                 "applied": finetune_applied,
                 "epochs_requested": int(args.finetune_epochs),
@@ -995,6 +1181,11 @@ def main():
         sym_meta = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "symbol": symbol,
+            "symbol_canonical": symbol,
+            "run_id": run_id,
+            "interval": args.interval,
+            "source_script": source_script,
+            "feature_schema_version": feature_schema_version,
             "trained_as_part_of_universe": True,
             "hyperparameters": {
                 "arima_order": hybrid.arima_order,
@@ -1002,11 +1193,16 @@ def main():
                 "learning_rate": hybrid.learning_rate,
                 "epochs_requested": int(args.finetune_epochs),
                 "class_threshold": float(args.class_threshold),
+                "class_threshold_min": class_threshold_min,
                 "effective_class_threshold": symbol_threshold,
                 "min_neutral_ratio": float(args.min_neutral_ratio),
                 "max_neutral_ratio": float(args.max_neutral_ratio),
                 "target_neutral_ratio": float(args.target_neutral_ratio),
                 "recalibrate_only": bool(args.recalibrate_only),
+                "include_daily_features": include_daily_features,
+                "apply_daily_trend_filter": apply_daily_trend_filter,
+                "daily_filter_mode": args.daily_filter_mode,
+                "daily_up_penalty": float(np.clip(args.daily_up_penalty, 0.0, 1.0)),
             },
             "split_counts": split_counts,
             "metrics": {

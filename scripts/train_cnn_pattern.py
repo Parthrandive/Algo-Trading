@@ -48,6 +48,7 @@ EPS = 1e-8
 UP_WEIGHT_MULTIPLIER = 3.0
 BEARISH_DOMINANCE_RATIO = 0.70
 REGIME_SHIFT_THRESHOLD = 0.10
+PIPELINE_ROLE = "exploratory_only"
 
 
 @dataclass
@@ -152,7 +153,8 @@ def load_symbol_from_local_silver(symbol: str, base_dir: str) -> pd.DataFrame:
     if "symbol" not in df.columns:
         df["symbol"] = symbol
     if "timestamp" in df.columns:
-        df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+        df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+        df["timestamp"] = df["timestamp"].astype("datetime64[ns, UTC]")
     return df
 
 
@@ -162,6 +164,7 @@ def prepare_usdinr_features(df_usdinr: pd.DataFrame) -> pd.DataFrame:
 
     frame = df_usdinr.copy()
     frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True, errors="coerce")
+    frame["timestamp"] = frame["timestamp"].astype("datetime64[ns, UTC]")
     frame["close"] = pd.to_numeric(frame["close"], errors="coerce")
     frame = frame.dropna(subset=["timestamp", "close"]).sort_values("timestamp").drop_duplicates(
         subset=["timestamp"],
@@ -220,11 +223,18 @@ def merge_usdinr_features(df: pd.DataFrame, fx_context: pd.DataFrame) -> pd.Data
 
     target = df.copy()
     target["timestamp"] = pd.to_datetime(target["timestamp"], utc=True, errors="coerce")
+    target["timestamp"] = target["timestamp"].astype("datetime64[ns, UTC]")
     target = target.dropna(subset=["timestamp"]).sort_values("timestamp").drop_duplicates(subset=["timestamp"], keep="last")
+    fx_frame = fx_context.copy()
+    fx_frame["timestamp"] = pd.to_datetime(fx_frame["timestamp"], utc=True, errors="coerce")
+    fx_frame["timestamp"] = fx_frame["timestamp"].astype("datetime64[ns, UTC]")
+    fx_frame = fx_frame.dropna(subset=["timestamp"]).sort_values("timestamp").drop_duplicates(
+        subset=["timestamp"], keep="last"
+    )
 
     merged = pd.merge_asof(
         target,
-        fx_context.sort_values("timestamp"),
+        fx_frame,
         on="timestamp",
         direction="backward",
     )
@@ -469,6 +479,12 @@ def compute_class_weights(
             down_count,
             UP_WEIGHT_MULTIPLIER,
         )
+
+    # Force directional stance by boosting UP and DOWN, and suppressing NEUTRAL
+    class_weight_dict[up_idx] = float(class_weight_dict.get(up_idx, 1.0) * 3.0)
+    class_weight_dict[down_idx] = float(class_weight_dict.get(down_idx, 1.0) * 2.0)
+    if neutral_idx is not None:
+        class_weight_dict[neutral_idx] = float(class_weight_dict.get(neutral_idx, 1.0) * 0.5)
 
     full_weights = torch.ones(num_classes, dtype=torch.float32)
     for cls, weight in class_weight_dict.items():
@@ -761,6 +777,7 @@ def train_single_symbol(
     batch_size: int,
     seed: int,
     min_rows: int,
+    include_daily_features: bool,
 ) -> SymbolTrainingResult:
     set_seed(seed)
     validate_data(df, symbol=symbol, min_rows=min_rows)
@@ -769,7 +786,7 @@ def train_single_symbol(
     train_df_raw, val_df_raw, test_df_raw = chronological_split(df)
     train_len = len(train_df_raw)
 
-    feat_df = engineer_features(df)
+    feat_df = engineer_features(df, include_daily_features=include_daily_features)
     feat_df = add_symbol_features(feat_df, train_len=train_len)
     arima_forecast, arima_residual = build_arima_features(feat_df["close"], train_len=train_len, arima_order=arima_order)
     feat_df["arima_forecast"] = arima_forecast
@@ -940,8 +957,15 @@ def train_single_symbol(
             val_acc,
         )
 
-    torch.save(model.state_dict(), symbol_dir / "hybrid_cnn_lstm_weights.pt")
-    with open(symbol_dir / "feature_scaler.pkl", "wb") as f:
+    weights_path = symbol_dir / "hybrid_cnn_lstm_weights.pt"
+    weights_path.parent.mkdir(parents=True, exist_ok=True)
+    if weights_path.exists() or weights_path.is_symlink():
+        weights_path.unlink()
+    torch.save(model.state_dict(), str(weights_path))
+    scaler_path = symbol_dir / "feature_scaler.pkl"
+    if scaler_path.exists() or scaler_path.is_symlink():
+        scaler_path.unlink()
+    with open(scaler_path, "wb") as f:
         pickle.dump(scaler, f)
 
     hyperparams = {
@@ -949,17 +973,22 @@ def train_single_symbol(
         "window_size": window_size,
         "learning_rate": lr,
         "feature_columns": feature_columns,
+        "include_daily_features": include_daily_features,
         "neutral_threshold": effective_neutral_threshold,
         "use_binary": use_binary,
         "confidence_threshold": best_threshold,
         "class_weight_dict": class_weight_dict,
     }
-    with open(symbol_dir / "hyperparams.json", "w", encoding="utf-8") as f:
+    hyperparams_path = symbol_dir / "hyperparams.json"
+    if hyperparams_path.exists() or hyperparams_path.is_symlink():
+        hyperparams_path.unlink()
+    with open(hyperparams_path, "w", encoding="utf-8") as f:
         json.dump(hyperparams, f, indent=2)
 
     training_meta = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "symbol": symbol,
+        "pipeline_role": PIPELINE_ROLE,
         "hyperparameters": hyperparams,
         "epochs_requested": epochs,
         "epochs_run": train_stats["epochs_run"],
@@ -1027,6 +1056,11 @@ def main() -> None:
     parser.add_argument("--use-nse", action="store_true", help="Use NSE fallback when DB data is sparse.")
     parser.add_argument("--interval", default="1d", help="Candle interval (e.g., 1d, 1h).")
     parser.add_argument(
+        "--disable-daily-features",
+        action="store_true",
+        help="Disable daily timeframe feature fusion onto intraday rows.",
+    )
+    parser.add_argument(
         "--local-silver-dir",
         default=None,
         help="Optional local OHLCV parquet root (e.g., data/silver/ohlcv) to bypass DB/NSE.",
@@ -1040,6 +1074,15 @@ def main() -> None:
     args = parser.parse_args()
 
     set_seed(args.seed)
+    logger.warning(
+        "train_cnn_pattern.py is exploratory_only. "
+        "Use scripts/train_universe_cnn.py for production 3-layer retraining artifacts."
+    )
+    include_daily_features = not bool(args.disable_daily_features)
+    logger.info(
+        "Daily feature fusion: %s",
+        "enabled" if include_daily_features else "disabled",
+    )
     output_root = Path(args.output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
     arima_order = tuple(int(x.strip()) for x in args.arima_order.split(","))
@@ -1125,6 +1168,7 @@ def main() -> None:
                 batch_size=args.batch_size,
                 seed=args.seed,
                 min_rows=args.min_rows,
+                include_daily_features=include_daily_features,
             )
             results.append(result)
         except Exception as exc:

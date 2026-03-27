@@ -1,6 +1,11 @@
 {
-  "timestamp": "2026-03-24T13:59:37.540084+00:00",
+  "timestamp": "2026-03-26T19:11:44.191611+00:00",
   "symbol": "TCS.NS",
+  "symbol_canonical": "TCS.NS",
+  "run_id": "20260326T190648Z",
+  "interval": "1h",
+  "source_script": "train_universe_xgboost.py",
+  "feature_schema_version": "technical_features_v1",
   "split_counts": {
     "train": 2480,
     "val": 516,
@@ -9,7 +14,16 @@
   "hyperparameters": {
     "symbol": "TCS.NS",
     "class_threshold": 0.005,
+    "confidence_threshold": 0.15,
     "seed": 42,
+    "strict_artifact_match": true,
+    "expected_run_id": "20260326T190648Z",
+    "run_id": "20260326T190648Z",
+    "interval": "1h",
+    "source_script": "train_universe_xgboost.py",
+    "feature_schema_version": "technical_features_v1",
+    "min_directional_coverage": 0.12,
+    "daily_regime_filter_mode": "long_only_above_ma200",
     "features": [
       "cnn_prob_up",
       "cnn_prob_neutral",
@@ -17,10 +31,8 @@
       "lstm_prob_down",
       "lstm_prob_neutral",
       "lstm_prob_up",
-      "predicted_label",
-      "lstm_final_score",
-      "actual_return",
-      "class_threshold",
+      "daily_trend_bullish",
+      "daily_trend_up_neutralized",
       "tech_open",
       "tech_high",
       "tech_low",
@@ -62,6 +74,16 @@
       "tech_macro_regime_index",
       "tech_macro_regime_shock",
       "tech_macro_directional_flag",
+      "tech_daily_ma_20",
+      "tech_daily_ma_50",
+      "tech_daily_ma_200",
+      "tech_daily_rsi",
+      "tech_daily_bollinger_upper",
+      "tech_daily_bollinger_lower",
+      "tech_daily_bollinger_width",
+      "tech_daily_adx",
+      "tech_daily_trend_strength",
+      "tech_daily_trend_bullish",
       "hmm_regime",
       "regime_shift_flag",
       "cnn_up_reliable",
@@ -82,33 +104,55 @@
     }
   },
   "metrics": {
-    "test_accuracy": 0.7674418604651163,
-    "directional_accuracy": 0.08163265306122448,
-    "up_precision": 0.06666666666666667,
-    "up_recall": 0.023255813953488372,
-    "up_f1": 0.034482758620689655,
-    "up_support": 43,
-    "down_precision": 0.18421052631578946,
-    "down_recall": 0.12727272727272726,
-    "down_f1": 0.15053763440860216,
-    "down_support": 55,
+    "test_accuracy": 0.6472868217054264,
+    "directional_accuracy": 0.15555555555555556,
+    "up_precision": 0.15294117647058825,
+    "up_recall": 0.22033898305084745,
+    "up_f1": 0.18055555555555555,
+    "up_support": 59,
+    "down_precision": 0.2222222222222222,
+    "down_recall": 0.10526315789473684,
+    "down_f1": 0.14285714285714285,
+    "down_support": 76,
     "test_confusion_matrix": [
       [
-        7,
-        42,
-        6
+        8,
+        46,
+        22
       ],
       [
-        22,
-        388,
-        8
+        18,
+        313,
+        50
       ],
       [
-        9,
-        33,
-        1
+        10,
+        36,
+        13
       ]
     ],
-    "best_iteration": 495
+    "best_iteration": 420,
+    "gate_passed": false,
+    "gate_reasons": [
+      "Low directional recall (< 15%)",
+      "Directional accuracy <= 40%"
+    ],
+    "confidence_threshold": 0.15,
+    "directional_coverage": 0.23449612403100775,
+    "backtest": {
+      "sharpe": -5.276524753161647,
+      "sortino": -3.592828084669415,
+      "max_drawdown": 0.1435763314858911,
+      "win_rate": 0.34710743801652894,
+      "profit_factor": 0.43953236695797165,
+      "total_trades": 146,
+      "average_trade_return": -0.0010042573541450878,
+      "coverage": 0.23449612403100775
+    },
+    "daily_regime_filter": {
+      "mode": "long_only_above_ma200",
+      "val_up_blocked_rows": 0,
+      "test_up_blocked_rows": 0
+    }
   }
 }

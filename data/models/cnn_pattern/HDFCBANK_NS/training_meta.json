@@ -1,11 +1,16 @@
 {
-  "timestamp": "2026-03-23T17:49:59.434001+00:00",
+  "timestamp": "2026-03-26T19:11:35.125861+00:00",
   "symbol": "HDFCBANK.NS",
+  "symbol_canonical": "HDFCBANK.NS",
+  "run_id": "20260326T190648Z",
+  "interval": "1h",
+  "source_script": "train_universe_cnn.py",
+  "feature_schema_version": "technical_features_v1",
   "trained_as_part_of_universe": true,
   "hyperparameters": {
     "window_size": 20,
     "learning_rate": 0.001,
-    "epochs_requested": 15,
+    "epochs_requested": 25,
     "confidence_threshold": 0.15,
     "use_binary": false
   },
@@ -15,42 +20,42 @@
     "test": 512
   },
   "metrics": {
-    "test_accuracy": 0.37109375,
-    "sharpe": 1.6643933697557995,
-    "max_drawdown": -0.03512227535247803,
-    "win_rate": 0.551622418879056,
-    "up_precision": 0.25,
-    "up_recall": 0.006289308176100629,
-    "up_f1": 0.012269938650306749,
+    "test_accuracy": 0.337890625,
+    "sharpe": 4.338343137406897,
+    "max_drawdown": 0.04095578193664551,
+    "win_rate": 0.5483870967741935,
+    "up_precision": 0.3333333333333333,
+    "up_recall": 0.025157232704402517,
+    "up_f1": 0.04678362573099415,
     "up_support": 159,
-    "down_precision": 0.417910447761194,
-    "down_recall": 0.6763285024154589,
-    "down_f1": 0.5166051660516605,
+    "down_precision": 0.4110169491525424,
+    "down_recall": 0.46859903381642515,
+    "down_f1": 0.43792325056433407,
     "down_support": 207,
-    "directional_accuracy": 0.38524590163934425,
+    "directional_accuracy": 0.27595628415300544,
     "test_confusion_matrix": [
       [
-        1,
-        58,
-        100
+        4,
+        86,
+        69
       ],
       [
-        2,
-        49,
-        95
+        4,
+        72,
+        70
       ],
       [
-        1,
-        66,
-        140
+        4,
+        106,
+        97
       ]
     ],
-    "finetune_best_train_loss": 1.0381545589356231,
-    "finetune_best_val_loss": 1.1088018876932373,
-    "finetune_best_train_acc": 0.434906427990236,
-    "finetune_best_val_acc": 0.3542074363992172,
-    "finetune_epochs_run": 6,
-    "finetune_best_val_tune_score": 0.2965619899337252,
-    "finetune_val_predicted_directional_rate": 0.589041095890411
+    "finetune_best_train_loss": 1.0613566025958205,
+    "finetune_best_val_loss": 1.1065197506529478,
+    "finetune_best_train_acc": 0.4096826688364524,
+    "finetune_best_val_acc": 0.3150684931506849,
+    "finetune_epochs_run": 9,
+    "finetune_best_val_tune_score": 0.2301214334942244,
+    "finetune_val_predicted_directional_rate": 0.3385518590998043
   }
 }

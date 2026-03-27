@@ -46,6 +46,14 @@ PHASE2_INDEX_DDL = (
 
 PHASE2_POSTGRES_REPAIR_DDL = (
     "ALTER TABLE IF EXISTS sentiment_scores ALTER COLUMN lane TYPE VARCHAR(16);",
+    "ALTER TABLE IF EXISTS sentiment_scores ADD COLUMN IF NOT EXISTS source_id VARCHAR(128);",
+    "ALTER TABLE IF EXISTS sentiment_scores ADD COLUMN IF NOT EXISTS source_type VARCHAR(64);",
+    "ALTER TABLE IF EXISTS sentiment_scores ADD COLUMN IF NOT EXISTS ttl_seconds INTEGER;",
+    "ALTER TABLE IF EXISTS sentiment_scores ADD COLUMN IF NOT EXISTS freshness_flag VARCHAR(32);",
+    "ALTER TABLE IF EXISTS sentiment_scores ADD COLUMN IF NOT EXISTS headline_timestamp TIMESTAMPTZ;",
+    "ALTER TABLE IF EXISTS sentiment_scores ADD COLUMN IF NOT EXISTS score_timestamp TIMESTAMPTZ;",
+    "ALTER TABLE IF EXISTS sentiment_scores ADD COLUMN IF NOT EXISTS quality_status VARCHAR(32);",
+    "ALTER TABLE IF EXISTS sentiment_scores ADD COLUMN IF NOT EXISTS metadata_json TEXT;",
 )
 
 

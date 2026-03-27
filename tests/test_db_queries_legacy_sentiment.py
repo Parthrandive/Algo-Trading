@@ -47,7 +47,7 @@ def test_get_sentiment_scores_supports_legacy_schema(monkeypatch):
             )
         )
 
-    monkeypatch.setattr(db_queries, "get_engine", lambda: engine)
+    monkeypatch.setattr(db_queries, "get_engine", lambda database_url=None: engine)
 
     start = datetime(2026, 3, 25, 8, 59)
     end = datetime(2026, 3, 25, 9, 1)

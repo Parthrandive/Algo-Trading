@@ -1,6 +1,6 @@
 # Technical Agent Ablation Report (Day 5)
 
-- Generated: `2026-03-20T18:12:26.812915+00:00`
+- Generated: `2026-03-25T16:34:53.201391+00:00`
 - Walk-forward config: `{'train_months': 6, 'test_months': 1, 'step_months': 1, 'train_days': None, 'test_days': None, 'step_days': None, 'start_date': '2019-01-01'}`
 
 ## ARIMA-LSTM Feature Group Ablation

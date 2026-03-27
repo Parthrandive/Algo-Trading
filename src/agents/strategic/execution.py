@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import math
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Mapping
+from typing import Any, Mapping, Sequence
 from uuid import uuid4
 
 from src.agents.risk_overseer.schemas import RiskAssessment
 from src.agents.strategic.config import ExecutionConfig
+from src.agents.strategic.impact_monitor import ImpactSlippageMonitor
 from src.agents.strategic.portfolio import round_to_tradable_quantity
 from src.agents.strategic.schemas import (
     ActionType,
@@ -19,9 +22,156 @@ from src.agents.strategic.schemas import (
 )
 
 
-class ExecutionPlanner:
-    def __init__(self, config: ExecutionConfig | None = None) -> None:
+@dataclass(frozen=True)
+class PreTradeLimits:
+    max_notional: float = 100_000_000.0
+    max_participation: float = 0.05
+    min_confidence: float = 0.20
+
+
+@dataclass(frozen=True)
+class OrderRequest:
+    symbol: str
+    direction: str
+    target_quantity: int
+    target_notional: float
+    confidence: float
+    order_type: OrderType = OrderType.LIMIT
+    risk_mode: RiskMode = RiskMode.NORMAL
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ExecutionContext:
+    timestamp: datetime
+    symbol: str
+    current_price: float
+    orderbook_imbalance: float
+    queue_pressure: float
+    avg_volume_1h: float
+
+
+class RoutingHealthMonitor:
+    def __init__(self, failure_limit: int = 3):
+        self.failure_limit = failure_limit
+        self.failures = 0
+
+    def mark_failure(self) -> None:
+        self.failures += 1
+
+    def is_healthy(self) -> bool:
+        return self.failures < self.failure_limit
+
+
+class SlippageModel:
+    def estimate_bps(self, context: ExecutionContext, quantity: int) -> float:
+        if context.avg_volume_1h <= 0:
+            return 20.0
+        pct_of_volume = (quantity / context.avg_volume_1h) * 100.0
+        return 5.0 + 2.5 * pct_of_volume
+
+
+class PreTradeComplianceChecker:
+    """Mandatory pre-trade compliance gates for the week-3+ execution path."""
+
+    def __init__(self, limits: PreTradeLimits | None = None):
+        self.limits = limits or PreTradeLimits()
+
+    def check(self, request: OrderRequest, context: ExecutionContext) -> ComplianceCheckResult:
+        reasons: list[str] = []
+
+        if request.target_notional > self.limits.max_notional:
+            reasons.append(f"notional_limit_exceeded:{request.target_notional:,.0f}>{self.limits.max_notional:,.0f}")
+
+        if request.confidence < self.limits.min_confidence:
+            reasons.append(f"confidence_floor_breach:{request.confidence:.2f}<{self.limits.min_confidence:.2f}")
+
+        participation = request.target_quantity / max(context.avg_volume_1h, 1.0)
+        if participation > self.limits.max_participation:
+            reasons.append(f"participation_cap_breach:{participation:.2%}>{self.limits.max_participation:.2%}")
+
+        return ComplianceCheckResult(
+            passed=len(reasons) == 0,
+            reasons=tuple(reasons),
+            risk_mode=request.risk_mode,
+            metadata={
+                "max_notional": self.limits.max_notional,
+                "current_participation": participation,
+            },
+        )
+
+
+class ExecutionEngine:
+    """
+    Phase 3 Strategic Execution Engine with backward-compatible planner surface.
+
+    `plan_execution()` supports the newer Week 3+ path.
+    `plan_order()` preserves the Week 1/2 planning API used by risk-overseer tests.
+    """
+
+    def __init__(
+        self,
+        config: ExecutionConfig | None = None,
+        compliance: PreTradeComplianceChecker | None = None,
+        impact_monitor: ImpactSlippageMonitor | None = None,
+    ):
         self.config = config or ExecutionConfig()
+        self.compliance = compliance or PreTradeComplianceChecker()
+        self.slippage = SlippageModel()
+        self.routing = RoutingHealthMonitor(failure_limit=self.config.routing_health_failure_limit)
+        self.impact_monitor = impact_monitor
+
+    def plan_execution(
+        self,
+        request: OrderRequest,
+        context: ExecutionContext,
+    ) -> ExecutionPlan:
+        audit_events: list[dict[str, Any]] = []
+
+        compliance_result = self.compliance.check(request, context)
+        audit_events.append(
+            {
+                "event": "compliance_check",
+                "passed": compliance_result.passed,
+                "reasons": compliance_result.reasons,
+            }
+        )
+
+        est_slippage = self.slippage.estimate_bps(context, request.target_quantity)
+        effective_qty = int(request.target_quantity)
+        size_multiplier = 1.0
+        if self.impact_monitor is not None:
+            size_multiplier = self.impact_monitor.size_multiplier(request.symbol)
+            effective_qty = int(math.floor(max(0, request.target_quantity) * size_multiplier))
+
+        instruction = OrderInstruction(
+            event_id=str(uuid4()),
+            timestamp=context.timestamp,
+            symbol=request.symbol,
+            direction=request.direction,
+            quantity=effective_qty,
+            order_type=request.order_type,
+            participation_limit=float(self.compliance.limits.max_participation),
+            risk_mode=compliance_result.risk_mode,
+            rationale=f"strategic_exec_v1; slippage={est_slippage:.1f}bps; size_multiplier={size_multiplier:.2f}",
+            metadata=request.metadata,
+        )
+        audit_events.append(
+            {
+                "event": "impact_size_multiplier",
+                "symbol": request.symbol,
+                "size_multiplier": size_multiplier,
+                "effective_quantity": effective_qty,
+            }
+        )
+
+        return ExecutionPlan(
+            instruction=instruction,
+            compliance=compliance_result,
+            audit_events=tuple(audit_events),
+            estimated_slippage_bps=est_slippage,
+            routing_status="healthy" if self.routing.is_healthy() else "degraded",
+        )
 
     def plan_order(
         self,
@@ -59,7 +209,7 @@ class ExecutionPlanner:
             direction = "SELL" if intent.decision.action in {ActionType.CLOSE, ActionType.REDUCE, ActionType.SELL} else "BUY"
         limit_price = market_price if order_type == OrderType.LIMIT else None
         stop_price = market_price * 0.985 if order_type in {OrderType.SL, OrderType.SL_M} else None
-        participation_limit = portfolio_check.metadata.get("participation_limit", 0.0)
+        participation_limit = float(portfolio_check.metadata.get("participation_limit", 0.0))
 
         instruction = OrderInstruction(
             event_id=f"ord-{uuid4().hex[:12]}",
@@ -70,24 +220,24 @@ class ExecutionPlanner:
             order_type=order_type,
             limit_price=limit_price,
             stop_price=stop_price,
-            participation_limit=float(participation_limit),
+            participation_limit=participation_limit,
             risk_mode=compliance.risk_mode,
             rationale=intent.decision.rationale,
             metadata={
                 "hedge_required": intent.hedge_required,
                 "hedge_symbol": intent.hedge_symbol,
                 "portfolio_rejections": portfolio_check.rejection_reasons,
+                "risk_overlay_state": risk_assessment.crisis_state.value if risk_assessment else None,
             },
         )
 
         estimated_slippage_bps = self._estimate_slippage_bps(
             quantity=quantity,
             market_price=market_price,
-            participation_limit=float(participation_limit),
+            participation_limit=participation_limit,
             instrument_state=instrument_state,
         )
         partial_fill_plan = self._partial_fill_schedule(quantity)
-        routing_status = "healthy" if routing_is_healthy else "degraded"
         audit_events = tuple(
             self._build_audit_event(
                 event_type=event_type,
@@ -101,12 +251,13 @@ class ExecutionPlanner:
             )
             for event_type in ("ORDER_INTENT", "ORDER_SUBMITTED" if compliance.passed else "REJECTION")
         )
+
         return ExecutionPlan(
             instruction=instruction,
             compliance=compliance,
             audit_events=audit_events,
             estimated_slippage_bps=estimated_slippage_bps,
-            routing_status=routing_status,
+            routing_status="healthy" if routing_is_healthy else "degraded",
             partial_fill_plan=partial_fill_plan,
         )
 
@@ -224,16 +375,23 @@ class ExecutionPlanner:
         }
 
 
-def _direction_from_decision(action) -> str:
-    if str(action).endswith("SELL") or str(action).endswith("CLOSE") or str(action).endswith("REDUCE"):
+ExecutionPlanner = ExecutionEngine
+
+
+def audit_events_to_dict(events: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    return {"audit_trail": list(events)}
+
+
+def _direction_from_decision(action: ActionType) -> str:
+    if action in {ActionType.SELL, ActionType.CLOSE, ActionType.REDUCE}:
         return "SELL"
     return "BUY"
 
 
-def _choose_order_type(action, instrument_state: Mapping[str, object], default_order_type: str) -> OrderType:
+def _choose_order_type(action: ActionType, instrument_state: Mapping[str, object], default_order_type: str) -> OrderType:
     if bool(instrument_state.get("requires_stop_loss", False)):
         return OrderType.SL
-    if str(action).endswith("CLOSE"):
+    if action == ActionType.CLOSE:
         return OrderType.MARKET
     return OrderType(default_order_type)
 

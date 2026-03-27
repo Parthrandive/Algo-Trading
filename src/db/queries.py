@@ -111,8 +111,8 @@ def is_symbol_train_ready(symbol: str, interval: str, dataset_type: str = "histo
     return bool(quality.get("train_ready"))
 
 
-def _read_dataframe(stmt) -> pd.DataFrame:
-    engine = get_engine()
+def _read_dataframe(stmt, *, database_url: str | None = None, engine=None) -> pd.DataFrame:
+    engine = engine or get_engine(database_url)
     df = pd.read_sql(stmt, engine)
     for column in (
         "timestamp",
@@ -135,7 +135,13 @@ def _parse_json_column(df: pd.DataFrame, column: str) -> pd.DataFrame:
     return df
 
 
-def get_technical_predictions(symbol: str, start: datetime, end: datetime) -> pd.DataFrame:
+def get_technical_predictions(
+    symbol: str,
+    start: datetime,
+    end: datetime,
+    *,
+    database_url: str | None = None,
+) -> pd.DataFrame:
     stmt = select(TechnicalPredictionDB).where(
         and_(
             TechnicalPredictionDB.symbol == symbol,
@@ -143,10 +149,16 @@ def get_technical_predictions(symbol: str, start: datetime, end: datetime) -> pd
             TechnicalPredictionDB.timestamp <= end,
         )
     ).order_by(TechnicalPredictionDB.timestamp.asc())
-    return _read_dataframe(stmt)
+    return _read_dataframe(stmt, database_url=database_url)
 
 
-def get_regime_predictions(symbol: str, start: datetime, end: datetime) -> pd.DataFrame:
+def get_regime_predictions(
+    symbol: str,
+    start: datetime,
+    end: datetime,
+    *,
+    database_url: str | None = None,
+) -> pd.DataFrame:
     stmt = select(RegimePredictionDB).where(
         and_(
             RegimePredictionDB.symbol == symbol,
@@ -154,7 +166,7 @@ def get_regime_predictions(symbol: str, start: datetime, end: datetime) -> pd.Da
             RegimePredictionDB.timestamp <= end,
         )
     ).order_by(RegimePredictionDB.timestamp.asc())
-    return _parse_json_column(_read_dataframe(stmt), "details_json")
+    return _parse_json_column(_read_dataframe(stmt, database_url=database_url), "details_json")
 
 
 def get_sentiment_scores(
@@ -162,8 +174,10 @@ def get_sentiment_scores(
     start: datetime,
     end: datetime,
     lane: str | None = None,
+    *,
+    database_url: str | None = None,
 ) -> pd.DataFrame:
-    engine = get_engine()
+    engine = get_engine(database_url)
     table = Table(SentimentScoreDB.__tablename__, MetaData(), autoload_with=engine)
 
     filters = [
@@ -187,7 +201,13 @@ def get_sentiment_scores(
     return _parse_json_column(df, "metadata_json")
 
 
-def get_consensus_signals(symbol: str, start: datetime, end: datetime) -> pd.DataFrame:
+def get_consensus_signals(
+    symbol: str,
+    start: datetime,
+    end: datetime,
+    *,
+    database_url: str | None = None,
+) -> pd.DataFrame:
     stmt = select(ConsensusSignalDB).where(
         and_(
             ConsensusSignalDB.symbol == symbol,
@@ -195,7 +215,7 @@ def get_consensus_signals(symbol: str, start: datetime, end: datetime) -> pd.Dat
             ConsensusSignalDB.timestamp <= end,
         )
     ).order_by(ConsensusSignalDB.timestamp.asc())
-    return _read_dataframe(stmt)
+    return _read_dataframe(stmt, database_url=database_url)
 
 
 def get_prediction_log(agent: str, start: datetime, end: datetime) -> pd.DataFrame:
@@ -261,7 +281,7 @@ def get_reward_logs(symbol: str, start: datetime, end: datetime) -> pd.DataFrame
             RewardLogDB.timestamp >= start,
             RewardLogDB.timestamp <= end,
         )
-    ).order_by(RewardLogDB.timestamp.asc(), RewardLogDB.id.asc())
+    ).order_by(RewardLogDB.timestamp.asc(), RewardLogDB.event_id.asc())
     return _parse_json_column(_read_dataframe(stmt), "components_json")
 
 
@@ -295,19 +315,32 @@ def get_phase2_signal_bundle(
     end: datetime,
     *,
     sentiment_lane: str = "slow",
+    database_url: str | None = None,
 ) -> dict[str, pd.DataFrame]:
     """
     Production-read helper for Phase 3:
     fetches all Phase 2 sources needed to materialize observation batches.
     """
-    sentiment = get_sentiment_scores(symbol=symbol, start=start, end=end, lane=sentiment_lane)
+    sentiment = get_sentiment_scores(
+        symbol=symbol,
+        start=start,
+        end=end,
+        lane=sentiment_lane,
+        database_url=database_url,
+    )
     if sentiment.empty:
         # Fallback to market-level sentiment if symbol-level lane data is missing.
-        sentiment = get_sentiment_scores(symbol=None, start=start, end=end, lane=sentiment_lane)
+        sentiment = get_sentiment_scores(
+            symbol=None,
+            start=start,
+            end=end,
+            lane=sentiment_lane,
+            database_url=database_url,
+        )
 
     return {
-        "technical": get_technical_predictions(symbol, start, end),
-        "regime": get_regime_predictions(symbol, start, end),
+        "technical": get_technical_predictions(symbol, start, end, database_url=database_url),
+        "regime": get_regime_predictions(symbol, start, end, database_url=database_url),
         "sentiment": sentiment,
-        "consensus": get_consensus_signals(symbol, start, end),
+        "consensus": get_consensus_signals(symbol, start, end, database_url=database_url),
     }

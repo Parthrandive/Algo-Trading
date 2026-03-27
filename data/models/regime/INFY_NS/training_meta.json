@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-03-23T12:54:55.587633+00:00",
+  "timestamp": "2026-03-26T19:07:10.471253+00:00",
   "symbol": "INFY.NS",
-  "run_timestamp_utc": "2026-03-23T12:54:55.587633+00:00",
+  "run_timestamp_utc": "2026-03-26T19:07:10.471253+00:00",
   "rows_trained": 238,
   "start_timestamp": "2026-03-05 03:45:00+00:00",
   "end_timestamp": "2026-03-06 09:45:00+00:00",
@@ -11,6 +11,10 @@
   ],
   "hmm_components": 4,
   "hyperparameters": {
+    "interval": "1h",
+    "limit": 2000,
+    "min_gold_rows": 120,
+    "warmup_rows": 120,
     "hmm_components": 4
   },
   "metrics": {

@@ -108,6 +108,8 @@ class DeliberationConfig:
 class PortfolioConfig:
     normal_notional_cap: float = 50_000_000.0
     validated_notional_cap: float = 100_000_000.0
+    max_exposure_per_symbol: float = 0.15
+    max_leverage: float = 1.0
     max_single_position_fraction: float = 0.15
     max_sector_fraction: float = 0.30
     max_correlation: float = 0.85
@@ -129,3 +131,51 @@ class ExecutionConfig:
     routing_health_failure_limit: int = 3
     circuit_breaker_reduce_factor: float = 0.50
     audit_version: str = STRATEGIC_EXECUTION_AUDIT_VERSION
+
+
+@dataclass(frozen=True)
+class ImpactMonitorConfig:
+    cooldown_seconds: int = 300
+    hysteresis_clean_fills: int = 2
+    reduction_step_fraction: float = 0.25
+    min_size_multiplier: float = 0.10
+    slippage_alert_bps: float = 20.0
+
+
+@dataclass(frozen=True)
+class RiskBudgetConfig:
+    false_trigger_acceptance_limit: float = 0.20
+    false_trigger_rolling_days: int = 30
+    normal_cap: float = 1.00
+    elevated_cap: float = 0.70
+    high_cap: float = 0.40
+    extreme_cap: float = 0.15
+
+
+@dataclass(frozen=True)
+class OrderBookFeatureConfig:
+    top_n_levels: int = 5
+    staleness_threshold_seconds: int = 2
+    degraded_downweight: float = 0.50
+
+
+@dataclass(frozen=True)
+class LatencyDisciplineConfig:
+    p99_target_ms: float = 8.0
+    degrade_threshold_ms: float = 10.0
+    restore_consecutive_windows: int = 3
+    regression_guard_ms: float = 0.5
+
+
+@dataclass(frozen=True)
+class PromotionGateConfig:
+    min_crisis_agreement: float = 0.80
+    require_latency_gate: bool = True
+    require_rollback_readiness: bool = True
+    require_non_regression: bool = True
+
+
+@dataclass(frozen=True)
+class XAIConfig:
+    top_k_features: int = 5
+    min_coverage: float = 0.80

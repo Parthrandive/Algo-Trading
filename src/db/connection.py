@@ -14,6 +14,14 @@ LOCAL_DB_URL = "postgresql://postgres:optimus@localhost:5433/sentinel_db"
 # Pick default based on DB_MODE env var: "local" or "docker" (default)
 DEFAULT_DB_URL = LOCAL_DB_URL if os.getenv("DB_MODE", "docker").lower() == "local" else DOCKER_DB_URL
 
+
+def _looks_like_placeholder_url(url: str) -> bool:
+    marker_tokens = ("<user>", "<pass>", "<host>", "<port>", "<db>", "<database>")
+    lowered = url.lower()
+    if any(token in lowered for token in marker_tokens):
+        return True
+    return "<" in url and ">" in url
+
 def get_engine(database_url: str | None = None):
     """
     Creates and returns a SQLAlchemy engine instance.
@@ -24,6 +32,11 @@ def get_engine(database_url: str | None = None):
       3. DEFAULT_DB_URL (chosen by DB_MODE: 'local' | 'docker')
     """
     url = database_url or os.getenv("DATABASE_URL", DEFAULT_DB_URL)
+    if _looks_like_placeholder_url(url):
+        raise ValueError(
+            "Invalid database URL: placeholder tokens detected. "
+            "Replace <user>/<pass>/<host>/<port>/<db> with real values."
+        )
     return create_engine(
         url,
         pool_size=int(os.getenv("DB_POOL_SIZE", "5")),

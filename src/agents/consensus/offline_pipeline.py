@@ -173,9 +173,9 @@ def _load_symbol_ohlcv(symbol: str, root: Path) -> pd.DataFrame:
     df = pd.concat(frames, ignore_index=True)
     if "timestamp" not in df.columns:
         return pd.DataFrame()
-    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce").astype("datetime64[ns, UTC]")
     df = df.dropna(subset=["timestamp"]).sort_values("timestamp")
-    if "interval" in df.columns:
+    if "interval" in df.columns and not symbol.endswith("=X"):
         df = df[df["interval"].astype(str) == "1h"]
     df = df.drop_duplicates(subset=["timestamp"], keep="last")
     df["symbol"] = symbol
@@ -301,7 +301,7 @@ def _load_fx_context_frame(symbol: str, root: Path) -> pd.DataFrame:
         return pd.DataFrame(columns=["timestamp", "usdinr_close"])
 
     context = frame.copy()
-    context["timestamp"] = pd.to_datetime(context["timestamp"], utc=True, errors="coerce")
+    context["timestamp"] = pd.to_datetime(context["timestamp"], utc=True, errors="coerce").astype("datetime64[ns, UTC]")
     context["close"] = pd.to_numeric(context["close"], errors="coerce")
     context = context.dropna(subset=["timestamp", "close"]).sort_values("timestamp").drop_duplicates(
         subset=["timestamp"],

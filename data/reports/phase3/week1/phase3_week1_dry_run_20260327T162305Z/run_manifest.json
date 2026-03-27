@@ -1,0 +1,202 @@
+{
+  "manifest_version": "phase3_run_manifest_v1",
+  "run_id": "phase3_week1_dry_run_20260327T162305Z",
+  "phase": "phase_3",
+  "component": "strategic",
+  "started_at_utc": "2026-03-27T16:23:05.705496Z",
+  "finished_at_utc": "2026-03-27T16:23:06.487920Z",
+  "symbols": [
+    "RELIANCE.NS",
+    "TCS.NS"
+  ],
+  "observation_schema_version": "1.0",
+  "contract_version": "strat_exec_v1",
+  "export_schema_version": "week2_action_space_v1",
+  "rows_materialized": 0,
+  "actions_generated": 0,
+  "code_hash": "d14be8e1449b827f4539740ac57ab06ea834a7bd",
+  "dataset_snapshot": {
+    "phase2_window": {
+      "start": "2026-04-01T00:00:00+00:00",
+      "end": "2026-04-10T00:00:00+00:00"
+    },
+    "per_symbol_observation_rows": {
+      "RELIANCE.NS": 0,
+      "TCS.NS": 0
+    },
+    "warn_quality_rows": 0
+  },
+  "artifacts": {
+    "action_export_jsonl": "data/reports/phase3/week1/phase3_week1_dry_run_20260327T162305Z/week2_action_space_export.jsonl",
+    "write_decisions": false,
+    "materialized_observations": true,
+    "reward_logs_written": 0,
+    "training_runs_written": 0,
+    "registered_policy_ids": [],
+    "week3_enabled": true,
+    "week3_summary": {
+      "impact_events": 0,
+      "risk_cap_events": 0,
+      "orderbook_feature_events": 0,
+      "xai_rows": 0,
+      "pnl_rows": 0,
+      "latency_mode": "normal",
+      "latency_p99_ms": 0.0,
+      "latency_gate_passed": true,
+      "xai_coverage": 0.0
+    },
+    "week3_latency_gate": {
+      "run_id": "phase3_week1_dry_run_20260327T162305Z",
+      "timestamp": "2026-03-27T16:23:06.444813Z",
+      "passed": true,
+      "reasons": [],
+      "artifact": {
+        "workloads": {
+          "replay": {
+            "p99_ms": 0.0,
+            "p999_ms": 0.0
+          },
+          "peak_synthetic": {
+            "p99_ms": 0.0,
+            "p999_ms": 0.0
+          }
+        },
+        "baseline_p99_ms": 8.0,
+        "max_p99_ms": 0.0,
+        "max_p999_ms": 0.0,
+        "regression_ms": -8.0,
+        "target_p99_ms": 8.0,
+        "degrade_threshold_ms": 10.0
+      }
+    },
+    "week3_promotion_events": [
+      {
+        "timestamp": "2026-03-27T16:23:06.449103Z",
+        "policy_id": "teacher_placeholder_v0",
+        "from_stage": "candidate",
+        "to_stage": "shadow",
+        "approved": true,
+        "reasons": [],
+        "evidence": {
+          "walk_forward_outperformance": true,
+          "non_regression": true,
+          "crisis_slice_agreement": 0.85,
+          "latency_gate_passed": true,
+          "rollback_ready": true
+        }
+      },
+      {
+        "timestamp": "2026-03-27T16:23:06.449109Z",
+        "policy_id": "teacher_placeholder_v0",
+        "from_stage": "shadow",
+        "to_stage": "champion",
+        "approved": true,
+        "reasons": [],
+        "evidence": {
+          "walk_forward_outperformance": true,
+          "non_regression": true,
+          "crisis_slice_agreement": 0.85,
+          "latency_gate_passed": true,
+          "rollback_ready": true
+        }
+      }
+    ],
+    "week3_rollback_event": {
+      "timestamp": "2026-03-27T16:23:06.452170Z",
+      "failed_model_id": "teacher_placeholder_v0_v2",
+      "reverted_to": "teacher_placeholder_v0_v1",
+      "executed": true,
+      "mttr_seconds": 0.746673,
+      "reasons": []
+    },
+    "week4_enabled": true,
+    "week4_summary": {
+      "backtest_target_pass": false,
+      "leakage_passed": true,
+      "survivorship_passed": true,
+      "stress_passed": true,
+      "paper_uptime_ratio": 1.0,
+      "paper_audit_trail_complete": true,
+      "governance_registry_complete": true,
+      "governance_reproducibility_ready": true,
+      "governance_promotion_gate_passed": true,
+      "governance_rollback_passed": true,
+      "gate_evidence": {
+        "latency_gate_passed": true,
+        "crisis_agreement_passed": true,
+        "rollback_tested": true,
+        "walk_forward_passed": false,
+        "observation_schema_validated": true,
+        "tier1_operational": true,
+        "compliance_audit_complete": true,
+        "blocking_defects": 0,
+        "checks": {
+          "latency_gate": true,
+          "crisis_agreement": true,
+          "rollback_tested": true,
+          "walk_forward": false,
+          "observation_schema": true,
+          "tier1_operational": true,
+          "compliance": true,
+          "blocking_defects": true
+        }
+      },
+      "go_no_go": {
+        "go": false,
+        "checklist": {
+          "latency_gate": true,
+          "crisis_agreement": true,
+          "rollback_tested": true,
+          "walk_forward": false,
+          "observation_schema": true,
+          "tier1_operational": true,
+          "compliance": true,
+          "blocking_defects": true
+        },
+        "at_risk_items": [
+          "walk_forward"
+        ]
+      }
+    },
+    "week4_gate_evidence": {
+      "latency_gate_passed": true,
+      "crisis_agreement_passed": true,
+      "rollback_tested": true,
+      "walk_forward_passed": false,
+      "observation_schema_validated": true,
+      "tier1_operational": true,
+      "compliance_audit_complete": true,
+      "blocking_defects": 0,
+      "checks": {
+        "latency_gate": true,
+        "crisis_agreement": true,
+        "rollback_tested": true,
+        "walk_forward": false,
+        "observation_schema": true,
+        "tier1_operational": true,
+        "compliance": true,
+        "blocking_defects": true
+      }
+    },
+    "week4_go_no_go": {
+      "go": false,
+      "checklist": {
+        "latency_gate": true,
+        "crisis_agreement": true,
+        "rollback_tested": true,
+        "walk_forward": false,
+        "observation_schema": true,
+        "tier1_operational": true,
+        "compliance": true,
+        "blocking_defects": true
+      },
+      "at_risk_items": [
+        "walk_forward"
+      ]
+    }
+  },
+  "notes": [
+    "Teacher actions are placeholder-only and restricted to offline/slow-loop usage.",
+    "Fast Loop exclusion for teacher inference remains enforced by contract schema."
+  ]
+}
