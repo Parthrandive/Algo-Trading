@@ -791,3 +791,37 @@ class RiskEventDB(Base):
     threshold_value = Column(Float, nullable=True)
     metadata_json = Column(Text, nullable=True)
     schema_version = Column(String(32), nullable=False, default="phase4_risk_overseer_v2")
+
+
+class DriftAlertEventDB(Base):
+    __tablename__ = "drift_alert_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    policy_id = Column(String(128), nullable=False)
+    drift_score = Column(Float, nullable=False, default=0.0)
+    drift_threshold = Column(Float, nullable=False, default=0.0)
+    consecutive_breaches = Column(Integer, nullable=False, default=0)
+    sustained_drift = Column(Boolean, nullable=False, default=False)
+    demotion_triggered = Column(Boolean, nullable=False, default=False)
+    recommended_risk_mode = Column(String(16), nullable=False, default="normal")
+    exposure_cap_multiplier = Column(Float, nullable=False, default=1.0)
+    provenance_reliability = Column(Float, nullable=False, default=1.0)
+    schema_version = Column(String(32), nullable=False, default="phase4_risk_overseer_v2")
+
+
+class Phase4RiskGateAuditDB(Base):
+    __tablename__ = "phase4_risk_gate_audits"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    passed = Column(Boolean, nullable=False, default=False)
+    checks_json = Column(Text, nullable=False)
+    blocker_reasons_json = Column(Text, nullable=False)
+    xai_coverage = Column(Float, nullable=False, default=0.0)
+    drift_monitoring_active = Column(Boolean, nullable=False, default=False)
+    false_trigger_rate = Column(Float, nullable=False, default=0.0)
+    false_trigger_manual_review_required = Column(Boolean, nullable=False, default=False)
+    pnl_dashboard_live = Column(Boolean, nullable=False, default=False)
+    surprise_kill_switch_passed = Column(Boolean, nullable=False, default=False)
+    schema_version = Column(String(32), nullable=False, default="phase4_risk_overseer_v2")

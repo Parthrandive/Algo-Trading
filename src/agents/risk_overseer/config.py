@@ -39,5 +39,13 @@ class RiskOverseerConfig:
     capacity_impact_cap_bps: float = 25.0
     capacity_hard_cap_multiplier: float = 2.0
     stress_max_snapback_ticks: int = 30
+    drift_alert_threshold: float = 0.12
+    drift_sustained_breach_count: int = 3
+    drift_close_only_threshold: float = 0.24
+    provenance_exposure_floor: float = 0.20
+    provenance_exposure_power: float = 1.5
+    false_trigger_acceptance_limit: float = 0.20
+    false_trigger_rolling_days: int = 30
+    xai_min_coverage: float = 0.80
     service_name: str = "independent_risk_overseer"
     schema_version: str = "phase4_risk_overseer_v2"

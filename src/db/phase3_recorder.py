@@ -14,6 +14,7 @@ from src.db.connection import get_engine, get_session
 from src.db.models import (
     Base,
     DeliberationLogDB,
+    DriftAlertEventDB,
     DistillationRunDB,
     FastLoopLatencyEventDB,
     ImpactEventDB,
@@ -27,6 +28,7 @@ from src.db.models import (
     PolicySnapshotDB,
     PortfolioSnapshotDB,
     PromotionGateEventDB,
+    Phase4RiskGateAuditDB,
     RLPolicyDB,
     RLTrainingRunDB,
     RewardLogDB,
@@ -66,6 +68,8 @@ PHASE3_TABLES = (
     OperationalMetricsSnapshotDB.__table__,
     RiskStateSnapshotDB.__table__,
     RiskEventDB.__table__,
+    DriftAlertEventDB.__table__,
+    Phase4RiskGateAuditDB.__table__,
 )
 
 PHASE3_INDEX_DDL = (
@@ -97,6 +101,8 @@ PHASE3_INDEX_DDL = (
     "CREATE INDEX IF NOT EXISTS idx_operational_metrics_snapshots_ts ON operational_metrics_snapshots (timestamp DESC);",
     "CREATE INDEX IF NOT EXISTS idx_risk_state_snapshots_symbol_ts ON risk_state_snapshots (symbol, timestamp DESC);",
     "CREATE INDEX IF NOT EXISTS idx_risk_events_symbol_ts ON risk_events (symbol, timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_drift_alert_events_policy_ts ON drift_alert_events (policy_id, timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_phase4_risk_gate_audits_ts ON phase4_risk_gate_audits (timestamp DESC);",
 )
 
 PHASE3_COLUMN_REPAIR_DDL: dict[str, dict[str, str]] = {
@@ -1104,6 +1110,46 @@ class Phase3Recorder:
         }
         with self.Session() as session:
             self._upsert(session, RiskEventDB, row, key_fields=("event_id",))
+            session.commit()
+
+    def save_drift_alert_event(self, event: Any) -> None:
+        event = self._ensure_dict(event)
+        row = {
+            "timestamp": self._coerce_datetime(event["timestamp"]),
+            "policy_id": str(event["policy_id"]),
+            "drift_score": float(event.get("drift_score", 0.0)),
+            "drift_threshold": float(event.get("drift_threshold", 0.0)),
+            "consecutive_breaches": int(event.get("consecutive_breaches", 0)),
+            "sustained_drift": bool(event.get("sustained_drift", False)),
+            "demotion_triggered": bool(event.get("demotion_triggered", False)),
+            "recommended_risk_mode": self._enum_value(event.get("recommended_risk_mode", "normal")),
+            "exposure_cap_multiplier": float(event.get("exposure_cap_multiplier", 1.0)),
+            "provenance_reliability": float(event.get("provenance_reliability", 1.0)),
+            "schema_version": str(event.get("schema_version", "phase4_risk_overseer_v2")),
+        }
+        with self.Session() as session:
+            session.add(DriftAlertEventDB(**row))
+            session.commit()
+
+    def save_phase4_risk_gate_audit(self, audit: Any) -> None:
+        audit = self._ensure_dict(audit)
+        row = {
+            "timestamp": self._coerce_datetime(audit["timestamp"]),
+            "passed": bool(audit.get("passed", False)),
+            "checks_json": self._to_json(audit.get("checks", {})),
+            "blocker_reasons_json": self._to_json(audit.get("blocker_reasons", [])),
+            "xai_coverage": float(audit.get("xai_coverage", 0.0)),
+            "drift_monitoring_active": bool(audit.get("drift_monitoring_active", False)),
+            "false_trigger_rate": float(audit.get("false_trigger_rate", 0.0)),
+            "false_trigger_manual_review_required": bool(
+                audit.get("false_trigger_manual_review_required", False)
+            ),
+            "pnl_dashboard_live": bool(audit.get("pnl_dashboard_live", False)),
+            "surprise_kill_switch_passed": bool(audit.get("surprise_kill_switch_passed", False)),
+            "schema_version": str(audit.get("schema_version", "phase4_risk_overseer_v2")),
+        }
+        with self.Session() as session:
+            session.add(Phase4RiskGateAuditDB(**row))
             session.commit()
 
     def _normalize_observation(self, observation: dict[str, Any]) -> dict[str, Any]:

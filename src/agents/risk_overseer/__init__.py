@@ -15,6 +15,15 @@ from src.agents.risk_overseer.schemas import (
     RiskTriggerLayer,
 )
 from src.agents.risk_overseer.service import RiskOverseerService
+from src.agents.risk_overseer.governance import (
+    DriftAlert,
+    DriftObservation,
+    DriftSurveillanceMonitor,
+    FalseTriggerReview,
+    Phase4RiskGateAudit,
+    Phase4RiskGateAuditor,
+    RiskFalseTriggerTracker,
+)
 from src.agents.risk_overseer.stress import (
     CapacityStressResult,
     DEFAULT_STRESS_SCENARIOS,
@@ -33,13 +42,20 @@ __all__ = [
     "CrisisRiskSnapshot",
     "CrisisState",
     "DEFAULT_STRESS_SCENARIOS",
+    "DriftAlert",
+    "DriftObservation",
+    "DriftSurveillanceMonitor",
+    "FalseTriggerReview",
     "ModelRiskSnapshot",
     "OODRiskSnapshot",
+    "Phase4RiskGateAudit",
+    "Phase4RiskGateAuditor",
     "PortfolioRiskSnapshot",
     "QuarterlyStressReview",
     "RecoveryRequest",
     "RiskAssessment",
     "RiskEvaluationInput",
+    "RiskFalseTriggerTracker",
     "RiskOverseerConfig",
     "RiskOverseerService",
     "RiskStressTestFramework",
