@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import asdict, is_dataclass
 import hashlib
 import json
 import logging
@@ -14,6 +15,7 @@ from src.db.connection import get_engine, get_session
 from src.db.models import (
     Base,
     DeliberationLogDB,
+    DriftAlertEventDB,
     DistillationRunDB,
     FastLoopLatencyEventDB,
     ImpactEventDB,
@@ -27,10 +29,13 @@ from src.db.models import (
     PolicySnapshotDB,
     PortfolioSnapshotDB,
     PromotionGateEventDB,
+    Phase4RiskGateAuditDB,
     RLPolicyDB,
     RLTrainingRunDB,
     RewardLogDB,
+    RiskEventDB,
     RiskCapEventDB,
+    RiskStateSnapshotDB,
     RollbackDrillEventDB,
     StudentPolicyDB,
     TradeDecisionDB,
@@ -62,6 +67,10 @@ PHASE3_TABLES = (
     XAITradeExplanationDB.__table__,
     PnLAttributionEventDB.__table__,
     OperationalMetricsSnapshotDB.__table__,
+    RiskStateSnapshotDB.__table__,
+    RiskEventDB.__table__,
+    DriftAlertEventDB.__table__,
+    Phase4RiskGateAuditDB.__table__,
 )
 
 PHASE3_INDEX_DDL = (
@@ -91,6 +100,10 @@ PHASE3_INDEX_DDL = (
     "CREATE INDEX IF NOT EXISTS idx_xai_trade_explanations_trade_ts ON xai_trade_explanations (trade_id, timestamp DESC);",
     "CREATE INDEX IF NOT EXISTS idx_pnl_attribution_events_symbol_ts ON pnl_attribution_events (symbol, timestamp DESC);",
     "CREATE INDEX IF NOT EXISTS idx_operational_metrics_snapshots_ts ON operational_metrics_snapshots (timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_risk_state_snapshots_symbol_ts ON risk_state_snapshots (symbol, timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_risk_events_symbol_ts ON risk_events (symbol, timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_drift_alert_events_policy_ts ON drift_alert_events (policy_id, timestamp DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_phase4_risk_gate_audits_ts ON phase4_risk_gate_audits (timestamp DESC);",
 )
 
 PHASE3_COLUMN_REPAIR_DDL: dict[str, dict[str, str]] = {
@@ -1062,6 +1075,84 @@ class Phase3Recorder:
             session.add(OperationalMetricsSnapshotDB(**row))
             session.commit()
 
+    def save_risk_state(self, assessment: Any, *, symbol: str | None = None) -> None:
+        assessment = self._ensure_dict(assessment)
+        row = {
+            "timestamp": self._coerce_datetime(assessment["timestamp"]),
+            "symbol": symbol or assessment.get("symbol"),
+            "mode": self._enum_value(assessment["mode"]),
+            "previous_mode": self._enum_value(assessment.get("previous_mode", assessment["mode"])),
+            "approved": bool(assessment.get("approved", True)),
+            "veto_reason": assessment.get("veto_reason"),
+            "recovery_active": bool(assessment.get("recovery_active", False)),
+            "source_service": str(assessment.get("source_service", "independent_risk_overseer")),
+            "metadata_json": self._to_json(assessment.get("metadata", {})),
+            "schema_version": str(assessment.get("schema_version", "phase4_risk_overseer_v2")),
+        }
+        with self.Session() as session:
+            session.add(RiskStateSnapshotDB(**row))
+            session.commit()
+
+    def save_risk_event(self, event: Any, *, symbol: str | None = None) -> None:
+        event = self._ensure_dict(event)
+        row = {
+            "event_id": str(event["event_id"]),
+            "timestamp": self._coerce_datetime(event["timestamp"]),
+            "symbol": symbol or event.get("symbol"),
+            "layer": self._enum_value(event["layer"]),
+            "trigger_code": self._enum_value(event["trigger_code"]),
+            "mode": self._enum_value(event["mode"]),
+            "reason": str(event["reason"]),
+            "operator_id": event.get("operator_id"),
+            "trigger_value": self._optional_float(event.get("value")),
+            "threshold_value": self._optional_float(event.get("threshold")),
+            "metadata_json": self._to_json(event.get("metadata", {})),
+            "schema_version": str(event.get("schema_version", "phase4_risk_overseer_v2")),
+        }
+        with self.Session() as session:
+            self._upsert(session, RiskEventDB, row, key_fields=("event_id",))
+            session.commit()
+
+    def save_drift_alert_event(self, event: Any) -> None:
+        event = self._ensure_dict(event)
+        row = {
+            "timestamp": self._coerce_datetime(event["timestamp"]),
+            "policy_id": str(event["policy_id"]),
+            "drift_score": float(event.get("drift_score", 0.0)),
+            "drift_threshold": float(event.get("drift_threshold", 0.0)),
+            "consecutive_breaches": int(event.get("consecutive_breaches", 0)),
+            "sustained_drift": bool(event.get("sustained_drift", False)),
+            "demotion_triggered": bool(event.get("demotion_triggered", False)),
+            "recommended_risk_mode": self._enum_value(event.get("recommended_risk_mode", "normal")),
+            "exposure_cap_multiplier": float(event.get("exposure_cap_multiplier", 1.0)),
+            "provenance_reliability": float(event.get("provenance_reliability", 1.0)),
+            "schema_version": str(event.get("schema_version", "phase4_risk_overseer_v2")),
+        }
+        with self.Session() as session:
+            session.add(DriftAlertEventDB(**row))
+            session.commit()
+
+    def save_phase4_risk_gate_audit(self, audit: Any) -> None:
+        audit = self._ensure_dict(audit)
+        row = {
+            "timestamp": self._coerce_datetime(audit["timestamp"]),
+            "passed": bool(audit.get("passed", False)),
+            "checks_json": self._to_json(audit.get("checks", {})),
+            "blocker_reasons_json": self._to_json(audit.get("blocker_reasons", [])),
+            "xai_coverage": float(audit.get("xai_coverage", 0.0)),
+            "drift_monitoring_active": bool(audit.get("drift_monitoring_active", False)),
+            "false_trigger_rate": float(audit.get("false_trigger_rate", 0.0)),
+            "false_trigger_manual_review_required": bool(
+                audit.get("false_trigger_manual_review_required", False)
+            ),
+            "pnl_dashboard_live": bool(audit.get("pnl_dashboard_live", False)),
+            "surprise_kill_switch_passed": bool(audit.get("surprise_kill_switch_passed", False)),
+            "schema_version": str(audit.get("schema_version", "phase4_risk_overseer_v2")),
+        }
+        with self.Session() as session:
+            session.add(Phase4RiskGateAuditDB(**row))
+            session.commit()
+
     def _normalize_observation(self, observation: dict[str, Any]) -> dict[str, Any]:
         timestamp = self._coerce_datetime(observation["timestamp"])
         symbol = str(observation["symbol"])
@@ -1181,7 +1272,13 @@ class Phase3Recorder:
     def _to_json(payload: Any) -> str:
         return json.dumps(payload, sort_keys=True, default=str)
 
+    @staticmethod
+    def _enum_value(value: Any) -> Any:
+        return getattr(value, "value", value)
+
     def _ensure_dict(self, value: Any) -> dict[str, Any]:
+        if is_dataclass(value) and not isinstance(value, type):
+            return asdict(value)
         if hasattr(value, "model_dump"):
             return value.model_dump()
         if hasattr(value, "dict"):
