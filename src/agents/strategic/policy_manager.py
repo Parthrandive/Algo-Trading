@@ -73,6 +73,7 @@ class PolicySnapshotManager:
 
     def get_effective_risk_mode(self) -> RiskMode:
         """Returns the forced mode or the snapshot's mode."""
+        self.enforce_snapshot_health()
         if self._forced_mode is not None:
             return self._forced_mode
         if self._active_snapshot is not None:
@@ -85,6 +86,21 @@ class PolicySnapshotManager:
             return True
         now = now or datetime.now(UTC)
         return now > self._active_snapshot.generated_at + self.config.stale_after
+
+    def enforce_snapshot_health(self, now: datetime | None = None) -> None:
+        """
+        Enforce reduce-only degradation on missing/stale/expired snapshots.
+        """
+        now = now or datetime.now(UTC)
+        if self._active_snapshot is None:
+            self.force_mode(RiskMode.REDUCE_ONLY, reason="missing_snapshot")
+            return
+        if now > self._active_snapshot.expires_at:
+            self.force_mode(RiskMode.REDUCE_ONLY, reason="expired_snapshot")
+            return
+        if self.is_stale(now=now):
+            self.force_mode(RiskMode.REDUCE_ONLY, reason="stale_snapshot")
+            return
 
     def build_snapshot(
         self,
