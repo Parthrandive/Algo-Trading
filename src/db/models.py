@@ -444,3 +444,36 @@ class RewardLogDB(Base):
     reward_value = Column(Float, nullable=False)
     components_json = Column(Text, nullable=True)
     schema_version = Column(String(8), nullable=False, default="1.0")
+
+
+class RiskStateSnapshotDB(Base):
+    __tablename__ = "risk_state_snapshots"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    symbol = Column(String(32), nullable=True)
+    mode = Column(String(16), nullable=False)
+    previous_mode = Column(String(16), nullable=False)
+    approved = Column(Boolean, nullable=False, default=True)
+    veto_reason = Column(Text, nullable=True)
+    recovery_active = Column(Boolean, nullable=False, default=False)
+    source_service = Column(String(64), nullable=False)
+    metadata_json = Column(Text, nullable=True)
+    schema_version = Column(String(32), nullable=False, default="phase4_risk_overseer_v1")
+
+
+class RiskEventDB(Base):
+    __tablename__ = "risk_events"
+
+    event_id = Column(String(64), primary_key=True)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    symbol = Column(String(32), nullable=True)
+    layer = Column(String(16), nullable=False)
+    trigger_code = Column(String(32), nullable=False)
+    mode = Column(String(16), nullable=False)
+    reason = Column(Text, nullable=False)
+    operator_id = Column(String(64), nullable=True)
+    trigger_value = Column(Float, nullable=True)
+    threshold_value = Column(Float, nullable=True)
+    metadata_json = Column(Text, nullable=True)
+    schema_version = Column(String(32), nullable=False, default="phase4_risk_overseer_v1")

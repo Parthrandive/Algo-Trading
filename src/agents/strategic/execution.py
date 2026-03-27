@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Mapping
 from uuid import uuid4
 
+from src.agents.risk_overseer.schemas import RiskAssessment
 from src.agents.strategic.config import ExecutionConfig
 from src.agents.strategic.portfolio import round_to_tradable_quantity
 from src.agents.strategic.schemas import (
@@ -36,6 +37,7 @@ class ExecutionPlanner:
         model_version: str = "student_candidate",
         universe_version: str = "unknown",
         signal_source: str = "strategic_ensemble",
+        risk_assessment: RiskAssessment | None = None,
     ) -> ExecutionPlan:
         instrument_state = dict(instrument_state or {})
         compliance = self.run_pre_trade_checks(
@@ -46,6 +48,7 @@ class ExecutionPlanner:
             lot_size=lot_size,
             instrument_state=instrument_state,
             routing_is_healthy=routing_is_healthy,
+            risk_assessment=risk_assessment,
         )
 
         now = datetime.now(UTC)
@@ -96,7 +99,7 @@ class ExecutionPlanner:
                 universe_version=universe_version,
                 data_source_tags=tuple(instrument_state.get("data_source_tags", ("primary_api",))),
             )
-            for event_type in ("ORDER_INTENT", "ORDER_SUBMITTED")
+            for event_type in ("ORDER_INTENT", "ORDER_SUBMITTED" if compliance.passed else "REJECTION")
         )
         return ExecutionPlan(
             instruction=instruction,
@@ -117,10 +120,21 @@ class ExecutionPlanner:
         lot_size: int,
         instrument_state: Mapping[str, object],
         routing_is_healthy: bool,
+        risk_assessment: RiskAssessment | None,
     ) -> ComplianceCheckResult:
         reasons: list[str] = list(portfolio_check.rejection_reasons)
         warnings: list[str] = list(portfolio_check.warnings)
         risk_mode = portfolio_check.risk_mode
+
+        if risk_assessment is None:
+            reasons.append("risk_overseer_unreachable")
+            risk_mode = RiskMode.KILL_SWITCH
+        else:
+            risk_mode = _max_risk_mode(risk_mode, risk_assessment.mode)
+            if not risk_assessment.approved:
+                reasons.append(risk_assessment.veto_reason or "risk_overseer_veto")
+            elif not risk_assessment.can_submit_order(intent.decision.action):
+                reasons.append(f"risk_mode_blocked:{risk_assessment.mode.value}")
 
         if not portfolio_check.approved:
             reasons.append("portfolio_risk_rejected")
@@ -135,7 +149,10 @@ class ExecutionPlanner:
         if not bool(instrument_state.get("order_type_allowed", True)):
             reasons.append("order_type_not_allowed")
         if not routing_is_healthy:
-            risk_mode = RiskMode.CLOSE_ONLY if len(reasons) >= self.config.routing_health_failure_limit else RiskMode.REDUCE_ONLY
+            routing_risk_mode = (
+                RiskMode.CLOSE_ONLY if len(reasons) >= self.config.routing_health_failure_limit else RiskMode.REDUCE_ONLY
+            )
+            risk_mode = _max_risk_mode(risk_mode, routing_risk_mode)
             reasons.append("routing_health_degraded")
         return ComplianceCheckResult(
             passed=not reasons,
@@ -145,6 +162,7 @@ class ExecutionPlanner:
             metadata={
                 "available_margin": available_margin,
                 "required_margin": required_margin,
+                "risk_source": risk_assessment.source_service if risk_assessment else "risk_overseer_unreachable",
             },
         )
 
@@ -218,3 +236,13 @@ def _choose_order_type(action, instrument_state: Mapping[str, object], default_o
     if str(action).endswith("CLOSE"):
         return OrderType.MARKET
     return OrderType(default_order_type)
+
+
+def _max_risk_mode(left: RiskMode, right: RiskMode) -> RiskMode:
+    ordering = {
+        RiskMode.NORMAL: 0,
+        RiskMode.REDUCE_ONLY: 1,
+        RiskMode.CLOSE_ONLY: 2,
+        RiskMode.KILL_SWITCH: 3,
+    }
+    return left if ordering[left] >= ordering[right] else right

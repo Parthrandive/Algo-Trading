@@ -8,7 +8,16 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from src.db.connection import get_engine, get_session
-from src.db.models import Base, ObservationDB, RLPolicyDB, RLTrainingRunDB, RewardLogDB, TradeDecisionDB
+from src.db.models import (
+    Base,
+    ObservationDB,
+    RLPolicyDB,
+    RLTrainingRunDB,
+    RewardLogDB,
+    RiskEventDB,
+    RiskStateSnapshotDB,
+    TradeDecisionDB,
+)
 
 
 class Phase3Recorder:
@@ -192,6 +201,44 @@ class Phase3Recorder:
                 session.add(RewardLogDB(**row))
             session.commit()
 
+    def save_risk_state(self, assessment: Any, *, symbol: str | None = None) -> None:
+        assessment = self._ensure_dict(assessment)
+        row = {
+            "timestamp": self._coerce_datetime(assessment["timestamp"]),
+            "symbol": symbol or assessment.get("symbol"),
+            "mode": self._enum_value(assessment["mode"]),
+            "previous_mode": self._enum_value(assessment.get("previous_mode", assessment["mode"])),
+            "approved": bool(assessment.get("approved", True)),
+            "veto_reason": assessment.get("veto_reason"),
+            "recovery_active": bool(assessment.get("recovery_active", False)),
+            "source_service": str(assessment.get("source_service", "independent_risk_overseer")),
+            "metadata_json": self._to_json(assessment.get("metadata", {})),
+            "schema_version": str(assessment.get("schema_version", "phase4_risk_overseer_v1")),
+        }
+        with self.Session() as session:
+            session.add(RiskStateSnapshotDB(**row))
+            session.commit()
+
+    def save_risk_event(self, event: Any, *, symbol: str | None = None) -> None:
+        event = self._ensure_dict(event)
+        row = {
+            "event_id": str(event["event_id"]),
+            "timestamp": self._coerce_datetime(event["timestamp"]),
+            "symbol": symbol or event.get("symbol"),
+            "layer": self._enum_value(event["layer"]),
+            "trigger_code": self._enum_value(event["trigger_code"]),
+            "mode": self._enum_value(event["mode"]),
+            "reason": str(event["reason"]),
+            "operator_id": event.get("operator_id"),
+            "trigger_value": self._optional_float(event.get("value")),
+            "threshold_value": self._optional_float(event.get("threshold")),
+            "metadata_json": self._to_json(event.get("metadata", {})),
+            "schema_version": str(event.get("schema_version", "phase4_risk_overseer_v1")),
+        }
+        with self.Session() as session:
+            self._upsert(session, RiskEventDB, row, key_fields=("event_id",))
+            session.commit()
+
     def _normalize_observation(self, observation: dict[str, Any]) -> dict[str, Any]:
         return {
             "timestamp": self._coerce_datetime(observation["timestamp"]),
@@ -278,6 +325,10 @@ class Phase3Recorder:
     @staticmethod
     def _to_json(payload: Any) -> str:
         return json.dumps(payload, sort_keys=True, default=str)
+
+    @staticmethod
+    def _enum_value(value: Any) -> Any:
+        return getattr(value, "value", value)
 
     def _ensure_dict(self, value: Any) -> dict[str, Any]:
         if hasattr(value, "model_dump"):
