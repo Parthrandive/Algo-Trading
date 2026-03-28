@@ -14,14 +14,7 @@ from src.agents.strategic.config import (
     TEACHER_POLICY_TYPE,
     WEEK2_ACTION_EXPORT_VERSION,
 )
-
-
-class ActionType(str, Enum):
-    BUY = "buy"
-    SELL = "sell"
-    HOLD = "hold"
-    CLOSE = "close"
-    REDUCE = "reduce"
+from src.agents.strategic_types import ActionType, RiskMode
 
 
 class LoopType(str, Enum):
@@ -33,13 +26,6 @@ class LoopType(str, Enum):
 class PolicyType(str, Enum):
     TEACHER = "teacher"
     STUDENT = "student"
-
-
-class RiskMode(str, Enum):
-    NORMAL = "normal"
-    REDUCE_ONLY = "reduce_only"
-    CLOSE_ONLY = "close_only"
-    KILL_SWITCH = "kill_switch"
 
 
 class OrderType(str, Enum):
