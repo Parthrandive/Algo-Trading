@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-03-26T19:09:20.665265+00:00",
+  "timestamp": "2026-03-28T07:05:23.254286+00:00",
   "symbol": "HDFCBANK.NS",
   "symbol_canonical": "HDFCBANK.NS",
-  "run_id": "20260326T190648Z",
+  "run_id": "remediated_v1",
   "interval": "1h",
   "source_script": "train_universe_arima_lstm.py",
   "feature_schema_version": "technical_features_v1",
@@ -18,15 +18,15 @@
     "epochs_requested": 25,
     "class_threshold": 0.005,
     "class_threshold_min": 0.001,
-    "effective_class_threshold": 0.001,
+    "effective_class_threshold": 0.0026860161898101713,
     "min_neutral_ratio": 0.15,
     "max_neutral_ratio": 0.2,
     "target_neutral_ratio": 0.175,
     "recalibrate_only": false,
     "include_daily_features": true,
-    "apply_daily_trend_filter": true,
-    "daily_filter_mode": "soft",
-    "daily_up_penalty": 0.15
+    "apply_daily_trend_filter": false,
+    "daily_filter_mode": "hard",
+    "daily_up_penalty": 0.5
   },
   "split_counts": {
     "train": 2467,
@@ -35,103 +35,103 @@
   },
   "metrics": {
     "test_mse": 3.685290841350039e-05,
-    "selected_train_neutral_ratio": 0.21888933927847587,
+    "selected_train_neutral_ratio": 0.6822051074179165,
     "prediction_distribution": {
       "train": {
         "total": 2467,
         "counts": {
-          "down": 45,
-          "neutral": 540,
-          "up": 1882
+          "down": 5,
+          "neutral": 1683,
+          "up": 779
         },
         "ratios": {
-          "down": 0.018240778273206325,
-          "neutral": 0.21888933927847587,
-          "up": 0.7628698824483178
+          "down": 0.002026753141467369,
+          "neutral": 0.6822051074179165,
+          "up": 0.31576813944061616
         },
         "daily_trend_up_neutralized": 0,
         "daily_trend_neutralization_rate": 0.0,
-        "directional_coverage": 0.7811106607215241,
+        "directional_coverage": 0.3177948925820835,
         "directional_metrics": {
-          "directional_accuracy": 0.4066390041493776,
-          "up_recall": 0.7873357228195937,
-          "down_recall": 0.03176470588235294,
-          "up_precision": 0.35015940488841657,
-          "down_precision": 0.6
+          "directional_accuracy": 0.20530565167243367,
+          "up_recall": 0.39373601789709173,
+          "down_recall": 0.004761904761904762,
+          "up_precision": 0.22593068035943517,
+          "down_precision": 0.4
         }
       },
       "val": {
         "total": 521,
         "counts": {
-          "down": 68,
-          "neutral": 333,
-          "up": 120
+          "down": 6,
+          "neutral": 499,
+          "up": 16
         },
         "ratios": {
-          "down": 0.13051823416506717,
-          "neutral": 0.6391554702495201,
-          "up": 0.23032629558541268
+          "down": 0.011516314779270634,
+          "neutral": 0.9577735124760077,
+          "up": 0.030710172744721688
         },
         "daily_trend_up_neutralized": 0,
         "daily_trend_neutralization_rate": 0.0,
-        "directional_coverage": 0.36084452975047987,
+        "directional_coverage": 0.04222648752399232,
         "directional_metrics": {
-          "directional_accuracy": 0.18873239436619718,
-          "up_recall": 0.21739130434782608,
-          "down_recall": 0.15789473684210525,
-          "up_precision": 0.3333333333333333,
-          "down_precision": 0.39705882352941174
+          "directional_accuracy": 0.02564102564102564,
+          "up_recall": 0.038461538461538464,
+          "down_recall": 0.01282051282051282,
+          "up_precision": 0.1875,
+          "down_precision": 0.16666666666666666
         }
       },
       "test": {
         "total": 522,
         "counts": {
-          "down": 122,
-          "neutral": 264,
-          "up": 136
+          "down": 27,
+          "neutral": 438,
+          "up": 57
         },
         "ratios": {
-          "down": 0.23371647509578544,
-          "neutral": 0.5057471264367817,
-          "up": 0.26053639846743293
+          "down": 0.05172413793103448,
+          "neutral": 0.8390804597701149,
+          "up": 0.10919540229885058
         },
         "daily_trend_up_neutralized": 0,
         "daily_trend_neutralization_rate": 0.0,
-        "directional_coverage": 0.4942528735632184,
+        "directional_coverage": 0.16091954022988506,
         "directional_metrics": {
-          "directional_accuracy": 0.26420454545454547,
-          "up_recall": 0.2987012987012987,
-          "down_recall": 0.23737373737373738,
-          "up_precision": 0.3382352941176471,
-          "down_precision": 0.38524590163934425
+          "directional_accuracy": 0.0893854748603352,
+          "up_recall": 0.1527777777777778,
+          "down_recall": 0.04672897196261682,
+          "up_precision": 0.19298245614035087,
+          "down_precision": 0.18518518518518517
         }
       }
     },
-    "test_accuracy": 0.36015325670498083,
-    "directional_accuracy": 0.26420454545454547,
-    "up_precision": 0.3382352941176471,
-    "up_recall": 0.2987012987012987,
-    "up_f1": 0.31724137931034485,
-    "up_support": 154,
-    "down_precision": 0.38524590163934425,
-    "down_recall": 0.23737373737373738,
-    "down_f1": 0.29375,
-    "down_support": 198,
+    "test_accuracy": 0.5938697318007663,
+    "directional_accuracy": 0.0893854748603352,
+    "up_precision": 0.19298245614035087,
+    "up_recall": 0.1527777777777778,
+    "up_f1": 0.17054263565891473,
+    "up_support": 72,
+    "down_precision": 0.18518518518518517,
+    "down_recall": 0.04672897196261682,
+    "down_f1": 0.07462686567164178,
+    "down_support": 107,
     "test_confusion_matrix": [
       [
-        47,
-        97,
-        54
+        5,
+        88,
+        14
       ],
       [
-        39,
-        95,
-        36
+        17,
+        294,
+        32
       ],
       [
-        36,
-        72,
-        46
+        5,
+        56,
+        11
       ]
     ],
     "finetune_train_loss": 1.9910353836663864e-05,

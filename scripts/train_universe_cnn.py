@@ -30,6 +30,19 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.agents.technical.data_loader import DataLoader
 from src.agents.technical.features import engineer_features
+from src.agents.technical.label_utils import (
+    build_labels as build_labels_unified,
+    choose_neutral_threshold as choose_neutral_threshold_unified,
+    atr_effective_threshold,
+    recall_balance as compute_recall_balance,
+    directional_coverage as compute_directional_coverage,
+    class_balance_report,
+    LABEL_MODES,
+)
+from src.agents.technical.validation_metrics import (
+    post_cost_sharpe,
+    expected_calibration_error,
+)
 try:
     from config.symbols import EQUITY_SYMBOLS, FOREX_SYMBOLS, dedupe_symbols, MIN_ROWS, SplitCounts, SymbolValidationResult, discover_training_symbols
 except ImportError:
@@ -158,6 +171,8 @@ def directional_class_metrics(y_true: np.ndarray, y_pred: np.ndarray, use_binary
             "up": {"precision": 0.0, "recall": 0.0, "f1": 0.0, "support": 0},
             "down": {"precision": 0.0, "recall": 0.0, "f1": 0.0, "support": 0},
             "directional_accuracy": 0.0,
+            "recall_balance": 0.0,
+            "directional_coverage": 0.0,
         }
 
     labels = [0, 1] if use_binary else [0, 2]  # binary: 0=up,1=down; multiclass: 0=up,2=down
@@ -190,7 +205,9 @@ def directional_class_metrics(y_true: np.ndarray, y_pred: np.ndarray, use_binary
             "f1": float(f1[idx]),
             "support": int(support[idx]),
         }
-    out["directional_accuracy"] = directional_accuracy
+    out["directional_accuracy"] = float(directional_accuracy)
+    out["recall_balance"] = compute_recall_balance(y_true, y_pred)
+    out["directional_coverage"] = compute_directional_coverage(y_pred)
     return out
 
 
@@ -414,69 +431,6 @@ def prepare_split_for_supervised(df: pd.DataFrame, feature_columns: List[str]) -
     return out
 
 
-def choose_neutral_threshold(
-    train_forward_returns: np.ndarray,
-    requested_threshold: float,
-    use_binary: bool,
-    min_neutral_ratio: float,
-    max_neutral_ratio: float,
-    target_neutral_ratio: float,
-) -> Tuple[float, float]:
-    if use_binary:
-        return requested_threshold, 0.0
-
-    abs_returns = np.abs(train_forward_returns[np.isfinite(train_forward_returns)])
-    if len(abs_returns) == 0:
-        return requested_threshold, 0.0
-
-    quantile_candidates = [float(np.quantile(abs_returns, q)) for q in [0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25, 0.30]]
-    static_candidates = [0.0002, 0.0005, 0.0010, 0.0015, 0.0020, 0.0025, 0.0030, 0.0040, 0.0050, 0.0075, 0.0100]
-    candidates = sorted({float(requested_threshold), *quantile_candidates, *static_candidates})
-
-    candidate_stats: List[Tuple[float, float]] = []
-    for threshold in candidates:
-        threshold = max(float(threshold), 1e-6)
-        neutral_ratio = float((abs_returns <= threshold).mean())
-        candidate_stats.append((threshold, neutral_ratio))
-
-    in_band = [
-        (threshold, ratio)
-        for threshold, ratio in candidate_stats
-        if float(min_neutral_ratio) <= ratio <= float(max_neutral_ratio)
-    ]
-    if in_band:
-        best_threshold, best_ratio = min(
-            in_band,
-            key=lambda item: (abs(item[1] - float(target_neutral_ratio)), item[0]),
-        )
-        return float(best_threshold), float(best_ratio)
-
-    best_threshold, best_ratio = min(
-        candidate_stats,
-        key=lambda item: (abs(item[1] - float(target_neutral_ratio)), item[0]),
-    )
-    logger.warning(
-        "Neutral threshold fallback selected %.4f with neutral share %.2f%% (outside requested band %.2f%% - %.2f%%).",
-        best_threshold,
-        best_ratio * 100.0,
-        float(min_neutral_ratio) * 100.0,
-        float(max_neutral_ratio) * 100.0,
-    )
-    return float(best_threshold), float(best_ratio)
-
-
-def build_labels(forward_returns: np.ndarray, threshold: float, use_binary: bool) -> np.ndarray:
-    if use_binary:
-        # Binary fallback mode: 0=up, 1=down
-        return np.where(forward_returns >= 0.0, 0, 1).astype(int)
-
-    # Multi-class mode: 0=up, 1=neutral, 2=down
-    labels = np.ones(len(forward_returns), dtype=int)
-    labels[forward_returns > threshold] = 0
-    labels[forward_returns < -threshold] = 2
-    return labels
-
-
 def make_windows(
     df: pd.DataFrame,
     feature_columns: List[str],
@@ -499,26 +453,6 @@ def make_windows(
         )
 
     return np.asarray(X, dtype=np.float32), np.asarray(y, dtype=int), np.asarray(realized, dtype=np.float32)
-
-
-def class_distribution(y: np.ndarray, use_binary: bool) -> Dict[str, float]:
-    if len(y) == 0:
-        if use_binary:
-            return {"up": 0.0, "down": 0.0}
-        return {"up": 0.0, "neutral": 0.0, "down": 0.0}
-
-    if use_binary:
-        counts = np.bincount(y, minlength=2)
-        total = counts.sum()
-        return {"up": float(counts[0] / total * 100), "down": float(counts[1] / total * 100)}
-
-    counts = np.bincount(y, minlength=3)
-    total = counts.sum()
-    return {
-        "up": float(counts[0] / total * 100),
-        "neutral": float(counts[1] / total * 100),
-        "down": float(counts[2] / total * 100),
-    }
 
 
 def is_forex_target(symbol: str) -> bool:
@@ -989,6 +923,24 @@ def main() -> None:
         default="technical_features_v1",
         help="Feature schema version tag persisted in training artifacts.",
     )
+    parser.add_argument(
+        "--label-mode",
+        choices=["fixed", "atr", "percentile"],
+        default="atr",
+        help="Label construction mode: fixed (legacy), atr (volatility-adjusted), percentile (distribution-balanced).",
+    )
+    parser.add_argument(
+        "--atr-k",
+        type=float,
+        default=0.5,
+        help="ATR multiplier k for threshold = k × ATR/close. Only used with --label-mode atr.",
+    )
+    parser.add_argument(
+        "--atr-period",
+        type=int,
+        default=14,
+        help="ATR lookback period. Only used with --label-mode atr.",
+    )
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -1056,15 +1008,14 @@ def main() -> None:
     scaler.fit(global_train_df.values)
     
     global_train_returns = pd.concat([symbol_data[s]["train"]["future_return"] for s in symbol_data], ignore_index=True).values
-    effective_neutral_threshold, neutral_ratio = choose_neutral_threshold(
+    effective_neutral_threshold, neutral_ratio = choose_neutral_threshold_unified(
         train_forward_returns=global_train_returns,
         requested_threshold=args.neutral_threshold,
-        use_binary=args.use_binary,
         min_neutral_ratio=args.min_neutral_ratio,
         max_neutral_ratio=args.max_neutral_ratio,
         target_neutral_ratio=args.target_neutral_ratio,
     )
-    logger.info("GLOBAL Neutral Threshold selected: %.4f (train neutral share %.2f%%)", effective_neutral_threshold, neutral_ratio*100)
+    logger.info("GLOBAL Neutral Threshold baseline: %.4f (train neutral share %.2f%%)", effective_neutral_threshold, neutral_ratio*100)
 
     # --- Phase 3: Build Windows ---
     X_train_list, y_train_list = [], []
@@ -1072,10 +1023,30 @@ def main() -> None:
     X_test_list, y_test_list = [], []
     
     for symbol, splits in symbol_data.items():
+        # Per-symbol thresholding
+        if getattr(args, "label_mode", "fixed") == "atr":
+            train_raw_df = discovery.frames[symbol].copy()
+            symbol_threshold = atr_effective_threshold(
+                high=train_raw_df["high"].values,
+                low=train_raw_df["low"].values,
+                close=train_raw_df["close"].values,
+                k=getattr(args, "atr_k", 0.5),
+                atr_period=int(getattr(args, "atr_period", 14)),
+            )
+            logger.info("[%s] Using ATR-scaled threshold: %.6f", symbol, symbol_threshold)
+        else:
+            symbol_threshold = effective_neutral_threshold
+
         for s_name in ["train", "val", "test"]:
             sup = splits[s_name].copy().astype({col: "float64" for col in global_feature_columns})
             sup.loc[:, global_feature_columns] = scaler.transform(sup[global_feature_columns].values)
-            y_raw = build_labels(sup["future_return"].values, threshold=effective_neutral_threshold, use_binary=args.use_binary)
+            
+            y_raw, _ = build_labels_unified(
+                sup["future_return"].values, 
+                threshold=symbol_threshold, 
+                use_binary=args.use_binary,
+                mode="fixed"
+            )
             X, y, ret = make_windows(sup, global_feature_columns, y_raw, window_size=args.window_size)
             
             timestamps = sup["timestamp"].iloc[args.window_size - 1:].values if len(sup) >= args.window_size else np.empty(0)
@@ -1344,6 +1315,9 @@ def main() -> None:
                 "sharpe": trade_stats["sharpe"],
                 "max_drawdown": trade_stats["max_drawdown"],
                 "win_rate": trade_stats["win_rate"],
+                "post_cost_sharpe": post_cost_sharpe(y_data, preds_test, ret_data) if not args.use_binary else trade_stats["sharpe"],
+                "recall_balance": direction_stats["recall_balance"],
+                "directional_coverage": direction_stats["directional_coverage"],
                 "up_precision": direction_stats["up"]["precision"],
                 "up_recall": direction_stats["up"]["recall"],
                 "up_f1": direction_stats["up"]["f1"],

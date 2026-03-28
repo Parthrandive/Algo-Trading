@@ -1,7 +1,7 @@
 {
-    "timestamp": "2026-03-26T19:07:04.329249+00:00",
-    "symbol": "HDFCBANK.NS",
-    "input_rows": 3541,
+    "timestamp": "2026-03-28T09:47:57.737444+00:00",
+    "symbol": "INFY.NS",
+    "input_rows": 3576,
     "hyperparameters": {
         "window_size": 252,
         "dist": "normal",
@@ -10,21 +10,21 @@
     "fit_results": {
         "convergence_flag": 0,
         "params": {
-            "mu": -0.06132740613212594,
-            "omega": 0.0020375471524461996,
-            "alpha[1]": 2.3228956515229553e-07,
-            "beta[1]": 0.9999999997843119
+            "mu": -0.01485385170374685,
+            "omega": 0.014052949585571,
+            "alpha[1]": 4.1328958159647463e-10,
+            "beta[1]": 0.9476572909348395
         }
     },
     "forecasts": {
-        "volatility_forecast": 0.007580178404990109,
-        "parametric_var_95": -0.013081558003708464,
-        "parametric_es_95": -0.016249005140485582,
-        "historical_var_95": -0.006643349263684895,
-        "historical_es_95": -0.01863034357321714,
-        "parametric_var_99": -0.018247405978620294,
-        "parametric_es_99": -0.020816073339059087,
-        "historical_var_99": -0.0265525701886479,
-        "historical_es_99": -0.03898977945345646
+        "volatility_forecast": 0.00518150897738208,
+        "parametric_var_95": -0.008671362351565995,
+        "parametric_es_95": -0.010836503446898198,
+        "historical_var_95": -0.008705661140050693,
+        "historical_es_95": -0.01409065541653399,
+        "parametric_var_99": -0.012202530910893801,
+        "parametric_es_99": -0.013958369926405643,
+        "historical_var_99": -0.014114064470106696,
+        "historical_es_99": -0.024417571700649992
     }
 }

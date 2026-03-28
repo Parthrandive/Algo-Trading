@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 
 from src.db.connection import get_engine
+from src.agents.technical.data_loader import DataLoader as TechnicalDataLoader
+from src.agents.technical.nsemine_fetcher import NseMineFetcher
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +32,10 @@ class RegimeDataLoader:
     Falls back to local Gold parquet files if DB is unavailable.
     """
 
-    def __init__(self, database_url: str | None = None, gold_dir: str = "data/gold") -> None:
+    def __init__(self, database_url: str | None = None, gold_dir: str = "data/gold", silver_dir: str = "data/silver/ohlcv") -> None:
         self.database_url = database_url
         self.gold_dir = Path(gold_dir)
+        self.silver_dir = Path(silver_dir)
 
     def load_features(
         self,
@@ -157,6 +160,7 @@ class RegimeDataLoader:
             return pd.DataFrame()
 
     def _load_from_ohlcv(self, symbol: str, limit: int, interval: str) -> pd.DataFrame:
+        df = pd.DataFrame()
         try:
             engine = get_engine(self.database_url)
             query = """
@@ -171,12 +175,40 @@ class RegimeDataLoader:
                 ORDER BY timestamp ASC
             """
             df = pd.read_sql(query, engine, params={"symbol": symbol, "limit": int(limit), "interval": interval})
-            if df.empty:
-                return df
-            return self._augment_macro_from_db(engine, df)
+            if not df.empty:
+                return self._augment_macro_from_db(engine, df)
         except Exception as exc:
-            logger.warning("RegimeDataLoader ohlcv fallback failed for %s: %s", symbol, exc)
-            return pd.DataFrame()
+            logger.warning("RegimeDataLoader DB read failed for %s: %s. Trying local silver/NSE...", symbol, exc)
+            
+        # Fallback to local Silver parquet
+        symbol_silver = self.silver_dir / symbol
+        if symbol_silver.exists():
+            try:
+                files = sorted(symbol_silver.rglob("*.parquet"))
+                if files:
+                    df = pd.concat([pd.read_parquet(f) for f in files]).sort_values("timestamp").tail(limit)
+                    logger.info("Loaded %s rows from local silver for %s", len(df), symbol)
+            except Exception as e:
+                logger.warning("Local silver load failed for %s: %s", symbol, e)
+
+        # Fallback to NSE
+        if df.empty:
+            try:
+                import datetime as dt
+                to_dt = dt.datetime.now()
+                from_dt = to_dt - dt.timedelta(days=365)
+                df = NseMineFetcher.fetch_historical(
+                    symbol, 
+                    from_dt.strftime("%d-%m-%Y"), 
+                    to_dt.strftime("%d-%m-%Y"), 
+                    interval
+                )
+                if not df.empty:
+                    logger.info("Fetched %s rows from NSE for %s", len(df), symbol)
+            except Exception as e:
+                logger.error("NSE fallback failed for %s: %s", symbol, e)
+
+        return df
 
     @staticmethod
     def _finalize(df: pd.DataFrame) -> pd.DataFrame:

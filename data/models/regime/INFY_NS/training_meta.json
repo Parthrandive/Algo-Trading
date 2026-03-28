@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-03-26T19:07:10.471253+00:00",
+  "timestamp": "2026-03-28T09:48:09.817655+00:00",
   "symbol": "INFY.NS",
-  "run_timestamp_utc": "2026-03-26T19:07:10.471253+00:00",
+  "run_timestamp_utc": "2026-03-28T09:48:09.817655+00:00",
   "rows_trained": 238,
   "start_timestamp": "2026-03-05 03:45:00+00:00",
   "end_timestamp": "2026-03-06 09:45:00+00:00",
@@ -9,20 +9,18 @@
     "hmm_regime.parquet",
     "training_meta.json"
   ],
-  "hmm_components": 4,
+  "hmm_components": 2,
   "hyperparameters": {
     "interval": "1h",
     "limit": 2000,
     "min_gold_rows": 120,
     "warmup_rows": 120,
-    "hmm_components": 4
+    "hmm_components": 2
   },
   "metrics": {
     "regime_distribution": {
-      "2": 0.5254237288135594,
-      "1": 0.23728813559322035,
-      "0": 0.17796610169491525,
-      "3": 0.059322033898305086
+      "0": 0.7033898305084746,
+      "1": 0.2966101694915254
     }
   }
 }

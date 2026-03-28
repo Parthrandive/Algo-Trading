@@ -1,7 +1,7 @@
 {
   "symbol": "TATASTEEL.NS",
   "symbol_canonical": "TATASTEEL.NS",
-  "run_id": "20260326T190648Z",
+  "run_id": "20260328T094745Z",
   "interval": "1h",
   "source_script": "train_universe_arima_lstm.py",
   "feature_schema_version": "technical_features_v1",
@@ -51,21 +51,6 @@
   ],
   "class_threshold": 0.005,
   "class_threshold_min": 0.001,
-  "effective_class_threshold": 0.001,
-  "threshold_selection": {
-    "min_neutral_ratio": 0.15,
-    "max_neutral_ratio": 0.2,
-    "target_neutral_ratio": 0.175,
-    "selected_train_neutral_ratio": 0.19341894060995185
-  },
-  "recalibrate_only": false,
-  "include_daily_features": true,
-  "apply_daily_trend_filter": true,
-  "daily_filter_mode": "soft",
-  "daily_up_penalty": 0.15,
-  "finetune": {
-    "applied": true,
-    "epochs_requested": 25,
-    "patience": 8
-  }
+  "effective_class_threshold": 0.0037838973207766436,
+  "label_mode": "atr"
 }
