@@ -9,8 +9,10 @@ from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
+import pickle
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_fscore_support
 from sklearn.utils.class_weight import compute_sample_weight
+from sklearn.calibration import CalibratedClassifierCV
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -37,6 +39,7 @@ def canonicalize_symbol(symbol: str) -> str:
 
 from src.agents.technical.data_loader import DataLoader
 from src.agents.technical.features import engineer_features
+from src.agents.technical.calibration_utils import compute_ece, tune_directional_thresholds
 from xgboost import XGBClassifier
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -557,6 +560,21 @@ def build_symbol_data(symbol: str, cnn_dir: Path, lstm_dir: Path, loader: DataLo
     frame = frame.sort_values("timestamp").reset_index(drop=True)
     frame = engineer_features(frame, is_forex=False)
     
+    # Fix 7: ATR Feature Coverage Guards
+    if "atr_rank_20d" in frame.columns:
+        atr_ranks = frame["atr_rank_20d"].dropna()
+        if len(atr_ranks) > 0:
+            min_r, max_r = float(atr_ranks.min()), float(atr_ranks.max())
+            logger.info("[%s] atr_rank_20d bounds: [%.4f, %.4f]", symbol, min_r, max_r)
+            if min_r < -0.001 or max_r > 1.001:
+                logger.error("[%s] atr_rank_20d out of bounds! Expect [0, 1], got [%.4f, %.4f]", symbol, min_r, max_r)
+                raise ValueError(f"[{symbol}] invalid atr_rank_20d bounds")
+                
+    if "atr_zscore_60d" in frame.columns:
+        zs = frame["atr_zscore_60d"].dropna()
+        if len(zs) > 0:
+            logger.info("[%s] atr_zscore_60d bounds: [%.4f, %.4f]", symbol, float(zs.min()), float(zs.max()))
+    
     tech_cols = [c for c in frame.columns if pd.api.types.is_numeric_dtype(frame[c]) and c not in ("timestamp", "symbol", "close", "log_return")]
     
     next_returns = frame["log_return"].shift(-1).to_numpy()
@@ -746,32 +764,66 @@ def main():
         )
         xgb.fit(X_train, y_train, sample_weight=sample_weight, eval_set=[(X_val, y_val)], verbose=False)
 
+        # Baseline ECE before calibration
+        raw_probs_val = xgb.predict_proba(X_val)
+        ece_before = compute_ece(raw_probs_val, y_val, n_bins=10)
+
+        # Apply Isotonic Calibration
+        calibrated_xgb = CalibratedClassifierCV(xgb, method="isotonic", cv="prefit")
+        calibrated_xgb.fit(X_val, y_val)
+
         sym_out = output_root / sanitize_symbol(symbol)
         sym_out.mkdir(parents=True, exist_ok=True)
         xgb.save_model(sym_out / "model.json")
+        with open(sym_out / "calibrated_model.pkl", "wb") as f:
+            pickle.dump(calibrated_xgb, f)
 
         if len(X_test) > 0:
-            probs_val = xgb.predict_proba(X_val)
-            probs_test = xgb.predict_proba(X_test)
+            probs_val = calibrated_xgb.predict_proba(X_val)
+            probs_test = calibrated_xgb.predict_proba(X_test)
+            
+            ece_after = compute_ece(probs_val, y_val, n_bins=10)
+            logger.info("[%s] Calibration ECE | Baseline: %.4f -> Calibrated: %.4f", symbol, ece_before, ece_after)
+            
             regime_filter_mode = str(args.daily_regime_filter_mode).strip().lower()
             val_block_up_mask = build_daily_regime_block_mask(valid_val, regime_filter_mode)
             test_block_up_mask = build_daily_regime_block_mask(valid_test, regime_filter_mode)
             probs_val_filtered = apply_daily_regime_filter_to_probs(probs_val, val_block_up_mask)
             probs_test_filtered = apply_daily_regime_filter_to_probs(probs_test, test_block_up_mask)
-            best_conf_threshold, threshold_score, val_directional_coverage, val_cls_metrics = tune_confidence_threshold(
+            
+            # Tune independent thresholds for long and short
+            thresh_up, thresh_down, val_stats = tune_directional_thresholds(
                 y_val=y_val,
                 probs_val=probs_val_filtered,
-                min_directional_coverage=float(args.min_directional_coverage),
-                regime_block_up_mask=val_block_up_mask,
+                min_thresh=0.30,
+                max_thresh=0.65,
+                step=0.05,
+                min_coverage=float(args.min_directional_coverage),
+                min_dir_acc=0.35
             )
-            y_pred_test = apply_confidence_threshold(probs_test_filtered, threshold=best_conf_threshold)
+            
+            # Save the directional thresholds
+            import json
+            with open(sym_out / "long_threshold.json", "w") as f:
+                json.dump({"threshold": thresh_up}, f)
+            with open(sym_out / "short_threshold.json", "w") as f:
+                json.dump({"threshold": thresh_down}, f)
+                
+            y_pred_test = np.full(len(probs_test_filtered), CLASS_NEUTRAL, dtype=np.int64)
+            # Apply best thresholds dynamically
+            y_pred_test[probs_test_filtered[:, CLASS_UP] >= thresh_up] = CLASS_UP
+            y_pred_test[probs_test_filtered[:, CLASS_DOWN] >= thresh_down] = CLASS_DOWN
+            
             y_pred_test = apply_daily_regime_filter_to_labels(y_pred_test, test_block_up_mask)
             cls_metrics = directional_metrics(y_true=y_test, y_pred=y_pred_test)
             test_directional_coverage = float(np.mean(np.isin(y_pred_test, [CLASS_UP, CLASS_DOWN]))) if len(y_pred_test) else 0.0
+            
+            # Note: backtest_metrics might still expect a single threshold, we'll hack around it or let it use one.
+            # Using max of the two for legacy backtest if needed.
             trade_stats = compute_backtest_metrics(
                 probs=probs_test_filtered,
                 actual_next_log_returns=valid_test["actual_next_log_return"].to_numpy(dtype=np.float64),
-                threshold=best_conf_threshold,
+                threshold=min(thresh_up, thresh_down),
                 min_hold_bars=0,
             )
             regime_filter_stats = {

@@ -49,6 +49,8 @@ class ConsensusInput(BaseModel):
     regime_risk_level: ConsensusRegimeRiskLevel = ConsensusRegimeRiskLevel.FULL_RISK
     daily_trend_bullish: bool | None = None
     atr_rank_20d: float = Field(default=0.0, ge=0.0, le=1.0)
+    arima_dir_acc: float = 1.0
+    cnn_dir_acc: float = 1.0
     generated_at_utc: datetime
 
     model_config = ConfigDict(extra="forbid", frozen=True)

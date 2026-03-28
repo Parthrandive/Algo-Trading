@@ -320,6 +320,22 @@ class ConsensusAgent:
         if divergence_score >= self.divergence_warn_threshold:
             confidence_penalty += 0.10
         confidence_bonus = 0.10 * (1.0 - transition_score)
+        
+        # ATR Volatility Adjustments (Fix 6)
+        if payload.arima_dir_acc < 0.30 or payload.cnn_dir_acc < 0.25:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(
+                "[%s] Skipping ATR confidence adjustments: "
+                "Dir Acc failed quality gate (ARIMA: %.2f, CNN: %.2f)", 
+                payload.symbol, payload.arima_dir_acc, payload.cnn_dir_acc
+            )
+        else:
+            if payload.atr_rank_20d >= 0.70:
+                confidence_penalty += 0.12  # High-vol penalty
+            elif payload.atr_rank_20d <= 0.30:
+                confidence_bonus += 0.05    # Low-vol bonus
+                
         return base_confidence - confidence_penalty + confidence_bonus
 
     def register_model_cards(self, *, extra_metadata: Mapping[str, Any] | None = None) -> dict[str, dict[str, Any]]:
