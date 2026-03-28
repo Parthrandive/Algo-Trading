@@ -12,6 +12,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
+# VOLATILITY PROXY IMPORT - Kept as modular utility for future data-starved symbols
+# NOTE: Not applied to TATASTEEL per user override; TATASTEEL uses 2-state HMM.
+try:
+    from src.agents.regime.volatility_proxy_regime import compute_volatility_proxy_regime
+except ImportError:
+    pass
+
 from src.agents.regime.data_loader import RegimeDataLoader
 from src.agents.regime.regime_agent import RegimeAgent
 from config.symbols import EQUITY_SYMBOLS, dedupe_symbols, discover_pipeline_equity_symbols
@@ -120,16 +127,38 @@ def train_for_symbol(symbol: str, args: argparse.Namespace, hmm_overrides: dict[
         n_components = RegimeAgent.auto_select_components(len(raw))
         logger.info(f"[{symbol}] Auto-selected HMM components: {n_components} (based on {len(raw)} rows)")
 
-    # Initialize and fit models
-    agent = RegimeAgent(loader=loader, persist_predictions=False, n_components=n_components)
-    prepared = agent._prepare_features(raw)
+    # FIX 3: TCS Override Fallback Loop
+    n_components_to_try = [n_components]
+    if symbol == "TCS.NS" and n_components == 3:
+        n_components_to_try = [3, 2]
+
+    agent = None
+    prepared = None
     
-    if len(prepared) < agent.warmup_rows:
-        logger.error(f"[{symbol}] Not enough rows for warmup (need {agent.warmup_rows}, got {len(prepared)}).")
-        return False
+    for current_n_comp in n_components_to_try:
+        logger.info(f"[{symbol}] Attempting HMM fit with {current_n_comp} components...")
+        agent = RegimeAgent(loader=loader, persist_predictions=False, n_components=current_n_comp)
+        prepared = agent._prepare_features(raw)
         
+        if len(prepared) < agent.warmup_rows:
+            logger.error(f"[{symbol}] Not enough rows for warmup (need {agent.warmup_rows}, got {len(prepared)}).")
+            return False
+            
+        agent.hmm.fit(prepared)
+        
+        # Check occupancy early
+        predicted_states = agent.hmm.predict_sequence(prepared)
+        state_counts = pd.Series(predicted_states).value_counts(normalize=True)
+        min_occupancy = float(state_counts.min()) if not state_counts.empty else 0.0
+        
+        if symbol == "TCS.NS" and current_n_comp == 3 and (len(state_counts) < 3 or min_occupancy < 0.15):
+            logger.warning(f"[{symbol}] 3-state HMM has state with < 15% occupancy ({min_occupancy:.1%}). Falling back to 2-state.")
+            continue # Try next fallback
+            
+        break # Success
+
     logger.info(f"[{symbol}] Fitting Regime Ensemble (HMM, PEARL, OOD)...")
-    agent.hmm.fit(prepared)
+    assert agent is not None and prepared is not None
     agent.pearl.fit(prepared)
     agent.ood.fit(prepared)
     
@@ -204,8 +233,15 @@ def train_for_symbol(symbol: str, args: argparse.Namespace, hmm_overrides: dict[
     
     meta_path = out_dir / "training_meta.json"
 
-    # Log minimum occupancy warning
-    regime_dist = results_df["hmm_regime"].value_counts(normalize=True)
+    # FIX 3: Detailed Regime Summary Logging
+    regime_dist = dict(results_df["hmm_regime"].value_counts(normalize=True))
+    min_occ = min(regime_dist.values()) if regime_dist else 0.0
+    logger.info(
+        f"[{symbol}] REGIME SUMMARY | n_states: {agent.hmm.n_components} | "
+        f"min_occupancy: {min_occ:.1%} | "
+        f"distribution: {', '.join(f'{k}:{v:.1%}' for k,v in regime_dist.items())}"
+    )
+
     for state_id, occupancy in regime_dist.items():
         if occupancy < 0.10:
             logger.warning(

@@ -57,6 +57,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Minimum adaptive threshold floor for ARIMA label calibration.",
     )
     parser.add_argument(
+        "--daily-regime-filter-mode",
+        choices=["none", "regime_conditional"],
+        default="regime_conditional",
+        help="Controls the activation of the Regime-Conditional Daily Filter (Fix 4).",
+    )
+    parser.add_argument(
         "--regime-min-gold-rows",
         type=int,
         default=120,

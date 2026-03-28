@@ -143,6 +143,8 @@ class ConsensusAgent:
         risk_mode = self._resolve_risk_mode(payload=payload, divergence_score=divergence_score)
 
         score = self._apply_risk_mode(raw_score, risk_mode)
+        score = self._apply_daily_trend_gate(score, payload)
+        
         confidence = self._compute_confidence(
             payload=payload,
             transition_score=transition_score,
@@ -249,6 +251,48 @@ class ConsensusAgent:
             return 0.0
         if risk_mode == ConsensusRiskMode.REDUCED:
             return score * self.reduced_mode_scale
+        return max(-1.0, min(1.0, score))
+
+    def _apply_daily_trend_gate(self, score: float, payload: ConsensusInput) -> float:
+        """
+        Regime-Conditional Daily Filter (Fix 4).
+        Suppresses trades if:
+        1) Regime is CHOP / HIGH_VOL (with TATASTEEL/INFY overrides)
+        2) Short-term signal opposes long-term daily trend
+        3) High recent volatility (atr_rank_20d > 0.70)
+        """
+        if payload.daily_trend_bullish is None or abs(score) < 0.05:
+            return score
+            
+        sym = payload.symbol.upper()
+        
+        # 1. Regime Condition check
+        # Usually from HMM states like "CHOP", "HIGH_VOL", "STRESS"
+        regime_name = payload.regime.name.upper()
+        is_high_vol_regime = any(r in regime_name for r in ["CHOP", "VOL", "CRISIS"])
+        
+        if sym == "TATASTEEL.NS":
+            cond1_met = payload.atr_rank_20d > 0.70
+        elif sym == "INFY.NS":
+            cond1_met = True
+        else:
+            cond1_met = is_high_vol_regime
+            
+        # 2. Opposing Direction check
+        # Does the consensus score oppose the long-term trend?
+        cond2_met = False
+        if payload.daily_trend_bullish and score < 0.0:
+            cond2_met = True
+        elif not payload.daily_trend_bullish and score > 0.0:
+            cond2_met = True
+            
+        # 3. High ATR Rank Condition check
+        cond3_met = payload.atr_rank_20d > 0.70
+        
+        # If all 3 conditions are active, the trade is suppressed
+        if cond1_met and cond2_met and cond3_met:
+            return 0.0
+            
         return score
 
     def _compute_confidence(
