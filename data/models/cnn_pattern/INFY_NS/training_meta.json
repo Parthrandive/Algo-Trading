@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-03-28T09:51:19.996245+00:00",
+  "timestamp": "2026-03-28T11:34:57.948968+00:00",
   "symbol": "INFY.NS",
   "symbol_canonical": "INFY.NS",
-  "run_id": "20260328T094745Z",
+  "run_id": "20260328T113115Z",
   "interval": "1h",
   "source_script": "train_universe_cnn.py",
   "feature_schema_version": "technical_features_v1",
@@ -20,45 +20,45 @@
     "test": 517
   },
   "metrics": {
-    "test_accuracy": 0.30947775628626695,
-    "sharpe": -0.4220891536103366,
-    "max_drawdown": 0.18577587604522705,
-    "win_rate": 0.4777227722772277,
-    "post_cost_sharpe": -1.6209142899352433,
-    "recall_balance": 0.051649707061362904,
-    "directional_coverage": 0.781431334622824,
-    "up_precision": 0.13145539906103287,
-    "up_recall": 0.4057971014492754,
-    "up_f1": 0.19858156028368795,
+    "test_accuracy": 0.3520309477756286,
+    "sharpe": -1.3103907070198149,
+    "max_drawdown": 0.2413458228111267,
+    "win_rate": 0.4573170731707317,
+    "post_cost_sharpe": -3.292046443199877,
+    "recall_balance": 0.36894850447116867,
+    "directional_coverage": 0.6344294003868471,
+    "up_precision": 0.1282051282051282,
+    "up_recall": 0.5072463768115942,
+    "up_f1": 0.2046783625730994,
     "up_support": 69,
-    "down_precision": 0.225130890052356,
-    "down_recall": 0.4574468085106383,
-    "down_f1": 0.3017543859649123,
+    "down_precision": 0.23636363636363636,
+    "down_recall": 0.13829787234042554,
+    "down_f1": 0.174496644295302,
     "down_support": 94,
-    "directional_accuracy": 0.43558282208588955,
+    "directional_accuracy": 0.294478527607362,
     "test_confusion_matrix": [
       [
-        28,
-        14,
-        27
+        35,
+        25,
+        9
       ],
       [
-        144,
-        89,
-        121
+        187,
+        134,
+        33
       ],
       [
-        41,
-        10,
-        43
+        51,
+        30,
+        13
       ]
     ],
-    "finetune_best_train_loss": 1.0134069566231219,
-    "finetune_best_val_loss": 1.0636133431464203,
-    "finetune_best_train_acc": 0.4881192106322996,
-    "finetune_best_val_acc": 0.5968992248062015,
-    "finetune_epochs_run": 10,
-    "finetune_best_val_tune_score": 0.33168143927733634,
-    "finetune_val_predicted_directional_rate": 0.3430232558139535
+    "finetune_best_train_loss": 1.0361333005235314,
+    "finetune_best_val_loss": 1.0403272297031196,
+    "finetune_best_train_acc": 0.5332259363672976,
+    "finetune_best_val_acc": 0.625968992248062,
+    "finetune_epochs_run": 9,
+    "finetune_best_val_tune_score": 0.2923908075632305,
+    "finetune_val_predicted_directional_rate": 0.2810077519379845
   }
 }

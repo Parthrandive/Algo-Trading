@@ -99,6 +99,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="ATR multiplier k for threshold = k × ATR/close.",
     )
     parser.add_argument(
+        "--symbol-atr-k-overrides",
+        type=str,
+        default=None,
+        help='Per-symbol ATR multiplier overrides, e.g. "TATASTEEL.NS:1.0,INFY.NS:0.5".',
+    )
+    parser.add_argument(
         "--atr-period",
         type=int,
         default=14,
@@ -326,6 +332,9 @@ def run_training_pipeline(symbols: list[str], mode: str, run_id: str, args: argp
             str(int(args.atr_period)),
         ]
     )
+    if args.symbol_atr_k_overrides:
+        arima_cmd.extend(["--symbol-atr-k-overrides", str(args.symbol_atr_k_overrides)])
+
     if args.disable_arima_daily_filter:
         arima_cmd.append("--disable-daily-trend-filter")
         
@@ -365,6 +374,18 @@ def run_training_pipeline(symbols: list[str], mode: str, run_id: str, args: argp
         if symbols_str:
             cnn_cmd.extend(["--symbols", symbols_str])
         cnn_cmd.extend(["--epochs", "100", "--run-id", run_id])
+        cnn_cmd.extend(
+            [
+                "--label-mode",
+                str(args.label_mode),
+                "--atr-k",
+                str(float(args.atr_k)),
+                "--atr-period",
+                str(int(args.atr_period)),
+            ]
+        )
+        if args.symbol_atr_k_overrides:
+            cnn_cmd.extend(["--symbol-atr-k-overrides", str(args.symbol_atr_k_overrides)])
         if not run_cmd(cnn_cmd):
             all_success = False
     else:

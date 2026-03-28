@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-03-28T09:51:14.726784+00:00",
+  "timestamp": "2026-03-28T11:34:53.321241+00:00",
   "symbol": "TCS.NS",
   "symbol_canonical": "TCS.NS",
-  "run_id": "20260328T094745Z",
+  "run_id": "20260328T113115Z",
   "interval": "1h",
   "source_script": "train_universe_cnn.py",
   "feature_schema_version": "technical_features_v1",
@@ -11,7 +11,7 @@
     "window_size": 20,
     "learning_rate": 0.001,
     "epochs_requested": 25,
-    "confidence_threshold": 0.15,
+    "confidence_threshold": 0.3500000000000001,
     "use_binary": false
   },
   "split_counts": {
@@ -20,45 +20,45 @@
     "test": 516
   },
   "metrics": {
-    "test_accuracy": 0.2713178294573643,
-    "sharpe": -4.929463399687509,
-    "max_drawdown": 0.35180413722991943,
-    "win_rate": 0.45524296675191817,
-    "post_cost_sharpe": -6.964497231827438,
-    "recall_balance": 0.07911392405063289,
-    "directional_coverage": 0.7577519379844961,
-    "up_precision": 0.10038610038610038,
-    "up_recall": 0.3291139240506329,
-    "up_f1": 0.15384615384615385,
+    "test_accuracy": 0.29651162790697677,
+    "sharpe": -3.2191493034723213,
+    "max_drawdown": 0.25937002897262573,
+    "win_rate": 0.477088948787062,
+    "post_cost_sharpe": -4.766574903711181,
+    "recall_balance": 0.5275949367088608,
+    "directional_coverage": 0.7189922480620154,
+    "up_precision": 0.13753581661891118,
+    "up_recall": 0.6075949367088608,
+    "up_f1": 0.22429906542056074,
     "up_support": 79,
-    "down_precision": 0.1893939393939394,
-    "down_recall": 0.25,
-    "down_f1": 0.21551724137931033,
+    "down_precision": 0.36363636363636365,
+    "down_recall": 0.08,
+    "down_f1": 0.13114754098360656,
     "down_support": 100,
-    "directional_accuracy": 0.2849162011173184,
+    "directional_accuracy": 0.3128491620111732,
     "test_confusion_matrix": [
       [
-        26,
-        20,
-        33
+        48,
+        25,
+        6
       ],
       [
-        174,
-        89,
-        74
+        232,
+        97,
+        8
       ],
       [
-        59,
-        16,
-        25
+        69,
+        23,
+        8
       ]
     ],
-    "finetune_best_train_loss": 1.0401331186294556,
-    "finetune_best_val_loss": 1.0836127534393192,
-    "finetune_best_train_acc": 0.5145161290322581,
-    "finetune_best_val_acc": 0.47093023255813954,
-    "finetune_epochs_run": 9,
-    "finetune_best_val_tune_score": 0.3658852519891933,
-    "finetune_val_predicted_directional_rate": 0.501937984496124
+    "finetune_best_train_loss": 1.057775596649416,
+    "finetune_best_val_loss": 1.058813211529754,
+    "finetune_best_train_acc": 0.5044354838709677,
+    "finetune_best_val_acc": 0.5813953488372093,
+    "finetune_epochs_run": 11,
+    "finetune_best_val_tune_score": 0.3263955938992066,
+    "finetune_val_predicted_directional_rate": 0.3062015503875969
   }
 }

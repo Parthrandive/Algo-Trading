@@ -1,0 +1,199 @@
+{
+  "timestamp": "2026-03-28T11:08:09.957857+00:00",
+  "interval": "1h",
+  "expected_run_id": "20260328T110643Z",
+  "symbols": [
+    {
+      "symbol": "RELIANCE.NS",
+      "meta_path": "data/models/arima_lstm/RELIANCE_NS/training_meta.json",
+      "meta_exists": true,
+      "run_id": "20260328T110643Z",
+      "run_id_match": true,
+      "trained_as_part_of_universe": true,
+      "base_model_symbol": "GLOBAL",
+      "class_threshold": 0.005,
+      "class_threshold_min": 0.001,
+      "effective_class_threshold": 0.0014166533804993654,
+      "test_mse": 47.80861013799736,
+      "test_accuracy": 0.2846299810246679,
+      "directional_accuracy": 0.47619047619047616,
+      "up_precision": 0.2846299810246679,
+      "up_recall": 1.0,
+      "down_precision": 0.0,
+      "down_recall": 0.0,
+      "prediction_distribution_test": {
+        "total": 527,
+        "counts": {
+          "down": 0,
+          "neutral": 0,
+          "up": 527
+        },
+        "ratios": {
+          "down": 0.0,
+          "neutral": 0.0,
+          "up": 1.0
+        },
+        "directional_metrics": {
+          "directional_accuracy": 0.47619047619047616,
+          "recall_balance": 1.0,
+          "directional_coverage": 1.0,
+          "up_recall": 1.0,
+          "down_recall": 0.0,
+          "up_precision": 0.2846299810246679,
+          "down_precision": 0.0,
+          "post_cost_sharpe": 1.8512631454575428
+        }
+      },
+      "log_return_consistency": {
+        "status": "ok",
+        "overlap_rows": 599,
+        "mean_abs_diff": 0.0,
+        "max_abs_diff": 0.0
+      }
+    },
+    {
+      "symbol": "TATASTEEL.NS",
+      "meta_path": "data/models/arima_lstm/TATASTEEL_NS/training_meta.json",
+      "meta_exists": true,
+      "run_id": "20260328T110643Z",
+      "run_id_match": true,
+      "trained_as_part_of_universe": true,
+      "base_model_symbol": "GLOBAL",
+      "class_threshold": 0.005,
+      "class_threshold_min": 0.001,
+      "effective_class_threshold": 0.0018919486603883218,
+      "test_mse": 2.090211813092458,
+      "test_accuracy": 0.2998102466793169,
+      "directional_accuracy": 0.5214521452145214,
+      "up_precision": 0.2998102466793169,
+      "up_recall": 1.0,
+      "down_precision": 0.0,
+      "down_recall": 0.0,
+      "prediction_distribution_test": {
+        "total": 527,
+        "counts": {
+          "down": 0,
+          "neutral": 0,
+          "up": 527
+        },
+        "ratios": {
+          "down": 0.0,
+          "neutral": 0.0,
+          "up": 1.0
+        },
+        "directional_metrics": {
+          "directional_accuracy": 0.5214521452145214,
+          "recall_balance": 1.0,
+          "directional_coverage": 1.0,
+          "up_recall": 1.0,
+          "down_recall": 0.0,
+          "up_precision": 0.2998102466793169,
+          "down_precision": 0.0,
+          "post_cost_sharpe": -0.3189297526074084
+        }
+      },
+      "log_return_consistency": {
+        "status": "ok",
+        "overlap_rows": 599,
+        "mean_abs_diff": 0.0,
+        "max_abs_diff": 0.0
+      }
+    },
+    {
+      "symbol": "TCS.NS",
+      "meta_path": "data/models/arima_lstm/TCS_NS/training_meta.json",
+      "meta_exists": true,
+      "run_id": "20260328T110643Z",
+      "run_id_match": true,
+      "trained_as_part_of_universe": true,
+      "base_model_symbol": "GLOBAL",
+      "class_threshold": 0.005,
+      "class_threshold_min": 0.001,
+      "effective_class_threshold": 0.0014735583380489064,
+      "test_mse": 303.43809697836525,
+      "test_accuracy": 0.2509505703422053,
+      "directional_accuracy": 0.43853820598006643,
+      "up_precision": 0.2509505703422053,
+      "up_recall": 1.0,
+      "down_precision": 0.0,
+      "down_recall": 0.0,
+      "prediction_distribution_test": {
+        "total": 526,
+        "counts": {
+          "down": 0,
+          "neutral": 0,
+          "up": 526
+        },
+        "ratios": {
+          "down": 0.0,
+          "neutral": 0.0,
+          "up": 1.0
+        },
+        "directional_metrics": {
+          "directional_accuracy": 0.43853820598006643,
+          "recall_balance": 1.0,
+          "directional_coverage": 1.0,
+          "up_recall": 1.0,
+          "down_recall": 0.0,
+          "up_precision": 0.2509505703422053,
+          "down_precision": 0.0,
+          "post_cost_sharpe": 3.731241572792605
+        }
+      },
+      "log_return_consistency": {
+        "status": "ok",
+        "overlap_rows": 599,
+        "mean_abs_diff": 0.0,
+        "max_abs_diff": 0.0
+      }
+    },
+    {
+      "symbol": "INFY.NS",
+      "meta_path": "data/models/arima_lstm/INFY_NS/training_meta.json",
+      "meta_exists": true,
+      "run_id": "20260328T110643Z",
+      "run_id_match": true,
+      "trained_as_part_of_universe": true,
+      "base_model_symbol": "GLOBAL",
+      "class_threshold": 0.005,
+      "class_threshold_min": 0.001,
+      "effective_class_threshold": 0.00164810424667376,
+      "test_mse": 119.94004057390188,
+      "test_accuracy": 0.24857685009487665,
+      "directional_accuracy": 0.4628975265017668,
+      "up_precision": 0.24857685009487665,
+      "up_recall": 1.0,
+      "down_precision": 0.0,
+      "down_recall": 0.0,
+      "prediction_distribution_test": {
+        "total": 527,
+        "counts": {
+          "down": 0,
+          "neutral": 0,
+          "up": 527
+        },
+        "ratios": {
+          "down": 0.0,
+          "neutral": 0.0,
+          "up": 1.0
+        },
+        "directional_metrics": {
+          "directional_accuracy": 0.4628975265017668,
+          "recall_balance": 1.0,
+          "directional_coverage": 1.0,
+          "up_recall": 1.0,
+          "down_recall": 0.0,
+          "up_precision": 0.24857685009487665,
+          "down_precision": 0.0,
+          "post_cost_sharpe": 2.605562100210227
+        }
+      },
+      "log_return_consistency": {
+        "status": "ok",
+        "overlap_rows": 599,
+        "mean_abs_diff": 0.0,
+        "max_abs_diff": 0.0
+      }
+    }
+  ]
+}

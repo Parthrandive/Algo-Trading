@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-03-28T09:49:17.900994+00:00",
+  "timestamp": "2026-03-28T11:32:43.650781+00:00",
   "symbol": "TATASTEEL.NS",
   "symbol_canonical": "TATASTEEL.NS",
-  "run_id": "20260328T094745Z",
+  "run_id": "20260328T113115Z",
   "interval": "1h",
   "source_script": "train_universe_arima_lstm.py",
   "feature_schema_version": "technical_features_v1",
@@ -10,7 +10,7 @@
   "hyperparameters": {
     "symbol": "TATASTEEL.NS",
     "symbol_canonical": "TATASTEEL.NS",
-    "run_id": "20260328T094745Z",
+    "run_id": "20260328T113115Z",
     "interval": "1h",
     "source_script": "train_universe_arima_lstm.py",
     "feature_schema_version": "technical_features_v1",
@@ -60,7 +60,7 @@
     ],
     "class_threshold": 0.005,
     "class_threshold_min": 0.001,
-    "effective_class_threshold": 0.0037838973207766436,
+    "effective_class_threshold": 0.007567794641553287,
     "label_mode": "atr"
   },
   "split_counts": {
@@ -84,12 +84,12 @@
           "up": 1.0
         },
         "directional_metrics": {
-          "directional_accuracy": 0.5272525027808677,
+          "directional_accuracy": 0.5393586005830904,
           "recall_balance": 1.0,
           "directional_coverage": 1.0,
           "up_recall": 1.0,
           "down_recall": 0.0,
-          "up_precision": 0.19020866773675763,
+          "up_precision": 0.07423756019261638,
           "down_precision": 0.0,
           "post_cost_sharpe": -0.26694963882923367
         }
@@ -107,12 +107,12 @@
           "up": 1.0
         },
         "directional_metrics": {
-          "directional_accuracy": 0.5034013605442177,
+          "directional_accuracy": 0.4888888888888889,
           "recall_balance": 1.0,
           "directional_coverage": 1.0,
           "up_recall": 1.0,
           "down_recall": 0.0,
-          "up_precision": 0.14068441064638784,
+          "up_precision": 0.04182509505703422,
           "down_precision": 0.0,
           "post_cost_sharpe": -0.5722569129338093
         }
@@ -130,40 +130,40 @@
           "up": 1.0
         },
         "directional_metrics": {
-          "directional_accuracy": 0.47619047619047616,
+          "directional_accuracy": 0.5737704918032787,
           "recall_balance": 1.0,
           "directional_coverage": 1.0,
           "up_recall": 1.0,
           "down_recall": 0.0,
-          "up_precision": 0.15180265654648956,
+          "up_precision": 0.06641366223908918,
           "down_precision": 0.0,
           "post_cost_sharpe": -0.3189297526074084
         }
       }
     },
-    "test_accuracy": 0.15180265654648956,
-    "directional_accuracy": 0.47619047619047616,
+    "test_accuracy": 0.06641366223908918,
+    "directional_accuracy": 0.5737704918032787,
     "recall_balance": 1.0,
     "directional_coverage": 1.0,
     "up_recall": 1.0,
     "down_recall": 0.0,
-    "up_precision": 0.15180265654648956,
+    "up_precision": 0.06641366223908918,
     "down_precision": 0.0,
     "test_confusion_matrix": [
       [
         0,
         0,
-        88
+        26
       ],
       [
         0,
         0,
-        359
+        466
       ],
       [
         0,
         0,
-        80
+        35
       ]
     ]
   }
