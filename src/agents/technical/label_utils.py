@@ -366,3 +366,24 @@ def class_balance_report(labels: np.ndarray) -> dict[str, float]:
         "neutral_pct": float((labels == CLASS_NEUTRAL).sum() / total * 100),
         "down_pct": float((labels == CLASS_DOWN).sum() / total * 100),
     }
+
+
+def validate_label_distribution(labels: np.ndarray, symbol: str) -> tuple[bool, list[str]]:
+    """
+    Validate that label distribution meets training gates.
+    - UP and DOWN classes should be roughly 25-45%
+    - No class should be <15% or >55%
+    """
+    report = class_balance_report(labels)
+    messages = []
+    passed = True
+
+    if report["up_pct"] < 15.0 or report["down_pct"] < 15.0 or report["neutral_pct"] < 15.0:
+        messages.append(f"[{symbol}] Distribution failure: A class has < 15% representation. UP={report['up_pct']:.1f}%, NEUTRAL={report['neutral_pct']:.1f}%, DOWN={report['down_pct']:.1f}%")
+        passed = False
+    
+    if report["up_pct"] > 55.0 or report["down_pct"] > 55.0 or report["neutral_pct"] > 55.0:
+        messages.append(f"[{symbol}] Distribution warning/failure: A class has > 55% representation. UP={report['up_pct']:.1f}%, NEUTRAL={report['neutral_pct']:.1f}%, DOWN={report['down_pct']:.1f}%")
+        # In some cases we might just warn, but let's flag it
+
+    return passed, messages

@@ -53,6 +53,7 @@ from src.agents.technical.label_utils import (
     recall_balance as compute_recall_balance,
     directional_coverage as compute_directional_coverage,
     class_balance_report,
+    validate_label_distribution,
 )
 from src.agents.technical.validation_metrics import (
     post_cost_sharpe,
@@ -832,6 +833,7 @@ def build_cnn_sequences(
     neutral_threshold: float | None = None,
     next_log_returns: np.ndarray | None = None,
     label_threshold: float | None = None,
+    precomputed_labels: np.ndarray | None = None,
 ) -> SequenceDatasetBundle:
     train_X: list[np.ndarray] = []
     train_y: list[int] = []
@@ -861,8 +863,12 @@ def build_cnn_sequences(
             next_return = float(next_log_returns[target_idx])
             if not np.isfinite(next_return):
                 continue
-            threshold = float(label_threshold if label_threshold is not None else (neutral_threshold or 0.0))
-            label = int(apply_labels(np.asarray([next_return], dtype=np.float64), threshold, args)[0])
+            
+            if precomputed_labels is not None:
+                label = int(precomputed_labels[target_idx])
+            else:
+                threshold = float(label_threshold if label_threshold is not None else (neutral_threshold or 0.0))
+                label = int(apply_labels(np.asarray([next_return], dtype=np.float64), threshold, args)[0])
         else:
             reference_close = float(close_values[target_idx - 1])
             target_close = float(close_values[target_idx])
@@ -1005,6 +1011,14 @@ def find_threshold(frame: pd.DataFrame, symbol: str, args: argparse.Namespace) -
     if values.size == 0:
         raise ValueError(f"[{symbol}] no finite training log returns available for threshold tuning.")
 
+    std_val = float(np.std(values))
+    if std_val > 0.05:
+        LOGGER.error("[%s] High std dev (%.4f) > 0.05. Raw price being used instead of log return? Aborting threshold search.", symbol, std_val)
+        raise ValueError(f"[{symbol}] Invalid log return std > 0.05 (%.4f)" % std_val)
+
+    # FIX 2: HDFCBANK override
+    min_thresh_override = 0.0005 if symbol == "HDFCBANK.NS" else None
+
     if getattr(args, "label_mode", "fixed") == "atr":
         effective_threshold = atr_effective_threshold(
             high=frame["high"].values,
@@ -1013,6 +1027,10 @@ def find_threshold(frame: pd.DataFrame, symbol: str, args: argparse.Namespace) -
             k=getattr(args, "atr_k", 0.5),
             atr_period=int(getattr(args, "atr_period", 14)),
         )
+        if min_thresh_override and effective_threshold < min_thresh_override:
+            LOGGER.info("[%s] HDFCBANK explicit floor: increasing threshold %.6f -> %.6f", symbol, effective_threshold, min_thresh_override)
+            effective_threshold = min_thresh_override
+            
         # Compute neutral ratio for logging
         y_check, _ = build_labels_unified(values, threshold=effective_threshold, mode="fixed")
         neutral_pct = float((y_check == 1).mean())
@@ -1084,6 +1102,7 @@ def build_cnn_full_sequences(
     window_size: int,
     label_threshold: float,
     args: argparse.Namespace,
+    precomputed_labels: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     all_X: list[np.ndarray] = []
     all_y: list[int] = []
@@ -1102,7 +1121,11 @@ def build_cnn_full_sequences(
         window_std[window_std < 1e-6] = 1.0
         window = (window - window_mean) / window_std
 
-        label = int(apply_labels(np.asarray([next_return], dtype=np.float64), label_threshold, args)[0])
+        if precomputed_labels is not None:
+            label = int(precomputed_labels[target_idx])
+        else:
+            label = int(apply_labels(np.asarray([next_return], dtype=np.float64), label_threshold, args)[0])
+        
         all_X.append(np.expand_dims(window.astype(np.float32), axis=0))
         all_y.append(label)
 
@@ -1804,20 +1827,51 @@ def run_for_symbol(
     dynamic_threshold, neutral_pct = find_threshold(frame.iloc[:train_end], symbol, args)
     next_log_returns = frame["log_return"].shift(-1).astype(float).values
 
+    mode = getattr(args, "label_mode", "fixed")
+    if symbol == "TCS.NS" and mode == "atr":
+        LOGGER.info("[%s] Applying percentile label mode override for TCS.", symbol)
+        mode = "percentile"
+
+    global_labels, effective_threshold = build_labels_unified(
+        next_log_returns,
+        mode=mode,
+        threshold=dynamic_threshold,
+        high=frame["high"].values if mode == "atr" else None,
+        low=frame["low"].values if mode == "atr" else None,
+        close=frame["close"].values if mode == "atr" else None,
+        k=getattr(args, "atr_k", 0.5),
+        atr_period=getattr(args, "atr_period", 14),
+    )
+
     split_label_inputs = {
-        "train": next_log_returns[:train_end],
-        "val": next_log_returns[train_end:val_end],
-        "test": next_log_returns[val_end:],
+        "train": (next_log_returns[:train_end], global_labels[:train_end]),
+        "val": (next_log_returns[train_end:val_end], global_labels[train_end:val_end]),
+        "test": (next_log_returns[val_end:], global_labels[val_end:]),
     }
+    
+    # Gate check on the training split
+    train_returns, train_labels = split_label_inputs["train"]
+    valid_train_mask = np.isfinite(train_returns)
+    valid_train_labels = train_labels[valid_train_mask]
+    
+    if len(valid_train_labels) > 0:
+        passed, msgs = validate_label_distribution(valid_train_labels, symbol)
+        for msg in msgs:
+            if passed:
+                LOGGER.info("[GATE - PASS] %s", msg)
+            else:
+                LOGGER.warning("[GATE - WARN/FAIL] %s", msg)
+
     split_label_stats: dict[str, dict[str, float]] = {}
-    for split_name, split_returns in split_label_inputs.items():
-        finite_returns = split_returns[np.isfinite(split_returns)]
-        if finite_returns.size == 0:
+    for split_name, (split_returns, split_labels) in split_label_inputs.items():
+        finite_mask = np.isfinite(split_returns)
+        if not finite_mask.any():
             continue
-        split_labels = apply_labels(finite_returns, dynamic_threshold, args)
-        up_pct = float((split_labels == 0).mean())
-        neutral_pct_split = float((split_labels == 1).mean())
-        down_pct = float((split_labels == 2).mean())
+        valid_labels = split_labels[finite_mask]
+        
+        up_pct = float((valid_labels == 0).mean())
+        neutral_pct_split = float((valid_labels == 1).mean())
+        down_pct = float((valid_labels == 2).mean())
         split_label_stats[split_name] = {
             "up": up_pct,
             "neutral": neutral_pct_split,
@@ -1866,6 +1920,7 @@ def run_for_symbol(
         neutral_threshold=None,
         next_log_returns=next_log_returns,
         label_threshold=dynamic_threshold,
+        precomputed_labels=global_labels,
     )
 
     class_counts, imbalance_ratio = summarize_class_counts(cnn_bundle.y_train, symbol)
@@ -1882,6 +1937,7 @@ def run_for_symbol(
             window_size=args.cnn_window,
             label_threshold=dynamic_threshold,
             args=args,
+            precomputed_labels=global_labels,
         )
         cv_mean, cv_std, cv_folds = run_cnn_walk_forward_cv(
             symbol=symbol,

@@ -857,6 +857,10 @@ def train_single_symbol(
 
     # --- Label construction: support fixed / atr / percentile modes ---
     active_label_mode = str(label_mode).strip().lower()
+    if symbol == "TCS.NS" and active_label_mode == "atr":
+        logger.info("[%s] Applying percentile label mode override for TCS.", symbol)
+        active_label_mode = "percentile"
+
     if active_label_mode == "fixed" or use_binary:
         # Legacy path: fixed absolute-return thresholds
         y_train_raw = build_labels(

@@ -917,6 +917,15 @@ def main():
         train_scores = split_payloads.get("train", {}).get("final_scores", np.empty((0,), dtype=np.float64))
         train_actual_returns = split_payloads.get("train", {}).get("actual_returns", np.empty((0,), dtype=np.float64))
         
+        # FIX 2: Check standard deviation on actual returns
+        std_val = float(np.std(train_actual_returns[np.isfinite(train_actual_returns)])) if len(train_actual_returns) > 0 else 0.0
+        if std_val > 0.05:
+            logger.error("[%s] High std dev (%.4f) > 0.05. Raw price being used instead of log return? Aborting threshold search.", symbol, std_val)
+            raise ValueError(f"[{symbol}] Invalid log return std > 0.05 (%.4f)" % std_val)
+
+        # FIX 2: HDFCBANK override
+        min_thresh_override = 0.0005 if symbol == "HDFCBANK.NS" else None
+
         # Adaptive Threshold Selection
         if getattr(args, "label_mode", "fixed") == "atr":
             train_raw_df = discovery.frames[symbol].copy()
@@ -931,6 +940,11 @@ def main():
                 k=symbol_k,
                 atr_period=int(getattr(args, "atr_period", 14)),
             )
+            
+            if min_thresh_override and symbol_threshold < min_thresh_override:
+                logger.info("[%s] HDFCBANK explicit floor: increasing threshold %.6f -> %.6f", symbol, symbol_threshold, min_thresh_override)
+                symbol_threshold = min_thresh_override
+                
             # Dummy ratio for logging
             y_check = returns_to_labels(train_actual_returns, symbol_threshold)
             train_neutral_ratio = float((y_check == CLASS_NEUTRAL).mean())
