@@ -36,11 +36,13 @@ class RegimeAgent:
         ood_detector: OODDetector | None = None,
         database_url: str | None = None,
         persist_predictions: bool = True,
+        n_components: int | None = None,
     ) -> None:
         self.loader = loader or RegimeDataLoader()
         self.model_id = model_id
         self.warmup_rows = int(max(40, warmup_rows))
-        self.hmm = hmm_model or HMMRegimeModel(n_components=4, random_state=42)
+        hmm_n = n_components if n_components is not None else 4
+        self.hmm = hmm_model or HMMRegimeModel(n_components=hmm_n, random_state=42)
         self.pearl = pearl_model or PearlMetaModel(adaptation_window=60, max_adaptation_weight=0.7)
         self.ood = ood_detector or OODDetector(
             warning_mahalanobis=3.0,
@@ -242,6 +244,21 @@ class RegimeAgent:
         )
         out["macro_directional_flag"] = np.where(upstream_flag != 0.0, upstream_flag, derived_flag)
         return out
+
+    @staticmethod
+    def auto_select_components(n_rows: int) -> int:
+        """Select HMM component count based on available data volume.
+
+        Rules (from IC memo regime right-sizing):
+        - < 200 rows → 2 states (minimum for meaningful transition matrix)
+        - 200-499 rows → 3 states
+        - >= 500 rows → 4 states
+        """
+        if n_rows < 200:
+            return 2
+        if n_rows < 500:
+            return 3
+        return 4
 
     @staticmethod
     def _heuristic_prediction(df: pd.DataFrame) -> dict[str, RegimeState | float]:

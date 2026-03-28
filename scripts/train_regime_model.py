@@ -37,6 +37,18 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--interval", type=str, default="1d", help="Interval to load (e.g., 1d, 1h)")
     parser.add_argument("--output-dir", default="data/models/regime", help="Output directory for model artifacts")
     parser.add_argument("--database-url", default=None, help="Database URL")
+    parser.add_argument(
+        "--hmm-components",
+        type=int,
+        default=None,
+        help="Fixed HMM component count for all symbols. None = auto-select based on data volume.",
+    )
+    parser.add_argument(
+        "--symbol-hmm-overrides",
+        type=str,
+        default=None,
+        help='Per-symbol HMM component overrides, e.g. "TATASTEEL.NS:2,INFY.NS:2,TCS.NS:3".',
+    )
     return parser
 
 
@@ -60,7 +72,24 @@ def setup_logger(output_dir: Path) -> None:
     logger.addHandler(fh)
 
 
-def train_for_symbol(symbol: str, args: argparse.Namespace) -> bool:
+def _parse_hmm_overrides(raw: str | None) -> dict[str, int]:
+    """Parse 'SYM1:N,SYM2:M' into {symbol: n_components} dict."""
+    if not raw:
+        return {}
+    overrides: dict[str, int] = {}
+    for part in str(raw).split(","):
+        part = part.strip()
+        if ":" not in part:
+            continue
+        sym, n = part.rsplit(":", 1)
+        try:
+            overrides[sym.strip()] = int(n.strip())
+        except ValueError:
+            logger.warning("Skipping invalid HMM override: %s", part)
+    return overrides
+
+
+def train_for_symbol(symbol: str, args: argparse.Namespace, hmm_overrides: dict[str, int] | None = None) -> bool:
     logger.info(f"[{symbol}] Starting regime model training")
     out_dir = Path(args.output_dir) / symbol.replace("/", "_").replace("=", "_").replace(".", "_")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -79,8 +108,20 @@ def train_for_symbol(symbol: str, args: argparse.Namespace) -> bool:
         
     logger.info(f"[{symbol}] Loaded {len(raw)} rows from Gold tier.")
     
+    # Determine HMM component count
+    hmm_overrides = hmm_overrides or {}
+    if symbol in hmm_overrides:
+        n_components = hmm_overrides[symbol]
+        logger.info(f"[{symbol}] Using per-symbol HMM override: {n_components} components")
+    elif args.hmm_components is not None:
+        n_components = int(args.hmm_components)
+        logger.info(f"[{symbol}] Using fixed HMM components: {n_components}")
+    else:
+        n_components = RegimeAgent.auto_select_components(len(raw))
+        logger.info(f"[{symbol}] Auto-selected HMM components: {n_components} (based on {len(raw)} rows)")
+
     # Initialize and fit models
-    agent = RegimeAgent(loader=loader, persist_predictions=False)
+    agent = RegimeAgent(loader=loader, persist_predictions=False, n_components=n_components)
     prepared = agent._prepare_features(raw)
     
     if len(prepared) < agent.warmup_rows:
@@ -162,6 +203,16 @@ def train_for_symbol(symbol: str, args: argparse.Namespace) -> bool:
     }
     
     meta_path = out_dir / "training_meta.json"
+
+    # Log minimum occupancy warning
+    regime_dist = results_df["hmm_regime"].value_counts(normalize=True)
+    for state_id, occupancy in regime_dist.items():
+        if occupancy < 0.10:
+            logger.warning(
+                f"[{symbol}] Regime state {state_id} has only {occupancy:.1%} occupancy "
+                f"({int(occupancy * len(results_df))} rows). Consider reducing n_components."
+            )
+
     with meta_path.open("w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2)
     logger.info(f"[{symbol}] Saved metadata to {meta_path}")
@@ -175,6 +226,7 @@ def main() -> int:
     
     symbols = args.symbols if args.symbols else EQUITY_SYMBOLS
     symbols = dedupe_symbols(symbols)
+    hmm_overrides = _parse_hmm_overrides(args.symbol_hmm_overrides)
     
     if not symbols:
         logger.info("No explicit symbols provided. Auto-discovering from database...")
@@ -191,7 +243,7 @@ def main() -> int:
     
     success_count = 0
     for symbol in symbols:
-        if train_for_symbol(symbol, args):
+        if train_for_symbol(symbol, args, hmm_overrides=hmm_overrides):
             success_count += 1
             
     logger.info(f"Finished training. Success: {success_count}/{len(symbols)}")

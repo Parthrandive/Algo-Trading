@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-03-26T19:11:15.621929+00:00",
+  "timestamp": "2026-03-28T09:51:04.592421+00:00",
   "symbol": "RELIANCE.NS",
   "symbol_canonical": "RELIANCE.NS",
-  "run_id": "20260326T190648Z",
+  "run_id": "20260328T094745Z",
   "interval": "1h",
   "source_script": "train_universe_cnn.py",
   "feature_schema_version": "technical_features_v1",
@@ -11,7 +11,7 @@
     "window_size": 20,
     "learning_rate": 0.001,
     "epochs_requested": 25,
-    "confidence_threshold": 0.3500000000000001,
+    "confidence_threshold": 0.15,
     "use_binary": false
   },
   "split_counts": {
@@ -20,42 +20,45 @@
     "test": 517
   },
   "metrics": {
-    "test_accuracy": 0.3597678916827853,
-    "sharpe": 2.5176142285624743,
-    "max_drawdown": 0.06876087188720703,
-    "win_rate": 0.5478927203065134,
-    "up_precision": 0.23076923076923078,
-    "up_recall": 0.017142857142857144,
-    "up_f1": 0.031914893617021274,
-    "up_support": 175,
-    "down_precision": 0.4314516129032258,
-    "down_recall": 0.5323383084577115,
-    "down_f1": 0.4766146993318486,
-    "down_support": 201,
-    "directional_accuracy": 0.2925531914893617,
+    "test_accuracy": 0.5551257253384912,
+    "sharpe": 1.000023016837559,
+    "max_drawdown": 0.09140074253082275,
+    "win_rate": 0.5089820359281437,
+    "post_cost_sharpe": -1.8463791964690532,
+    "recall_balance": 0.10238429172510519,
+    "directional_coverage": 0.3230174081237911,
+    "up_precision": 0.13157894736842105,
+    "up_recall": 0.14492753623188406,
+    "up_f1": 0.13793103448275862,
+    "up_support": 69,
+    "down_precision": 0.25274725274725274,
+    "down_recall": 0.24731182795698925,
+    "down_f1": 0.25,
+    "down_support": 93,
+    "directional_accuracy": 0.2037037037037037,
     "test_confusion_matrix": [
       [
-        3,
-        91,
-        81
+        10,
+        41,
+        18
       ],
       [
-        5,
-        76,
-        60
+        51,
+        254,
+        50
       ],
       [
-        5,
-        89,
-        107
+        15,
+        55,
+        23
       ]
     ],
-    "finetune_best_train_loss": 1.0524301136687453,
-    "finetune_best_val_loss": 1.0886326349058817,
-    "finetune_best_train_acc": 0.4208618606524366,
-    "finetune_best_val_acc": 0.36627906976744184,
-    "finetune_epochs_run": 9,
-    "finetune_best_val_tune_score": 0.28549271484705857,
-    "finetune_val_predicted_directional_rate": 0.4069767441860465
+    "finetune_best_train_loss": 1.010064254736545,
+    "finetune_best_val_loss": 1.0038572586784067,
+    "finetune_best_train_acc": 0.4905356423681031,
+    "finetune_best_val_acc": 0.6647286821705426,
+    "finetune_epochs_run": 11,
+    "finetune_best_val_tune_score": 0.36257863878649593,
+    "finetune_val_predicted_directional_rate": 0.25193798449612403
   }
 }

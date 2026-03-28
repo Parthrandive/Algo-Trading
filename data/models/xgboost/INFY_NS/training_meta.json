@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-03-26T19:11:40.759781+00:00",
+  "timestamp": "2026-03-28T09:51:26.812268+00:00",
   "symbol": "INFY.NS",
   "symbol_canonical": "INFY.NS",
-  "run_id": "20260326T190648Z",
+  "run_id": "20260328T094745Z",
   "interval": "1h",
   "source_script": "train_universe_xgboost.py",
   "feature_schema_version": "technical_features_v1",
@@ -17,8 +17,8 @@
     "confidence_threshold": 0.15,
     "seed": 42,
     "strict_artifact_match": true,
-    "expected_run_id": "20260326T190648Z",
-    "run_id": "20260326T190648Z",
+    "expected_run_id": "20260328T094745Z",
+    "run_id": "20260328T094745Z",
     "interval": "1h",
     "source_script": "train_universe_xgboost.py",
     "feature_schema_version": "technical_features_v1",
@@ -104,49 +104,49 @@
     }
   },
   "metrics": {
-    "test_accuracy": 0.2978723404255319,
-    "directional_accuracy": 0.44664031620553357,
-    "up_precision": 0.2318840579710145,
-    "up_recall": 0.8347826086956521,
-    "up_f1": 0.3629489603024575,
-    "up_support": 115,
-    "down_precision": 0.425,
-    "down_recall": 0.12318840579710146,
-    "down_f1": 0.19101123595505617,
-    "down_support": 138,
+    "test_accuracy": 0.4119922630560928,
+    "directional_accuracy": 0.27607361963190186,
+    "up_precision": 0.12437810945273632,
+    "up_recall": 0.36231884057971014,
+    "up_f1": 0.18518518518518517,
+    "up_support": 69,
+    "down_precision": 0.23529411764705882,
+    "down_recall": 0.2127659574468085,
+    "down_f1": 0.22346368715083798,
+    "down_support": 94,
     "test_confusion_matrix": [
       [
+        20,
+        36,
+        38
+      ],
+      [
+        48,
+        168,
+        138
+      ],
+      [
         17,
-        7,
-        114
-      ],
-      [
-        19,
-        41,
-        204
-      ],
-      [
-        4,
-        15,
-        96
+        27,
+        25
       ]
     ],
-    "best_iteration": 162,
+    "best_iteration": 490,
     "gate_passed": false,
     "gate_reasons": [
-      "Low directional recall (< 15%)"
+      "Directional accuracy <= 40%"
     ],
     "confidence_threshold": 0.15,
-    "directional_coverage": 0.8781431334622823,
+    "directional_coverage": 0.5531914893617021,
     "backtest": {
-      "sharpe": -0.9971916934137016,
-      "sortino": -1.2678652621661215,
-      "max_drawdown": 0.08759919772306013,
-      "win_rate": 0.43832599118942733,
-      "profit_factor": 0.9332272541197311,
-      "total_trades": 110,
-      "average_trade_return": -6.194331115740189e-05,
-      "coverage": 0.8781431334622823
+      "sharpe": -1.8304248622031365,
+      "sortino": -1.8764813812009853,
+      "max_drawdown": 0.0858317096656086,
+      "win_rate": 0.4370629370629371,
+      "profit_factor": 0.8523575680870186,
+      "total_trades": 143,
+      "average_trade_return": -0.00016220593662197422,
+      "coverage": 0.5531914893617021
     },
     "daily_regime_filter": {
       "mode": "long_only_above_ma200",

@@ -1,0 +1,237 @@
+{
+  "timestamp": "2026-03-28T06:53:12.115828+00:00",
+  "interval": "1h",
+  "expected_run_id": "20260328T065253Z",
+  "symbols": [
+    {
+      "symbol": "RELIANCE.NS",
+      "meta_path": "data/models/arima_lstm/RELIANCE_NS/training_meta.json",
+      "meta_exists": true,
+      "run_id": "20260326T190648Z",
+      "run_id_match": false,
+      "trained_as_part_of_universe": true,
+      "base_model_symbol": "",
+      "class_threshold": 0.005,
+      "class_threshold_min": 0.001,
+      "effective_class_threshold": 0.001,
+      "test_mse": 5.75765882059512e-05,
+      "test_accuracy": 0.3510436432637571,
+      "directional_accuracy": 0.40054495912806537,
+      "up_precision": 0.16666666666666666,
+      "up_recall": 0.023121387283236993,
+      "down_precision": 0.3611111111111111,
+      "down_recall": 0.7371134020618557,
+      "prediction_distribution_test": {
+        "total": 527,
+        "counts": {
+          "down": 396,
+          "neutral": 107,
+          "up": 24
+        },
+        "ratios": {
+          "down": 0.7514231499051234,
+          "neutral": 0.2030360531309298,
+          "up": 0.04554079696394687
+        },
+        "daily_trend_up_neutralized": 0,
+        "daily_trend_neutralization_rate": 0.0,
+        "directional_coverage": 0.7969639468690702,
+        "directional_metrics": {
+          "directional_accuracy": 0.40054495912806537,
+          "up_recall": 0.023121387283236993,
+          "down_recall": 0.7371134020618557,
+          "up_precision": 0.16666666666666666,
+          "down_precision": 0.3611111111111111
+        }
+      },
+      "log_return_consistency": {
+        "status": "error",
+        "error": "Failed to load historical bars: (psycopg2.OperationalError) connection to server at \"localhost\" (::1), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\nconnection to server at \"localhost\" (127.0.0.1), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+      }
+    },
+    {
+      "symbol": "TATASTEEL.NS",
+      "meta_path": "data/models/arima_lstm/TATASTEEL_NS/training_meta.json",
+      "meta_exists": true,
+      "run_id": "20260326T190648Z",
+      "run_id_match": false,
+      "trained_as_part_of_universe": true,
+      "base_model_symbol": "",
+      "class_threshold": 0.005,
+      "class_threshold_min": 0.001,
+      "effective_class_threshold": 0.001,
+      "test_mse": 7.63523245313818e-05,
+      "test_accuracy": 0.349146110056926,
+      "directional_accuracy": 0.45714285714285713,
+      "up_precision": 0.36486486486486486,
+      "up_recall": 0.27979274611398963,
+      "down_precision": 0.3620178041543027,
+      "down_recall": 0.6354166666666666,
+      "prediction_distribution_test": {
+        "total": 527,
+        "counts": {
+          "down": 337,
+          "neutral": 42,
+          "up": 148
+        },
+        "ratios": {
+          "down": 0.6394686907020873,
+          "neutral": 0.07969639468690702,
+          "up": 0.2808349146110057
+        },
+        "daily_trend_up_neutralized": 0,
+        "daily_trend_neutralization_rate": 0.0,
+        "directional_coverage": 0.920303605313093,
+        "directional_metrics": {
+          "directional_accuracy": 0.45714285714285713,
+          "up_recall": 0.27979274611398963,
+          "down_recall": 0.6354166666666666,
+          "up_precision": 0.36486486486486486,
+          "down_precision": 0.3620178041543027
+        }
+      },
+      "log_return_consistency": {
+        "status": "error",
+        "error": "Failed to load historical bars: (psycopg2.OperationalError) connection to server at \"localhost\" (::1), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\nconnection to server at \"localhost\" (127.0.0.1), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+      }
+    },
+    {
+      "symbol": "INFY.NS",
+      "meta_path": "data/models/arima_lstm/INFY_NS/training_meta.json",
+      "meta_exists": true,
+      "run_id": "20260326T190648Z",
+      "run_id_match": false,
+      "trained_as_part_of_universe": true,
+      "base_model_symbol": "",
+      "class_threshold": 0.005,
+      "class_threshold_min": 0.001,
+      "effective_class_threshold": 0.0019314294170721697,
+      "test_mse": 0.00014631679162498612,
+      "test_accuracy": 0.3111954459203036,
+      "directional_accuracy": 0.3968871595330739,
+      "up_precision": 0.239247311827957,
+      "up_recall": 0.7542372881355932,
+      "down_precision": 0.26,
+      "down_recall": 0.09352517985611511,
+      "prediction_distribution_test": {
+        "total": 527,
+        "counts": {
+          "down": 50,
+          "neutral": 105,
+          "up": 372
+        },
+        "ratios": {
+          "down": 0.09487666034155598,
+          "neutral": 0.19924098671726756,
+          "up": 0.7058823529411765
+        },
+        "daily_trend_up_neutralized": 0,
+        "daily_trend_neutralization_rate": 0.0,
+        "directional_coverage": 0.8007590132827325,
+        "directional_metrics": {
+          "directional_accuracy": 0.3968871595330739,
+          "up_recall": 0.7542372881355932,
+          "down_recall": 0.09352517985611511,
+          "up_precision": 0.239247311827957,
+          "down_precision": 0.26
+        }
+      },
+      "log_return_consistency": {
+        "status": "error",
+        "error": "Failed to load historical bars: (psycopg2.OperationalError) connection to server at \"localhost\" (::1), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\nconnection to server at \"localhost\" (127.0.0.1), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+      }
+    },
+    {
+      "symbol": "TCS.NS",
+      "meta_path": "data/models/arima_lstm/TCS_NS/training_meta.json",
+      "meta_exists": true,
+      "run_id": "20260326T190648Z",
+      "run_id_match": false,
+      "trained_as_part_of_universe": true,
+      "base_model_symbol": "",
+      "class_threshold": 0.005,
+      "class_threshold_min": 0.001,
+      "effective_class_threshold": 0.004091349649731789,
+      "test_mse": 6.208657987545042e-05,
+      "test_accuracy": 0.5950570342205324,
+      "directional_accuracy": 0.15555555555555556,
+      "up_precision": 0.11538461538461539,
+      "up_recall": 0.1016949152542373,
+      "down_precision": 0.16129032258064516,
+      "down_recall": 0.19736842105263158,
+      "prediction_distribution_test": {
+        "total": 526,
+        "counts": {
+          "down": 93,
+          "neutral": 381,
+          "up": 52
+        },
+        "ratios": {
+          "down": 0.17680608365019013,
+          "neutral": 0.7243346007604563,
+          "up": 0.09885931558935361
+        },
+        "daily_trend_up_neutralized": 0,
+        "daily_trend_neutralization_rate": 0.0,
+        "directional_coverage": 0.27566539923954375,
+        "directional_metrics": {
+          "directional_accuracy": 0.15555555555555556,
+          "up_recall": 0.1016949152542373,
+          "down_recall": 0.19736842105263158,
+          "up_precision": 0.11538461538461539,
+          "down_precision": 0.16129032258064516
+        }
+      },
+      "log_return_consistency": {
+        "status": "error",
+        "error": "Failed to load historical bars: (psycopg2.OperationalError) connection to server at \"localhost\" (::1), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\nconnection to server at \"localhost\" (127.0.0.1), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+      }
+    },
+    {
+      "symbol": "HDFCBANK.NS",
+      "meta_path": "data/models/arima_lstm/HDFCBANK_NS/training_meta.json",
+      "meta_exists": true,
+      "run_id": "20260326T190648Z",
+      "run_id_match": false,
+      "trained_as_part_of_universe": true,
+      "base_model_symbol": "",
+      "class_threshold": 0.005,
+      "class_threshold_min": 0.001,
+      "effective_class_threshold": 0.001,
+      "test_mse": 3.685290841350039e-05,
+      "test_accuracy": 0.36015325670498083,
+      "directional_accuracy": 0.26420454545454547,
+      "up_precision": 0.3382352941176471,
+      "up_recall": 0.2987012987012987,
+      "down_precision": 0.38524590163934425,
+      "down_recall": 0.23737373737373738,
+      "prediction_distribution_test": {
+        "total": 522,
+        "counts": {
+          "down": 122,
+          "neutral": 264,
+          "up": 136
+        },
+        "ratios": {
+          "down": 0.23371647509578544,
+          "neutral": 0.5057471264367817,
+          "up": 0.26053639846743293
+        },
+        "daily_trend_up_neutralized": 0,
+        "daily_trend_neutralization_rate": 0.0,
+        "directional_coverage": 0.4942528735632184,
+        "directional_metrics": {
+          "directional_accuracy": 0.26420454545454547,
+          "up_recall": 0.2987012987012987,
+          "down_recall": 0.23737373737373738,
+          "up_precision": 0.3382352941176471,
+          "down_precision": 0.38524590163934425
+        }
+      },
+      "log_return_consistency": {
+        "status": "error",
+        "error": "Failed to load historical bars: (psycopg2.OperationalError) connection to server at \"localhost\" (::1), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\nconnection to server at \"localhost\" (127.0.0.1), port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+      }
+    }
+  ]
+}

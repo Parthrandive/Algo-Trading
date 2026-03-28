@@ -1,22 +1,22 @@
 {
-  "timestamp": "2026-03-26T19:11:41.649893+00:00",
+  "timestamp": "2026-03-28T09:51:27.814157+00:00",
   "symbol": "TATASTEEL.NS",
   "symbol_canonical": "TATASTEEL.NS",
-  "run_id": "20260326T190648Z",
+  "run_id": "20260328T094745Z",
   "interval": "1h",
   "source_script": "train_universe_xgboost.py",
   "feature_schema_version": "technical_features_v1",
   "artifact_contract": {
-    "run_id": "20260326T190648Z",
+    "run_id": "20260328T094745Z",
     "interval": "1h",
     "feature_schema_version": "technical_features_v1",
     "cnn_source_script": "train_universe_cnn.py",
     "lstm_source_script": "train_universe_arima_lstm.py"
   },
   "readiness": {
-    "cnn_directional_coverage": 0.743455497382199,
-    "lstm_directional_coverage": 0.8066854611357229,
-    "base_directional_coverage": 0.7750704792589609
+    "cnn_directional_coverage": 0.5755134917438582,
+    "lstm_directional_coverage": 0.33588401127668144,
+    "base_directional_coverage": 0.45569875151026984
   },
   "split_counts": {
     "train": 2483,
@@ -25,76 +25,76 @@
   },
   "classification": {
     "validation": {
-      "test_accuracy": 0.4496124031007752,
-      "directional_accuracy": 0.4608695652173913,
-      "up_precision": 0.38288288288288286,
-      "up_recall": 0.5029585798816568,
-      "up_f1": 0.43478260869565216,
-      "up_support": 169,
-      "down_precision": 0.45121951219512196,
-      "down_recall": 0.42045454545454547,
-      "down_f1": 0.43529411764705883,
-      "down_support": 176,
+      "test_accuracy": 0.560077519379845,
+      "directional_accuracy": 0.2867132867132867,
+      "up_precision": 0.16279069767441862,
+      "up_recall": 0.09722222222222222,
+      "up_f1": 0.12173913043478261,
+      "up_support": 72,
+      "down_precision": 0.21518987341772153,
+      "down_recall": 0.4788732394366197,
+      "down_f1": 0.29694323144104806,
+      "down_support": 71,
       "test_confusion_matrix": [
         [
-          74,
-          24,
-          78
+          34,
+          30,
+          7
         ],
         [
-          39,
-          73,
-          59
+          96,
+          248,
+          29
         ],
         [
-          51,
-          33,
-          85
+          28,
+          37,
+          7
         ]
       ],
-      "directional_coverage": 0.748062015503876,
-      "threshold_score": 0.48979805960871725
+      "directional_coverage": 0.38953488372093026,
+      "threshold_score": 0.2973290574430847
     },
     "test": {
-      "test_accuracy": 0.3713733075435203,
-      "directional_accuracy": 0.3819628647214854,
-      "up_precision": 0.35185185185185186,
-      "up_recall": 0.10052910052910052,
-      "up_f1": 0.15637860082304528,
-      "up_support": 189,
-      "down_precision": 0.3799392097264438,
-      "down_recall": 0.6648936170212766,
-      "down_f1": 0.4835589941972921,
-      "down_support": 188,
+      "test_accuracy": 0.4700193423597679,
+      "directional_accuracy": 0.23170731707317074,
+      "up_precision": 0.11538461538461539,
+      "up_recall": 0.03896103896103896,
+      "up_f1": 0.05825242718446602,
+      "up_support": 77,
+      "down_precision": 0.17857142857142858,
+      "down_recall": 0.40229885057471265,
+      "down_f1": 0.24734982332155478,
+      "down_support": 87,
       "test_confusion_matrix": [
         [
-          125,
+          35,
+          49,
+          3
+        ],
+        [
+          128,
+          205,
+          20
+        ],
+        [
+          33,
           41,
-          22
-        ],
-        [
-          79,
-          48,
-          13
-        ],
-        [
-          125,
-          45,
-          19
+          3
         ]
       ],
-      "directional_coverage": 0.7408123791102514
+      "directional_coverage": 0.42940038684719534
     }
   },
   "backtest": {
-    "sharpe": -3.396423386228719,
-    "sortino": -4.366462781594774,
-    "max_drawdown": 0.14274275111794077,
-    "win_rate": 0.4308093994778068,
-    "profit_factor": 0.7554204241647431,
-    "total_trades": 209,
-    "average_trade_return": -0.00026543767533022863,
-    "coverage": 0.7408123791102514
+    "sharpe": -2.4547339474500607,
+    "sortino": -2.3743418895376807,
+    "max_drawdown": 0.09061277928004219,
+    "win_rate": 0.45495495495495497,
+    "profit_factor": 0.8341767110470701,
+    "total_trades": 145,
+    "average_trade_return": -0.00014575406911417023,
+    "coverage": 0.42940038684719534
   },
   "gates": {
     "passed": false,
@@ -103,7 +103,7 @@
       "Low directional recall (< 15%)",
       "Directional accuracy <= 40%"
     ],
-    "best_iteration": 79,
+    "best_iteration": 164,
     "confidence_threshold": 0.15,
     "min_directional_coverage": 0.12
   },

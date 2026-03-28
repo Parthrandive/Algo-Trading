@@ -1,16 +1,15 @@
 {
   "symbol": "GLOBAL",
   "symbol_canonical": "GLOBAL",
-  "run_id": "20260326T190648Z",
+  "run_id": "20260328T094745Z",
   "interval": "1h",
   "source_script": "train_universe_cnn.py",
   "feature_schema_version": "technical_features_v1",
   "trained_on": [
     "RELIANCE.NS",
     "TATASTEEL.NS",
-    "INFY.NS",
     "TCS.NS",
-    "HDFCBANK.NS"
+    "INFY.NS"
   ],
   "window_size": 20,
   "learning_rate": 0.001,
@@ -71,17 +70,17 @@
     "arima_forecast",
     "arima_residual"
   ],
-  "neutral_threshold": 0.000845923385300984,
+  "neutral_threshold": 0.0008716875624343867,
   "use_binary": false,
   "confidence_threshold": 0.15,
   "min_directional_pred_rate": 0.12,
   "target_neutral_ratio": 0.25,
-  "selected_neutral_ratio": 0.2500400576830636,
-  "threshold_tune_score": 0.24670271934259896,
-  "val_predicted_directional_rate": 0.2966990291262136,
+  "selected_neutral_ratio": 0.2500749625187406,
+  "threshold_tune_score": 0.37241079803519783,
+  "val_predicted_directional_rate": 0.32122093023255816,
   "class_weight_dict": {
-    "0": 0.9064763995609221,
-    "1": 1.3349498868412544,
-    "2": 0.8712808609411268
+    "0": 1.8934019832189168,
+    "1": 0.515203403902034,
+    "2": 1.8837032821096567
   }
 }

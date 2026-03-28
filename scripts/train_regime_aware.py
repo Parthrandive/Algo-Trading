@@ -46,6 +46,17 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.agents.regime.data_loader import RegimeDataLoader
 from src.agents.technical.data_loader import DataLoader
 from src.agents.technical.features import engineer_features
+from src.agents.technical.label_utils import (
+    build_labels as build_labels_unified,
+    atr_effective_threshold,
+    recall_balance as compute_recall_balance,
+    directional_coverage as compute_directional_coverage,
+    class_balance_report,
+)
+from src.agents.technical.validation_metrics import (
+    post_cost_sharpe,
+    expected_calibration_error,
+)
 from config.symbols import (
     FX_RESULTS_NOTE,
     FOREX_SYMBOLS,
@@ -248,6 +259,24 @@ def parse_args() -> argparse.Namespace:
         "--fx-context-symbol",
         default=FOREX_SYMBOLS[0],
         help="Forex context symbol merged as external feature for equity targets.",
+    )
+    parser.add_argument(
+        "--label-mode",
+        choices=["fixed", "atr", "percentile"],
+        default="atr",
+        help="Label construction mode: fixed (legacy), atr (volatility-adjusted), percentile (distribution-balanced).",
+    )
+    parser.add_argument(
+        "--atr-k",
+        type=float,
+        default=0.5,
+        help="ATR multiplier k for threshold = k × ATR/close. Only used with --label-mode atr.",
+    )
+    parser.add_argument(
+        "--atr-period",
+        type=int,
+        default=14,
+        help="ATR lookback period. Only used with --label-mode atr.",
     )
     return parser.parse_args()
 
@@ -798,6 +827,7 @@ def build_cnn_sequences(
     train_end: int,
     val_end: int,
     window_size: int,
+    args: argparse.Namespace,
     neutral_threshold: float | None = None,
     next_log_returns: np.ndarray | None = None,
     label_threshold: float | None = None,
@@ -831,7 +861,7 @@ def build_cnn_sequences(
             if not np.isfinite(next_return):
                 continue
             threshold = float(label_threshold if label_threshold is not None else (neutral_threshold or 0.0))
-            label = int(apply_labels(np.asarray([next_return], dtype=np.float64), threshold)[0])
+            label = int(apply_labels(np.asarray([next_return], dtype=np.float64), threshold, args)[0])
         else:
             reference_close = float(close_values[target_idx - 1])
             target_close = float(close_values[target_idx])
@@ -957,54 +987,52 @@ def class_distribution_percentages(y: np.ndarray) -> dict[str, float]:
     return {CLASS_NAMES[idx]: float((y == idx).sum() / total) for idx in sorted(CLASS_NAMES)}
 
 
-def apply_labels(log_returns: np.ndarray, threshold: float) -> np.ndarray:
-    returns = np.asarray(log_returns, dtype=np.float64)
-    labels = np.where(returns > threshold, 0, np.where(returns < -threshold, 2, 1))
-    return labels.astype(np.int64)
+def apply_labels(log_returns: np.ndarray, threshold: float, args: argparse.Namespace) -> np.ndarray:
+    labels, _ = build_labels_unified(
+        log_returns, 
+        threshold=threshold, 
+        use_binary=False, 
+        mode="fixed"
+    )
+    return labels
 
 
-def find_threshold(train_log_returns: np.ndarray, symbol: str, args: argparse.Namespace) -> tuple[float, float]:
+def find_threshold(frame: pd.DataFrame, symbol: str, args: argparse.Namespace) -> tuple[float, float]:
+    train_log_returns = frame["log_return"].values
     values = np.asarray(train_log_returns, dtype=np.float64)
     values = values[np.isfinite(values)]
     if values.size == 0:
         raise ValueError(f"[{symbol}] no finite training log returns available for threshold tuning.")
 
+    if getattr(args, "label_mode", "fixed") == "atr":
+        effective_threshold = atr_effective_threshold(
+            high=frame["high"].values,
+            low=frame["low"].values,
+            close=frame["close"].values,
+            k=getattr(args, "atr_k", 0.5),
+            atr_period=int(getattr(args, "atr_period", 14)),
+        )
+        # Compute neutral ratio for logging
+        y_check, _ = build_labels_unified(values, threshold=effective_threshold, mode="fixed")
+        neutral_pct = float((y_check == 1).mean())
+        LOGGER.info("[%s] ATR-scaled threshold selected: %.6f (neutral=%.1f%%)", symbol, effective_threshold, neutral_pct * 100.0)
+        return effective_threshold, neutral_pct
+
     if args.neutral_threshold is not None:
         override = float(args.neutral_threshold)
-        neutral_pct = float((apply_labels(values, override) == 1).mean())
+        labels_fixed, _ = build_labels_unified(values, override, mode="fixed")
+        neutral_pct = float((labels_fixed == 1).mean())
         LOGGER.info("[%s] Using fixed threshold override %.6f -> neutral=%.1f%%", symbol, override, neutral_pct * 100.0)
         return override, neutral_pct
 
-    abs_returns = np.abs(values)
-    target_min = float(np.clip(args.threshold_target_min, 0.0, 1.0))
-    target_max = float(np.clip(args.threshold_target_max, target_min, 1.0))
-    target_center = float(np.clip(args.threshold_target_neutral, target_min, target_max))
-
-    quantile_count = int(np.clip(abs_returns.size // 10, 21, 201))
-    quantile_grid = np.linspace(target_min, target_max, num=quantile_count, dtype=np.float64)
-    candidate_thresholds = np.unique(np.quantile(abs_returns, quantile_grid))
-
-    best_threshold = float(np.quantile(abs_returns, target_center))
-    best_diff = float("inf")
-    for candidate in candidate_thresholds:
-        candidate = float(candidate)
-        neutral_pct = float((abs_returns <= candidate).mean())
-        if target_min <= neutral_pct <= target_max:
-            LOGGER.info("[%s] Threshold %.6f -> neutral=%.1f%% ✓", symbol, candidate, neutral_pct * 100.0)
-            return candidate, neutral_pct
-        diff = abs(neutral_pct - target_center)
-        if diff < best_diff:
-            best_diff = diff
-            best_threshold = candidate
-
-    fallback_neutral_pct = float((abs_returns <= best_threshold).mean())
-    LOGGER.info(
-        "[%s] Fallback threshold %.6f (neutral=%.1f%%, no perfect match found)",
-        symbol,
-        best_threshold,
-        fallback_neutral_pct * 100.0,
+    # Use unified threshold selector for distribution-based fixed thresholds
+    return choose_neutral_threshold_unified(
+        train_forward_returns=values,
+        requested_threshold=0.005,
+        min_neutral_ratio=float(args.threshold_target_min),
+        max_neutral_ratio=float(args.threshold_target_max),
+        target_neutral_ratio=float(args.threshold_target_neutral),
     )
-    return best_threshold, fallback_neutral_pct
 
 
 def summarize_class_counts(y_train: np.ndarray, symbol: str) -> tuple[np.ndarray, float]:
@@ -1054,6 +1082,7 @@ def build_cnn_full_sequences(
     next_log_returns: np.ndarray,
     window_size: int,
     label_threshold: float,
+    args: argparse.Namespace,
 ) -> tuple[np.ndarray, np.ndarray]:
     all_X: list[np.ndarray] = []
     all_y: list[int] = []
@@ -1072,7 +1101,7 @@ def build_cnn_full_sequences(
         window_std[window_std < 1e-6] = 1.0
         window = (window - window_mean) / window_std
 
-        label = int(apply_labels(np.asarray([next_return], dtype=np.float64), label_threshold)[0])
+        label = int(apply_labels(np.asarray([next_return], dtype=np.float64), label_threshold, args)[0])
         all_X.append(np.expand_dims(window.astype(np.float32), axis=0))
         all_y.append(label)
 
@@ -1638,6 +1667,8 @@ def train_cnn_model(
         "val_balanced_accuracy": float(balanced_accuracy_score(bundle.y_val, val_pred)),
         "test_accuracy": float(accuracy_score(bundle.y_test, test_pred)),
         "test_balanced_accuracy": float(balanced_accuracy_score(bundle.y_test, test_pred)),
+        "recall_balance": compute_recall_balance(bundle.y_test, test_pred),
+        "directional_coverage": compute_directional_coverage(test_pred),
         "train_windows": int(len(bundle.X_train)),
         "val_windows": int(len(bundle.X_val)),
         "test_windows": int(len(bundle.X_test)),
@@ -1769,7 +1800,7 @@ def run_for_symbol(
     cnn_scaled, _, _ = impute_and_scale_features(cnn_feature_frame, train_end)
 
     train_log_returns = frame["log_return"].iloc[:train_end].dropna().values
-    dynamic_threshold, neutral_pct = find_threshold(train_log_returns, symbol, args)
+    dynamic_threshold, neutral_pct = find_threshold(frame.iloc[:train_end], symbol, args)
     next_log_returns = frame["log_return"].shift(-1).astype(float).values
 
     split_label_inputs = {
@@ -1782,7 +1813,7 @@ def run_for_symbol(
         finite_returns = split_returns[np.isfinite(split_returns)]
         if finite_returns.size == 0:
             continue
-        split_labels = apply_labels(finite_returns, dynamic_threshold)
+        split_labels = apply_labels(finite_returns, dynamic_threshold, args)
         up_pct = float((split_labels == 0).mean())
         neutral_pct_split = float((split_labels == 1).mean())
         down_pct = float((split_labels == 2).mean())
@@ -1830,6 +1861,7 @@ def run_for_symbol(
         train_end=train_end,
         val_end=val_end,
         window_size=args.cnn_window,
+        args=args,
         neutral_threshold=None,
         next_log_returns=next_log_returns,
         label_threshold=dynamic_threshold,
@@ -1848,6 +1880,7 @@ def run_for_symbol(
             next_log_returns=next_log_returns,
             window_size=args.cnn_window,
             label_threshold=dynamic_threshold,
+            args=args,
         )
         cv_mean, cv_std, cv_folds = run_cnn_walk_forward_cv(
             symbol=symbol,

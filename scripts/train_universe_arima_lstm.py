@@ -34,6 +34,18 @@ from config.symbols import (
     discover_training_symbols
 )
 from config.symbols import is_forex, validate_equity_symbol
+from src.agents.technical.label_utils import (
+    build_labels as build_labels_unified,
+    choose_neutral_threshold as choose_neutral_threshold_unified,
+    atr_effective_threshold,
+    recall_balance as compute_recall_balance,
+    directional_coverage as compute_directional_coverage,
+    class_balance_report,
+)
+from src.agents.technical.validation_metrics import (
+    post_cost_sharpe as compute_post_cost_sharpe,
+    expected_calibration_error,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -240,7 +252,7 @@ def build_no_leakage_residuals(
     val_close: pd.Series,
     test_close: pd.Series,
     arima_order: tuple[int, int, int],
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Any]:
     import statsmodels.api as sm
 
     arima_model = sm.tsa.ARIMA(
@@ -284,7 +296,7 @@ def build_no_leakage_residuals(
 
     val_residuals, val_preds = rolling_predict(val_close)
     test_residuals, test_preds = rolling_predict(test_close)
-    return train_residuals, val_residuals, test_residuals, train_preds, val_preds, test_preds
+    return train_residuals, val_residuals, test_residuals, train_preds, val_preds, test_preds, arima_results
 
 
 def evaluate_mse(
@@ -345,93 +357,6 @@ def returns_to_labels(returns: np.ndarray, threshold: float) -> np.ndarray:
     return labels
 
 
-def choose_symbol_threshold(
-    train_scores: np.ndarray,
-    train_actual_returns: np.ndarray,
-    requested_threshold: float,
-    class_threshold_min: float,
-    min_neutral_ratio: float,
-    max_neutral_ratio: float,
-    target_neutral_ratio: float,
-) -> Tuple[float, float]:
-    abs_scores = np.abs(np.asarray(train_scores, dtype=np.float64))
-    abs_scores = abs_scores[np.isfinite(abs_scores)]
-    if len(abs_scores) == 0:
-        return float(max(requested_threshold, class_threshold_min)), 0.0
-
-    quantile_candidates = [
-        float(np.quantile(abs_scores, q))
-        for q in [0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25, 0.30, 0.35]
-    ]
-    static_candidates = [
-        0.0002, 0.0005, 0.0010, 0.0015, 0.0020, 0.0025, 0.0030, 0.0040, 0.0050, 
-        0.0075, 0.0100, 0.0150, 0.0200, 0.0250, 0.0300
-    ]
-    candidates = sorted({float(requested_threshold), *quantile_candidates, *static_candidates})
-    min_threshold = max(float(class_threshold_min), 1e-6)
-    candidates = [c for c in candidates if c >= min_threshold]
-
-    actual_returns = np.asarray(train_actual_returns, dtype=np.float64)
-    has_actuals = len(actual_returns) == len(train_scores) and len(actual_returns) > 0
-    if has_actuals:
-        actual_returns = np.where(np.isfinite(actual_returns), actual_returns, 0.0)
-
-    candidate_stats: List[Tuple[float, float, float, float, float]] = []
-    for threshold in candidates:
-        threshold = max(float(threshold), 1e-6)
-        neutral_ratio = float((abs_scores <= threshold).mean())
-        directional_accuracy = 0.0
-        mean_directional_recall = 0.0
-        directional_coverage = 0.0
-        if has_actuals:
-            y_pred = returns_to_labels(train_scores, threshold=threshold)
-            y_true = returns_to_labels(actual_returns, threshold=threshold)
-            cls_metrics = directional_classification_metrics(y_true=y_true, y_pred=y_pred)
-            directional_accuracy = float(cls_metrics["directional_accuracy"])
-            mean_directional_recall = float((cls_metrics["up_recall"] + cls_metrics["down_recall"]) / 2.0)
-            directional_coverage = float(np.mean(np.isin(y_pred, [CLASS_UP, CLASS_DOWN])))
-        # Optimize directional quality while respecting neutral-band constraint.
-        quality_score = (0.60 * directional_accuracy) + (0.30 * mean_directional_recall) + (0.10 * directional_coverage)
-        candidate_stats.append((threshold, neutral_ratio, quality_score, directional_accuracy, mean_directional_recall))
-
-    in_band = [
-        (threshold, ratio, quality_score, directional_accuracy, mean_directional_recall)
-        for threshold, ratio, quality_score, directional_accuracy, mean_directional_recall in candidate_stats
-        if float(min_neutral_ratio) <= ratio <= float(max_neutral_ratio)
-    ]
-    if in_band:
-        best_threshold, best_ratio, _, _, _ = max(
-            in_band,
-            key=lambda item: (
-                item[2],
-                -abs(item[1] - float(target_neutral_ratio)),
-                -item[3],
-                -item[4],
-                -item[0],
-            ),
-        )
-        return float(best_threshold), float(best_ratio)
-
-    best_threshold, best_ratio, _, _, _ = max(
-        candidate_stats,
-        key=lambda item: (
-            item[2],
-            -abs(item[1] - float(target_neutral_ratio)),
-            -item[3],
-            -item[4],
-            -item[0],
-        ),
-    )
-    logger.warning(
-        "Symbol threshold fallback selected %.6f with neutral share %.2f%% (outside requested band %.2f%% - %.2f%%).",
-        best_threshold,
-        best_ratio * 100.0,
-        float(min_neutral_ratio) * 100.0,
-        float(max_neutral_ratio) * 100.0,
-    )
-    return float(best_threshold), float(best_ratio)
-
-
 def label_distribution(labels: np.ndarray) -> Dict[str, Any]:
     arr = np.asarray(labels, dtype=np.int64)
     if len(arr) == 0:
@@ -462,6 +387,8 @@ def directional_classification_metrics(y_true: np.ndarray, y_pred: np.ndarray) -
         return {
             "test_accuracy": 0.0,
             "directional_accuracy": 0.0,
+            "recall_balance": 0.0,
+            "directional_coverage": 0.0,
             "up_precision": 0.0,
             "up_recall": 0.0,
             "up_f1": 0.0,
@@ -489,6 +416,8 @@ def directional_classification_metrics(y_true: np.ndarray, y_pred: np.ndarray) -
     return {
         "test_accuracy": float(accuracy_score(y_true, y_pred)),
         "directional_accuracy": directional_accuracy,
+        "recall_balance": compute_recall_balance(y_true, y_pred),
+        "directional_coverage": compute_directional_coverage(y_pred),
         "up_precision": float(precision[0]),
         "up_recall": float(recall[0]),
         "up_f1": float(f1[0]),
@@ -587,15 +516,14 @@ def extract_symbol_features(
         raise ValueError(
             f"Insufficient rows after feature cleanup. "
             f"Train={len(train_df)}, Val={len(val_df)}, Test={len(test_df)}, "
-            f"window_size={hybrid.window_size}"
+            f"Window={hybrid.window_size}"
         )
 
-    train_residuals, val_residuals, test_residuals, train_preds, val_preds, test_preds = build_no_leakage_residuals(
-        train_close=train_df[target_col],
-        val_close=val_df[target_col],
-        test_close=test_df[target_col],
-        arima_order=hybrid.arima_order,
+    # NO LEAKAGE ARIMA
+    train_residuals, val_residuals, test_residuals, train_preds, val_preds, test_preds, arima_results = build_no_leakage_residuals(
+        train_df['close'], val_df['close'], test_df['close'], hybrid.arima_order
     )
+    
     train_df['residual'] = train_residuals
     val_df['residual'] = val_residuals
     test_df['residual'] = test_residuals
@@ -604,7 +532,7 @@ def extract_symbol_features(
     val_df['arima_forecast'] = val_preds
     test_df['arima_forecast'] = test_preds
 
-    return train_df, val_df, test_df, feature_columns
+    return train_df, val_df, test_df, feature_columns, medians, arima_results
 
 
 def main():
@@ -673,6 +601,24 @@ def main():
         action="store_true",
         help="Skip training/fine-tuning and only regenerate per-symbol ARIMA-LSTM probabilities using stored model weights with adaptive thresholds.",
     )
+    parser.add_argument(
+        "--label-mode",
+        choices=["fixed", "atr", "percentile"],
+        default="atr",
+        help="Label construction mode: fixed (legacy), atr (volatility-adjusted), percentile (distribution-balanced).",
+    )
+    parser.add_argument(
+        "--atr-k",
+        type=float,
+        default=0.5,
+        help="ATR multiplier k for threshold = k × ATR/close. Only used with --label-mode atr.",
+    )
+    parser.add_argument(
+        "--atr-period",
+        type=int,
+        default=14,
+        help="ATR lookback period. Only used with --label-mode atr.",
+    )
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -733,13 +679,19 @@ def main():
         try:
             logger.info("Extracting features and ARIMA residuals for %s...", symbol)
             frame = loader.load_historical_bars(symbol, limit=args.limit, use_nse_fallback=args.use_nse, min_fallback_rows=40, interval=args.interval)
-            train_df, val_df, test_df, f_cols = extract_symbol_features(
+            train_df, val_df, test_df, f_cols, medians, arima_results = extract_symbol_features(
                 symbol,
                 frame,
                 hybrid,
                 include_daily_features=include_daily_features,
             )
-            symbol_data[symbol] = {"train": train_df, "val": val_df, "test": test_df}
+            symbol_data[symbol] = {
+                "train": train_df, 
+                "val": val_df, 
+                "test": test_df,
+                "medians": medians,
+                "arima_results": arima_results
+            }
             all_train_dfs.append(train_df[f_cols].copy())
             if not global_feature_columns:
                 global_feature_columns = f_cols
@@ -912,75 +864,8 @@ def main():
 
         finetune_applied = False
         finetune_stats: Dict[str, float] = {}
-        if args.recalibrate_only:
-            existing_symbol_model = first_existing(
-                [
-                    sym_dir / "best_model.pt",
-                    sym_dir / f"best_model_{sanitize_symbol(symbol)}.pt",
-                ]
-            )
-            if existing_symbol_model is not None:
-                symbol_hybrid.lstm_model.load_state_dict(torch.load(existing_symbol_model, map_location=symbol_hybrid.device))
-                symbol_hybrid.lstm_model.eval()
-                symbol_hybrid.is_trained = True
-                logger.info("[%s] Loaded existing symbol model for recalibration: %s", symbol, existing_symbol_model)
-            else:
-                logger.warning(
-                    "[%s] Symbol model not found in recalibration mode. Falling back to GLOBAL weights only.",
-                    symbol,
-                )
-        else:
-            can_finetune = (
-                isinstance(X_train_sym, torch.Tensor)
-                and isinstance(y_train_sym, torch.Tensor)
-                and isinstance(X_val_sym, torch.Tensor)
-                and isinstance(y_val_sym, torch.Tensor)
-                and len(X_train_sym) > 0
-                and len(y_train_sym) > 0
-                and len(X_val_sym) > 0
-                and len(y_val_sym) > 0
-            )
-            if can_finetune:
-                symbol_checkpoint_path = str(sym_dir / f"best_model_{sanitize_symbol(symbol)}.pt")
-                finetune_stats = custom_train_lstm(
-                    symbol_hybrid,
-                    X_train_sym.to(symbol_hybrid.device),
-                    y_train_sym.to(symbol_hybrid.device),
-                    X_val_sym.to(symbol_hybrid.device),
-                    y_val_sym.to(symbol_hybrid.device),
-                    epochs=max(1, int(args.finetune_epochs)),
-                    batch_size=args.batch_size,
-                    patience=max(1, int(args.finetune_patience)),
-                    output_dir=str(sym_dir),
-                    symbol=symbol,
-                    init_state_dict=global_state_dict,
-                    checkpoint_path=symbol_checkpoint_path,
-                )
-                finetune_applied = True
-            else:
-                logger.warning(
-                    "[%s] Skipping fine-tune (insufficient train/val windows). Using GLOBAL base model.",
-                    symbol,
-                )
 
-        split_payloads: Dict[str, Dict[str, np.ndarray]] = {}
-        sym_dfs = []
-        test_mse = float('nan')
-        class_metrics: Dict[str, Any] = {
-            "test_accuracy": 0.0,
-            "directional_accuracy": 0.0,
-            "up_precision": 0.0,
-            "up_recall": 0.0,
-            "up_f1": 0.0,
-            "up_support": 0,
-            "down_precision": 0.0,
-            "down_recall": 0.0,
-            "down_f1": 0.0,
-            "down_support": 0,
-            "test_confusion_matrix": [],
-        }
-        split_prediction_distribution: Dict[str, Dict[str, Any]] = {}
-
+        split_payloads = {}
         for s_name in ["train", "val", "test"]:
             X_data = splits.get(f"X_{s_name}")
             y_data = splits.get(f"y_{s_name}")
@@ -1012,22 +897,34 @@ def main():
 
         train_scores = split_payloads.get("train", {}).get("final_scores", np.empty((0,), dtype=np.float64))
         train_actual_returns = split_payloads.get("train", {}).get("actual_returns", np.empty((0,), dtype=np.float64))
-        symbol_threshold, train_neutral_ratio = choose_symbol_threshold(
-            train_scores=train_scores,
-            train_actual_returns=train_actual_returns,
-            requested_threshold=float(args.class_threshold),
-            class_threshold_min=class_threshold_min,
-            min_neutral_ratio=float(args.min_neutral_ratio),
-            max_neutral_ratio=float(args.max_neutral_ratio),
-            target_neutral_ratio=float(args.target_neutral_ratio),
-        )
-        logger.info(
-            "[%s] Adaptive class threshold selected: %.6f (train neutral share %.2f%%)",
-            symbol,
-            symbol_threshold,
-            train_neutral_ratio * 100.0,
-        )
+        
+        # Adaptive Threshold Selection
+        if getattr(args, "label_mode", "fixed") == "atr":
+            train_raw_df = discovery.frames[symbol].copy()
+            symbol_threshold = atr_effective_threshold(
+                high=train_raw_df["high"].values,
+                low=train_raw_df["low"].values,
+                close=train_raw_df["close"].values,
+                k=getattr(args, "atr_k", 0.5),
+                atr_period=int(getattr(args, "atr_period", 14)),
+            )
+            # Dummy ratio for logging
+            y_check = returns_to_labels(train_actual_returns, symbol_threshold)
+            train_neutral_ratio = float((y_check == CLASS_NEUTRAL).mean())
+            logger.info("[%s] ATR-scaled threshold: %.6f (neutral share %.2f%%)", symbol, symbol_threshold, train_neutral_ratio*100)
+        else:
+            symbol_threshold, train_neutral_ratio = choose_neutral_threshold_unified(
+                train_forward_returns=train_actual_returns,
+                requested_threshold=float(args.class_threshold),
+                min_neutral_ratio=float(args.min_neutral_ratio),
+                max_neutral_ratio=float(args.max_neutral_ratio),
+                target_neutral_ratio=float(args.target_neutral_ratio),
+            )
+            logger.info("[%s] Adaptive threshold: %.6f (neutral share %.2f%%)", symbol, symbol_threshold, train_neutral_ratio*100)
 
+        split_prediction_distribution = {}
+        class_metrics = {}
+        
         for s_name in ["train", "val", "test"]:
             payload = split_payloads.get(s_name)
             if payload is None:
@@ -1035,7 +932,7 @@ def main():
             final_scores = payload["final_scores"]
             timestamps = payload["timestamps"]
             actual_returns = payload["actual_returns"]
-            daily_trend_bullish = payload.get("daily_trend_bullish", np.full(len(final_scores), np.nan))
+            daily_trend_bullish = payload["daily_trend_bullish"]
 
             probs = scores_to_soft_probs(final_scores, threshold=symbol_threshold)
             pred_labels = returns_to_labels(final_scores, threshold=symbol_threshold)
@@ -1048,73 +945,25 @@ def main():
                     mode=args.daily_filter_mode,
                     up_penalty=float(np.clip(args.daily_up_penalty, 0.0, 1.0)),
                 )
-                if daily_filter_mask.any():
-                    logger.info(
-                        "[%s][%s] Daily trend confirmation neutralized %d UP signal(s).",
-                        symbol,
-                        s_name,
-                        int(daily_filter_mask.sum()),
-                    )
+            
             pred_dist = label_distribution(pred_labels)
-            pred_dist["daily_trend_up_neutralized"] = int(daily_filter_mask.sum())
-            pred_dist["daily_trend_neutralization_rate"] = (
-                float(daily_filter_mask.sum() / pred_dist["total"]) if pred_dist["total"] else 0.0
-            )
-            pred_dist["directional_coverage"] = (
-                float(np.mean(np.isin(pred_labels, [CLASS_UP, CLASS_DOWN]))) if len(pred_labels) else 0.0
-            )
-            split_cls_metrics: Dict[str, Any] = {
-                "test_accuracy": 0.0,
-                "directional_accuracy": 0.0,
-                "up_precision": 0.0,
-                "up_recall": 0.0,
-                "up_f1": 0.0,
-                "up_support": 0,
-                "down_precision": 0.0,
-                "down_recall": 0.0,
-                "down_f1": 0.0,
-                "down_support": 0,
-                "test_confusion_matrix": [],
-            }
-            if len(actual_returns) == len(pred_labels):
-                y_true_split = returns_to_labels(actual_returns, threshold=symbol_threshold)
-                split_cls_metrics = directional_classification_metrics(y_true=y_true_split, y_pred=pred_labels)
+            y_true_split = returns_to_labels(actual_returns, threshold=symbol_threshold) if len(actual_returns) > 0 else np.empty(0)
+            split_cls_metrics = directional_classification_metrics(y_true=y_true_split, y_pred=pred_labels)
+            
             pred_dist["directional_metrics"] = {
                 "directional_accuracy": float(split_cls_metrics["directional_accuracy"]),
+                "recall_balance": split_cls_metrics["recall_balance"],
+                "directional_coverage": split_cls_metrics["directional_coverage"],
                 "up_recall": float(split_cls_metrics["up_recall"]),
                 "down_recall": float(split_cls_metrics["down_recall"]),
                 "up_precision": float(split_cls_metrics["up_precision"]),
                 "down_precision": float(split_cls_metrics["down_precision"]),
+                "post_cost_sharpe": compute_post_cost_sharpe(y_true_split, pred_labels, actual_returns) if len(actual_returns) > 0 else 0.0,
             }
             split_prediction_distribution[s_name] = pred_dist
-
-            if s_name == "test" and len(actual_returns) == len(pred_labels):
+            if s_name == "test":
                 class_metrics = split_cls_metrics
-                logger.info(
-                    "[%s] Test Acc: %.4f | up(P/R): %.4f / %.4f | down(P/R): %.4f / %.4f",
-                    symbol,
-                    class_metrics["test_accuracy"],
-                    class_metrics["up_precision"],
-                    class_metrics["up_recall"],
-                    class_metrics["down_precision"],
-                    class_metrics["down_recall"],
-                )
-                logger.info(
-                    "[%s] Test prediction distribution: neutral=%d/%d (%.2f%%) | up=%d | down=%d",
-                    symbol,
-                    pred_dist["counts"]["neutral"],
-                    pred_dist["total"],
-                    pred_dist["ratios"]["neutral"] * 100.0,
-                    pred_dist["counts"]["up"],
-                    pred_dist["counts"]["down"],
-                )
-                if pred_dist["ratios"]["neutral"] > 0.70:
-                    logger.warning(
-                        "[%s] Neutral prediction share %.2f%% exceeds 70%%. Threshold may still be too wide.",
-                        symbol,
-                        pred_dist["ratios"]["neutral"] * 100.0,
-                    )
-
+                
             prob_df = pd.DataFrame({
                 "timestamp": timestamps,
                 "split": s_name,
@@ -1124,19 +973,10 @@ def main():
                 "predicted_label": pred_labels,
                 "lstm_final_score": final_scores,
                 "actual_return": actual_returns if len(actual_returns) == len(pred_labels) else np.full(len(pred_labels), np.nan),
-                "daily_trend_bullish": daily_trend_bullish if len(daily_trend_bullish) == len(pred_labels) else np.full(len(pred_labels), np.nan),
-                "daily_trend_up_neutralized": daily_filter_mask.astype(int),
                 "class_threshold": symbol_threshold,
             })
-            sym_dfs.append(prob_df)
-        
-        if sym_dfs:
-            sym_prob_df = pd.concat(sym_dfs, ignore_index=True)
-            sym_prob_df.to_parquet(sym_dir / "predictions.parquet", index=False)
-
-        if not args.recalibrate_only:
-            safe_torch_save(symbol_hybrid.lstm_model.state_dict(), sym_dir / "best_model.pt")
-        safe_link_or_copy(global_scaler_path, sym_dir / "feature_scaler.pkl")
+            sym_dir.mkdir(parents=True, exist_ok=True)
+            prob_df.to_parquet(sym_dir / f"{s_name}_predictions.parquet", index=False)
 
         symbol_hyperparams = {
             "symbol": symbol,
@@ -1154,22 +994,7 @@ def main():
             "class_threshold": float(args.class_threshold),
             "class_threshold_min": class_threshold_min,
             "effective_class_threshold": symbol_threshold,
-            "threshold_selection": {
-                "min_neutral_ratio": float(args.min_neutral_ratio),
-                "max_neutral_ratio": float(args.max_neutral_ratio),
-                "target_neutral_ratio": float(args.target_neutral_ratio),
-                "selected_train_neutral_ratio": float(train_neutral_ratio),
-            },
-            "recalibrate_only": bool(args.recalibrate_only),
-            "include_daily_features": include_daily_features,
-            "apply_daily_trend_filter": apply_daily_trend_filter,
-            "daily_filter_mode": args.daily_filter_mode,
-            "daily_up_penalty": float(np.clip(args.daily_up_penalty, 0.0, 1.0)),
-            "finetune": {
-                "applied": finetune_applied,
-                "epochs_requested": int(args.finetune_epochs),
-                "patience": int(args.finetune_patience),
-            },
+            "label_mode": getattr(args, "label_mode", "fixed"),
         }
         safe_write_json(sym_dir / "hyperparams.json", symbol_hyperparams)
 
@@ -1187,43 +1012,20 @@ def main():
             "source_script": source_script,
             "feature_schema_version": feature_schema_version,
             "trained_as_part_of_universe": True,
-            "hyperparameters": {
-                "arima_order": hybrid.arima_order,
-                "window_size": hybrid.window_size,
-                "learning_rate": hybrid.learning_rate,
-                "epochs_requested": int(args.finetune_epochs),
-                "class_threshold": float(args.class_threshold),
-                "class_threshold_min": class_threshold_min,
-                "effective_class_threshold": symbol_threshold,
-                "min_neutral_ratio": float(args.min_neutral_ratio),
-                "max_neutral_ratio": float(args.max_neutral_ratio),
-                "target_neutral_ratio": float(args.target_neutral_ratio),
-                "recalibrate_only": bool(args.recalibrate_only),
-                "include_daily_features": include_daily_features,
-                "apply_daily_trend_filter": apply_daily_trend_filter,
-                "daily_filter_mode": args.daily_filter_mode,
-                "daily_up_penalty": float(np.clip(args.daily_up_penalty, 0.0, 1.0)),
-            },
+            "hyperparameters": symbol_hyperparams,
             "split_counts": split_counts,
             "metrics": {
-                "test_mse": test_mse,
-                "selected_train_neutral_ratio": float(train_neutral_ratio),
+                "test_mse": test_mse if 'test_mse' in locals() else 0.0,
                 "prediction_distribution": split_prediction_distribution,
-                "test_accuracy": class_metrics["test_accuracy"],
-                "directional_accuracy": class_metrics["directional_accuracy"],
-                "up_precision": class_metrics["up_precision"],
-                "up_recall": class_metrics["up_recall"],
-                "up_f1": class_metrics["up_f1"],
-                "up_support": class_metrics["up_support"],
-                "down_precision": class_metrics["down_precision"],
-                "down_recall": class_metrics["down_recall"],
-                "down_f1": class_metrics["down_f1"],
-                "down_support": class_metrics["down_support"],
-                "test_confusion_matrix": class_metrics["test_confusion_matrix"],
-                "finetune_train_loss": finetune_stats.get("train_loss"),
-                "finetune_best_train_loss": finetune_stats.get("best_train_loss"),
-                "finetune_best_val_loss": finetune_stats.get("val_loss"),
-                "finetune_epochs_run": finetune_stats.get("epochs_run"),
+                "test_accuracy": class_metrics.get("test_accuracy", 0.0),
+                "directional_accuracy": class_metrics.get("directional_accuracy", 0.0),
+                "recall_balance": class_metrics.get("recall_balance", 0.0),
+                "directional_coverage": class_metrics.get("directional_coverage", 0.0),
+                "up_recall": class_metrics.get("up_recall", 0.0),
+                "down_recall": class_metrics.get("down_recall", 0.0),
+                "up_precision": class_metrics.get("up_precision", 0.0),
+                "down_precision": class_metrics.get("down_precision", 0.0),
+                "test_confusion_matrix": class_metrics.get("test_confusion_matrix", []),
             },
         }
         safe_write_json(sym_dir / "training_meta.json", sym_meta)

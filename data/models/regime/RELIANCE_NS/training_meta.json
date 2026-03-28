@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-03-26T19:07:09.853003+00:00",
+  "timestamp": "2026-03-28T09:48:03.659151+00:00",
   "symbol": "RELIANCE.NS",
-  "run_timestamp_utc": "2026-03-26T19:07:09.853003+00:00",
+  "run_timestamp_utc": "2026-03-28T09:48:03.659151+00:00",
   "rows_trained": 1834,
   "start_timestamp": "2025-03-17 03:45:00+00:00",
   "end_timestamp": "2026-03-16 08:45:00+00:00",
@@ -9,20 +9,18 @@
     "hmm_regime.parquet",
     "training_meta.json"
   ],
-  "hmm_components": 4,
+  "hmm_components": 2,
   "hyperparameters": {
     "interval": "1h",
     "limit": 2000,
     "min_gold_rows": 120,
     "warmup_rows": 120,
-    "hmm_components": 4
+    "hmm_components": 2
   },
   "metrics": {
     "regime_distribution": {
-      "1": 0.35122520420070014,
-      "2": 0.30221703617269546,
-      "0": 0.2234539089848308,
-      "3": 0.12310385064177364
+      "1": 0.5355892648774796,
+      "0": 0.4644107351225204
     }
   }
 }

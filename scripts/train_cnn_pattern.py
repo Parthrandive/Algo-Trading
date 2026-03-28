@@ -29,6 +29,18 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.agents.technical.data_loader import DataLoader
 from src.agents.technical.features import engineer_features
+from src.agents.technical.label_utils import (
+    build_labels as build_labels_unified,
+    atr_effective_threshold,
+    recall_balance as compute_recall_balance,
+    directional_coverage as compute_directional_coverage,
+    class_balance_report,
+    LABEL_MODES,
+)
+from src.agents.technical.validation_metrics import (
+    post_cost_sharpe,
+    expected_calibration_error,
+)
 from config.symbols import (
     FX_RESULTS_NOTE,
     FOREX_SYMBOLS,
@@ -778,6 +790,9 @@ def train_single_symbol(
     seed: int,
     min_rows: int,
     include_daily_features: bool,
+    label_mode: str = "fixed",
+    atr_k: float = 0.5,
+    atr_period: int = 14,
 ) -> SymbolTrainingResult:
     set_seed(seed)
     validate_data(df, symbol=symbol, min_rows=min_rows)
@@ -840,13 +855,73 @@ def train_single_symbol(
             neutral_ratio * 100,
         )
 
-    y_train_raw = build_labels(
-        train_supervised["future_return"].values, threshold=effective_neutral_threshold, use_binary=use_binary
-    )
-    y_val_raw = build_labels(val_supervised["future_return"].values, threshold=effective_neutral_threshold, use_binary=use_binary)
-    y_test_raw = build_labels(
-        test_supervised["future_return"].values, threshold=effective_neutral_threshold, use_binary=use_binary
-    )
+    # --- Label construction: support fixed / atr / percentile modes ---
+    active_label_mode = str(label_mode).strip().lower()
+    if active_label_mode == "fixed" or use_binary:
+        # Legacy path: fixed absolute-return thresholds
+        y_train_raw = build_labels(
+            train_supervised["future_return"].values, threshold=effective_neutral_threshold, use_binary=use_binary
+        )
+        y_val_raw = build_labels(val_supervised["future_return"].values, threshold=effective_neutral_threshold, use_binary=use_binary)
+        y_test_raw = build_labels(
+            test_supervised["future_return"].values, threshold=effective_neutral_threshold, use_binary=use_binary
+        )
+    else:
+        # ATR or percentile mode: use the unified label builder
+        ohlc_cols_present = all(c in train_supervised.columns for c in ["high", "low", "close"])
+        if active_label_mode == "atr" and ohlc_cols_present:
+            y_train_raw, effective_neutral_threshold = build_labels_unified(
+                train_supervised["future_return"].values,
+                mode="atr",
+                high=train_supervised["high"].values,
+                low=train_supervised["low"].values,
+                close=train_supervised["close"].values,
+                k=atr_k,
+                atr_period=atr_period,
+            )
+            y_val_raw, _ = build_labels_unified(
+                val_supervised["future_return"].values,
+                mode="atr",
+                high=val_supervised["high"].values,
+                low=val_supervised["low"].values,
+                close=val_supervised["close"].values,
+                k=atr_k,
+                atr_period=atr_period,
+            )
+            y_test_raw, _ = build_labels_unified(
+                test_supervised["future_return"].values,
+                mode="atr",
+                high=test_supervised["high"].values,
+                low=test_supervised["low"].values,
+                close=test_supervised["close"].values,
+                k=atr_k,
+                atr_period=atr_period,
+            )
+        elif active_label_mode == "atr" and not ohlc_cols_present:
+            logger.warning("%s: OHLC columns missing for ATR mode; falling back to fixed labels.", symbol)
+            y_train_raw = build_labels(
+                train_supervised["future_return"].values, threshold=effective_neutral_threshold, use_binary=use_binary
+            )
+            y_val_raw = build_labels(val_supervised["future_return"].values, threshold=effective_neutral_threshold, use_binary=use_binary)
+            y_test_raw = build_labels(
+                test_supervised["future_return"].values, threshold=effective_neutral_threshold, use_binary=use_binary
+            )
+            active_label_mode = "fixed"
+        else:
+            # Percentile mode
+            y_train_raw, effective_neutral_threshold = build_labels_unified(
+                train_supervised["future_return"].values,
+                mode="percentile",
+            )
+            y_val_raw, _ = build_labels_unified(val_supervised["future_return"].values, mode="percentile")
+            y_test_raw, _ = build_labels_unified(test_supervised["future_return"].values, mode="percentile")
+
+        balance = class_balance_report(y_train_raw)
+        logger.info(
+            "[%s] Label mode=%s | effective_threshold=%.6f | train balance: up=%.1f%% neutral=%.1f%% down=%.1f%%",
+            symbol, active_label_mode, effective_neutral_threshold,
+            balance["up_pct"], balance["neutral_pct"], balance["down_pct"],
+        )
 
     # Ensure numeric feature block is float before scaling to avoid dtype assignment issues.
     train_supervised = train_supervised.copy().astype({col: "float64" for col in feature_columns})
@@ -1071,6 +1146,24 @@ def main() -> None:
         default=180,
         help="Minimum rows required per symbol before training.",
     )
+    parser.add_argument(
+        "--label-mode",
+        choices=["fixed", "atr", "percentile"],
+        default="atr",
+        help="Label construction mode: fixed (legacy), atr (volatility-adjusted), percentile (distribution-balanced).",
+    )
+    parser.add_argument(
+        "--atr-k",
+        type=float,
+        default=0.5,
+        help="ATR multiplier k for threshold = k × ATR/close. Only used with --label-mode atr.",
+    )
+    parser.add_argument(
+        "--atr-period",
+        type=int,
+        default=14,
+        help="ATR lookback period. Only used with --label-mode atr.",
+    )
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -1169,6 +1262,9 @@ def main() -> None:
                 seed=args.seed,
                 min_rows=args.min_rows,
                 include_daily_features=include_daily_features,
+                label_mode=args.label_mode,
+                atr_k=args.atr_k,
+                atr_period=args.atr_period,
             )
             results.append(result)
         except Exception as exc:

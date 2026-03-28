@@ -86,6 +86,35 @@ def _build_parser() -> argparse.ArgumentParser:
         default="long_only_above_ma200",
         help="Daily regime filter mode applied in XGBoost stage.",
     )
+    parser.add_argument(
+        "--label-mode",
+        choices=["fixed", "atr", "percentile"],
+        default="atr",
+        help="Label construction mode for all training scripts.",
+    )
+    parser.add_argument(
+        "--atr-k",
+        type=float,
+        default=0.5,
+        help="ATR multiplier k for threshold = k × ATR/close.",
+    )
+    parser.add_argument(
+        "--atr-period",
+        type=int,
+        default=14,
+        help="ATR lookback period for label construction.",
+    )
+    parser.add_argument(
+        "--disable-arima-daily-filter",
+        action="store_true",
+        help="Disable the UP->NEUTRAL daily trend filter in ARIMA-LSTM (for A/B experiment).",
+    )
+    parser.add_argument(
+        "--regime-hmm-overrides",
+        type=str,
+        default="TATASTEEL.NS:2,INFY.NS:2,TCS.NS:3,HDFCBANK.NS:3",
+        help='Per-symbol HMM component overrides, e.g. "TATASTEEL.NS:2,INFY.NS:2".',
+    )
     return parser
 
 
@@ -269,6 +298,8 @@ def run_training_pipeline(symbols: list[str], mode: str, run_id: str, args: argp
         # Full historical
         regime_cmd.extend(["--limit", "2000"])
     regime_cmd.extend(["--min-gold-rows", str(int(args.regime_min_gold_rows))])
+    if args.regime_hmm_overrides:
+        regime_cmd.extend(["--symbol-hmm-overrides", str(args.regime_hmm_overrides)])
     if not run_cmd(regime_cmd):
         all_success = False
 
@@ -287,8 +318,16 @@ def run_training_pipeline(symbols: list[str], mode: str, run_id: str, args: argp
             str(float(args.arima_daily_up_penalty)),
             "--class-threshold-min",
             str(float(args.arima_class_threshold_min)),
+            "--label-mode",
+            str(args.label_mode),
+            "--atr-k",
+            str(float(args.atr_k)),
+            "--atr-period",
+            str(int(args.atr_period)),
         ]
     )
+    if args.disable_arima_daily_filter:
+        arima_cmd.append("--disable-daily-trend-filter")
         
     if mode == "daily":
         arima_cmd.extend(["--epochs", "5"])

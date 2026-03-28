@@ -1,7 +1,7 @@
 {
   "symbol": "HDFCBANK.NS",
   "symbol_canonical": "HDFCBANK.NS",
-  "run_id": "20260326T190648Z",
+  "run_id": "remediated_v1",
   "interval": "1h",
   "source_script": "train_universe_arima_lstm.py",
   "feature_schema_version": "technical_features_v1",
@@ -51,18 +51,18 @@
   ],
   "class_threshold": 0.005,
   "class_threshold_min": 0.001,
-  "effective_class_threshold": 0.001,
+  "effective_class_threshold": 0.0026860161898101713,
   "threshold_selection": {
     "min_neutral_ratio": 0.15,
     "max_neutral_ratio": 0.2,
     "target_neutral_ratio": 0.175,
-    "selected_train_neutral_ratio": 0.21888933927847587
+    "selected_train_neutral_ratio": 0.6822051074179165
   },
   "recalibrate_only": false,
   "include_daily_features": true,
-  "apply_daily_trend_filter": true,
-  "daily_filter_mode": "soft",
-  "daily_up_penalty": 0.15,
+  "apply_daily_trend_filter": false,
+  "daily_filter_mode": "hard",
+  "daily_up_penalty": 0.5,
   "finetune": {
     "applied": true,
     "epochs_requested": 25,
