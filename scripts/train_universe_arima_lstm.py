@@ -57,6 +57,19 @@ CLASS_UP = 2
 def sanitize_symbol(symbol: str) -> str:
     return symbol.replace(".", "_")
 
+def parse_atr_overrides(raw: Optional[str]) -> Dict[str, float]:
+    if not raw:
+        return {}
+    overrides = {}
+    for part in raw.split(","):
+        part = part.strip()
+        if ":" in part:
+            sym, val = part.rsplit(":", 1)
+            try:
+                overrides[sym.strip()] = float(val.strip())
+            except ValueError:
+                pass
+    return overrides
 
 def parse_requested_symbols(symbol: Optional[str], symbols: Optional[str]) -> list[str]:
     values: list[str] = []
@@ -619,6 +632,12 @@ def main():
         default=14,
         help="ATR lookback period. Only used with --label-mode atr.",
     )
+    parser.add_argument(
+        "--symbol-atr-k-overrides",
+        type=str,
+        default=None,
+        help='Per-symbol ATR multiplier overrides, e.g. "TATASTEEL.NS:1.0,INFY.NS:0.5".',
+    )
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -901,11 +920,15 @@ def main():
         # Adaptive Threshold Selection
         if getattr(args, "label_mode", "fixed") == "atr":
             train_raw_df = discovery.frames[symbol].copy()
+            
+            k_overrides = parse_atr_overrides(getattr(args, "symbol_atr_k_overrides", None))
+            symbol_k = k_overrides.get(symbol, getattr(args, "atr_k", 0.5))
+            
             symbol_threshold = atr_effective_threshold(
                 high=train_raw_df["high"].values,
                 low=train_raw_df["low"].values,
                 close=train_raw_df["close"].values,
-                k=getattr(args, "atr_k", 0.5),
+                k=symbol_k,
                 atr_period=int(getattr(args, "atr_period", 14)),
             )
             # Dummy ratio for logging

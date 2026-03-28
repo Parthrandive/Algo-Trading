@@ -1,0 +1,114 @@
+{
+  "timestamp": "2026-03-28T11:06:15.439971+00:00",
+  "run_id": "20260328T110245Z",
+  "expected_run_id": "20260328T110245Z",
+  "interval": "1h",
+  "source_script": "train_universe_xgboost.py",
+  "feature_schema_version": "technical_features_v1",
+  "strict_artifact_match": true,
+  "daily_regime_filter_mode": "long_only_above_ma200",
+  "symbols_requested": [
+    "INFY.NS",
+    "TATASTEEL.NS",
+    "TCS.NS"
+  ],
+  "symbols_processed": [
+    {
+      "symbol": "INFY.NS",
+      "run_id": "20260328T110245Z",
+      "artifact_run_id": "20260328T110245Z",
+      "confidence_threshold": 0.15,
+      "gate_passed": false,
+      "gate_reasons": [
+        "Low directional recall (< 15%)",
+        "Directional accuracy <= 40%"
+      ],
+      "directional_coverage": 0.3520309477756286,
+      "backtest": {
+        "sharpe": -2.4152302456779435,
+        "sortino": -1.9320391575844154,
+        "max_drawdown": 0.10483644677882731,
+        "win_rate": 0.41208791208791207,
+        "profit_factor": 0.7501394910966658,
+        "total_trades": 125,
+        "average_trade_return": -0.0003930160655075344,
+        "coverage": 0.3520309477756286
+      },
+      "readiness": {
+        "cnn_directional_coverage": 0.3205799436165928,
+        "lstm_directional_coverage": 0.7333870318163512,
+        "base_directional_coverage": 0.5269834877164721
+      },
+      "daily_regime_filter": {
+        "mode": "long_only_above_ma200",
+        "val_up_blocked_rows": 0,
+        "test_up_blocked_rows": 0
+      }
+    },
+    {
+      "symbol": "TATASTEEL.NS",
+      "run_id": "20260328T110245Z",
+      "artifact_run_id": "20260328T110245Z",
+      "confidence_threshold": 0.15,
+      "gate_passed": false,
+      "gate_reasons": [
+        "Low directional recall (< 15%)",
+        "Directional accuracy <= 40%"
+      ],
+      "directional_coverage": 0.3655705996131528,
+      "backtest": {
+        "sharpe": -1.5852678300589982,
+        "sortino": -1.7218821444793349,
+        "max_drawdown": 0.12002463711367528,
+        "win_rate": 0.42328042328042326,
+        "profit_factor": 0.9017994212105167,
+        "total_trades": 146,
+        "average_trade_return": -0.00013835873473967757,
+        "coverage": 0.3655705996131528
+      },
+      "readiness": {
+        "cnn_directional_coverage": 0.31373338703181636,
+        "lstm_directional_coverage": 0.33588401127668144,
+        "base_directional_coverage": 0.3248086991542489
+      },
+      "daily_regime_filter": {
+        "mode": "long_only_above_ma200",
+        "val_up_blocked_rows": 0,
+        "test_up_blocked_rows": 0
+      }
+    },
+    {
+      "symbol": "TCS.NS",
+      "run_id": "20260328T110245Z",
+      "artifact_run_id": "20260328T110245Z",
+      "confidence_threshold": 0.15,
+      "gate_passed": false,
+      "gate_reasons": [
+        "Low directional recall (< 15%)",
+        "Directional accuracy <= 40%"
+      ],
+      "directional_coverage": 0.19573643410852712,
+      "backtest": {
+        "sharpe": -3.5091509768862017,
+        "sortino": -2.528325689237374,
+        "max_drawdown": 0.10532598481539523,
+        "win_rate": 0.3564356435643564,
+        "profit_factor": 0.6021123918288758,
+        "total_trades": 127,
+        "average_trade_return": -0.0007880434225488493,
+        "coverage": 0.19573643410852712
+      },
+      "readiness": {
+        "cnn_directional_coverage": 0.49274193548387096,
+        "lstm_directional_coverage": 0.902016129032258,
+        "base_directional_coverage": 0.6973790322580645
+      },
+      "daily_regime_filter": {
+        "mode": "long_only_above_ma200",
+        "val_up_blocked_rows": 0,
+        "test_up_blocked_rows": 0
+      }
+    }
+  ],
+  "symbols_skipped": []
+}

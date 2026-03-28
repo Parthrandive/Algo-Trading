@@ -1,7 +1,7 @@
 {
   "symbol": "INFY.NS",
   "symbol_canonical": "INFY.NS",
-  "run_id": "20260328T094745Z",
+  "run_id": "20260328T113115Z",
   "interval": "1h",
   "source_script": "train_universe_cnn.py",
   "feature_schema_version": "technical_features_v1",
@@ -78,7 +78,7 @@
     "applied": true,
     "epochs_requested": 25,
     "patience": 8,
-    "best_val_tune_score": 0.33168143927733634,
-    "val_predicted_directional_rate": 0.3430232558139535
+    "best_val_tune_score": 0.2923908075632305,
+    "val_predicted_directional_rate": 0.2810077519379845
   }
 }
