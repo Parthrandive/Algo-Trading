@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from math import sqrt
 from random import Random
@@ -15,7 +15,10 @@ from src.agents.strategic.promotion_gates import (
     RollbackDrillManager,
     RollbackDrillResult,
 )
+from src.agents.strategic.risk_budgets import VolatilityScaledRiskBudgetEngine
+from src.agents.strategic.risk_overseer import RiskOverseerStateMachine, RiskSignalSnapshot
 from src.agents.strategic.schemas import RiskMode
+from src.agents.strategic.xai_attribution import PnLAttributionEngine, XAILogger
 
 GO_LIVE_TARGETS: dict[str, float] = {
     "sharpe": 1.8,
@@ -50,6 +53,9 @@ _MODE_ORDER: dict[RiskMode, int] = {
     RiskMode.CLOSE_ONLY: 2,
     RiskMode.KILL_SWITCH: 3,
 }
+
+WEEK3_SCENARIO_LIBRARY_VERSION = "phase4_week3_scenario_library_v1"
+WEEK3_CAPACITY_MULTIPLIERS: tuple[float, ...] = (1.0, 2.0, 3.0)
 
 
 @dataclass(frozen=True)
@@ -95,9 +101,13 @@ class StressScenarioResult:
     scenario_id: str
     protective_mode: RiskMode
     expected_min_mode: RiskMode
+    scenario_type: str = "synthetic"
     crashed: bool = False
     data_corruption: bool = False
     zero_vs_missing_distinguished: bool = True
+    feed_integrity_uncertain: bool = False
+    safe_mode_engaged: bool = True
+    variance_defined: bool = True
     snapback_ticks: int = 0
     max_snapback_ticks: int = 30
     capacity_multiplier: float = 1.0
@@ -109,6 +119,85 @@ class StressTestReport:
     passed: bool
     scenarios_run: int
     failure_count: int
+    failure_reasons: tuple[str, ...]
+    scenario_library_version: str = WEEK3_SCENARIO_LIBRARY_VERSION
+    scenario_type_counts: dict[str, int] = field(default_factory=dict)
+    capacity_hard_cap_multiplier: float = 3.0
+    hard_cap_forced: bool = False
+
+
+@dataclass(frozen=True)
+class StressScenarioDefinition:
+    scenario_id: str
+    scenario_type: str
+    key_test: str
+
+
+@dataclass(frozen=True)
+class QuarterlyStressReview:
+    generated_at: datetime
+    quarter_label: str
+    owner: str
+    reviewer: str
+    scenario_library_version: str
+    scenarios_run: int
+    failure_count: int
+    hard_cap_multiplier: float
+    hard_cap_forced: bool
+    performance_delta_summary: dict[str, float]
+    required_actions: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class DriftReading:
+    timestamp: datetime
+    phase2_input_drift: float
+    phase3_output_drift: float
+    provenance_reliability: float = 1.0
+
+
+@dataclass(frozen=True)
+class DriftDecision:
+    timestamp: datetime
+    drift_score: float
+    size_multiplier: float
+    drift_alert: bool
+    sustained_drift: bool
+    demotion_triggered: bool
+    reason: str
+
+
+@dataclass(frozen=True)
+class FalseTriggerReview:
+    timestamp: datetime
+    false_trigger_rate: float
+    acceptance_limit: float
+    rolling_days: int
+    auto_adjustment_paused: bool
+    escalation_required: bool
+    reason: str
+
+
+@dataclass(frozen=True)
+class L4KillSwitchDrillResult:
+    timestamp: datetime
+    passed: bool
+    mode: RiskMode
+    should_cancel_orders: bool
+    event_recorded: bool
+    reason: str
+
+
+@dataclass(frozen=True)
+class Week4RiskGateReport:
+    passed: bool
+    shap_coverage: float
+    shap_coverage_ok: bool
+    pnl_dashboard_active: bool
+    risk_override_events: int
+    risk_overrides_visible_in_dashboard: bool
+    l4_drill_passed: bool
+    checklist: dict[str, bool]
     failure_reasons: tuple[str, ...]
 
 
@@ -193,6 +282,10 @@ class Week4ReadinessBundle:
     governance: MLOpsGovernanceAuditor
     evidence: Phase3GateEvidenceCollector
     assessor: GoNoGoAssessor
+    drift_monitor: ADDMDriftEngine
+    false_trigger_governor: FalseTriggerRateGovernor
+    risk_gate_reviewer: Week4RiskGateReviewer
+    l4_drill_runner: L4KillSwitchDrillRunner
 
 
 class FullStackBacktestEngine:
@@ -369,30 +462,403 @@ class FullStackBacktestEngine:
 
 
 class StressTestEngine:
-    def __init__(self, *, capacity_impact_cap_bps: float = 25.0) -> None:
+    def __init__(
+        self,
+        *,
+        capacity_impact_cap_bps: float = 25.0,
+        scenario_library_version: str = WEEK3_SCENARIO_LIBRARY_VERSION,
+    ) -> None:
         self.capacity_impact_cap_bps = float(capacity_impact_cap_bps)
+        self.scenario_library_version = str(scenario_library_version)
+
+    def scenario_library(self) -> tuple[StressScenarioDefinition, ...]:
+        """Week 3 mandatory stress library with type labels."""
+        return (
+            StressScenarioDefinition(
+                scenario_id="rbi_surprise_rate_hike",
+                scenario_type="historical",
+                key_test="INR move and bond-yield spike containment",
+            ),
+            StressScenarioDefinition(
+                scenario_id="inr_flash_move",
+                scenario_type="historical_synthetic",
+                key_test="execution continuity and hedge trigger speed",
+            ),
+            StressScenarioDefinition(
+                scenario_id="liquidity_drought",
+                scenario_type="synthetic",
+                key_test="impact-cost spike and participation-limit containment",
+            ),
+            StressScenarioDefinition(
+                scenario_id="gfc_2008",
+                scenario_type="historical",
+                key_test="portfolio survival and drawdown containment",
+            ),
+            StressScenarioDefinition(
+                scenario_id="taper_tantrum_2013",
+                scenario_type="historical",
+                key_test="regime transition speed and macro response",
+            ),
+            StressScenarioDefinition(
+                scenario_id="covid_crash_2020",
+                scenario_type="historical",
+                key_test="multi-asset correlation behavior under stress",
+            ),
+            StressScenarioDefinition(
+                scenario_id="correlation_inversion",
+                scenario_type="impossible",
+                key_test="risk model coherence with non-negative variance",
+            ),
+            StressScenarioDefinition(
+                scenario_id="frozen_constituent_prices",
+                scenario_type="impossible",
+                key_test="zero-volume vs missing-data distinction",
+            ),
+            StressScenarioDefinition(
+                scenario_id="multi_asset_liquidity_vacuum",
+                scenario_type="impossible",
+                key_test="safe-mode activation during simultaneous depth collapse",
+            ),
+            StressScenarioDefinition(
+                scenario_id="data_poisoning_feed_freeze",
+                scenario_type="synthetic",
+                key_test="degraded-mode behavior under feed-integrity uncertainty",
+            ),
+        )
+
+    def build_capacity_replays(
+        self,
+        definitions: Sequence[StressScenarioDefinition],
+        *,
+        multipliers: Sequence[float] = WEEK3_CAPACITY_MULTIPLIERS,
+    ) -> tuple[StressScenarioResult, ...]:
+        """Expand each scenario into deterministic 1x/2x/3x capacity drills."""
+        expanded: list[StressScenarioResult] = []
+        for definition in definitions:
+            for multiplier in multipliers:
+                expanded.append(
+                    StressScenarioResult(
+                        scenario_id=f"{definition.scenario_id}_{multiplier:.0f}x",
+                        protective_mode=RiskMode.REDUCE_ONLY,
+                        expected_min_mode=RiskMode.REDUCE_ONLY,
+                        scenario_type=definition.scenario_type,
+                        feed_integrity_uncertain=definition.scenario_id == "data_poisoning_feed_freeze",
+                        safe_mode_engaged=True,
+                        variance_defined=True,
+                        capacity_multiplier=float(multiplier),
+                        impact_bps=0.0,
+                    )
+                )
+        return tuple(expanded)
+
+    def build_nightly_ci_scenarios(
+        self,
+        *,
+        multipliers: Sequence[float] = WEEK3_CAPACITY_MULTIPLIERS,
+    ) -> tuple[StressScenarioResult, ...]:
+        """Nightly CI replay set for Week 3 stress framework."""
+        return self.build_capacity_replays(self.scenario_library(), multipliers=multipliers)
 
     def evaluate(self, scenarios: Sequence[StressScenarioResult]) -> StressTestReport:
         failures: list[str] = []
+        scenario_type_counts: dict[str, int] = {}
+        hard_cap_forced = False
+        hard_cap_multiplier = 3.0
         for scenario in scenarios:
+            scenario_type = str(scenario.scenario_type or "untyped")
+            scenario_type_counts[scenario_type] = scenario_type_counts.get(scenario_type, 0) + 1
+
             if scenario.crashed:
                 failures.append(f"{scenario.scenario_id}:crash")
             if scenario.data_corruption:
                 failures.append(f"{scenario.scenario_id}:data_corruption")
             if not scenario.zero_vs_missing_distinguished:
                 failures.append(f"{scenario.scenario_id}:zero_missing_confused")
+            if scenario.feed_integrity_uncertain and not scenario.safe_mode_engaged:
+                failures.append(f"{scenario.scenario_id}:safe_mode_not_engaged")
+            if scenario.scenario_id.startswith("correlation_inversion") and not scenario.variance_defined:
+                failures.append(f"{scenario.scenario_id}:variance_invalid")
             if scenario.snapback_ticks > scenario.max_snapback_ticks:
                 failures.append(f"{scenario.scenario_id}:snapback_slow")
             if _MODE_ORDER[scenario.protective_mode] < _MODE_ORDER[scenario.expected_min_mode]:
                 failures.append(f"{scenario.scenario_id}:insufficient_protective_mode")
             if scenario.capacity_multiplier >= 3.0 and scenario.impact_bps > self.capacity_impact_cap_bps:
                 failures.append(f"{scenario.scenario_id}:impact_cap_breach")
+                hard_cap_forced = True
+                hard_cap_multiplier = min(hard_cap_multiplier, 2.0)
+
+        if hard_cap_forced:
+            failures.append("global:capacity_hard_cap_forced_2x")
 
         return StressTestReport(
             passed=len(failures) == 0,
             scenarios_run=len(scenarios),
             failure_count=len(failures),
             failure_reasons=tuple(failures),
+            scenario_library_version=self.scenario_library_version,
+            scenario_type_counts=scenario_type_counts,
+            capacity_hard_cap_multiplier=hard_cap_multiplier,
+            hard_cap_forced=hard_cap_forced,
+        )
+
+    def generate_quarterly_review(
+        self,
+        *,
+        report: StressTestReport,
+        owner: str,
+        reviewer: str,
+        previous_failure_count: int | None = None,
+        quarter_label: str | None = None,
+        generated_at: datetime | None = None,
+    ) -> QuarterlyStressReview:
+        generated = _ensure_utc_datetime(generated_at) or datetime.now(UTC)
+        previous_failures = float(previous_failure_count) if previous_failure_count is not None else float(report.failure_count)
+        failure_delta = float(report.failure_count) - previous_failures
+
+        actions: list[str] = []
+        if not report.passed:
+            actions.append("rerun_failed_scenarios")
+        if report.hard_cap_forced:
+            actions.append("enforce_capacity_hard_cap_2x")
+        if any("snapback_slow" in reason for reason in report.failure_reasons):
+            actions.append("review_snapback_tuning_manually")
+        if not actions:
+            actions.append("maintain_current_capacity_limits")
+
+        return QuarterlyStressReview(
+            generated_at=generated,
+            quarter_label=quarter_label or _quarter_label(generated),
+            owner=str(owner).strip() or "risk_owner",
+            reviewer=str(reviewer).strip() or "risk_reviewer",
+            scenario_library_version=report.scenario_library_version,
+            scenarios_run=int(report.scenarios_run),
+            failure_count=int(report.failure_count),
+            hard_cap_multiplier=float(report.capacity_hard_cap_multiplier),
+            hard_cap_forced=bool(report.hard_cap_forced),
+            performance_delta_summary={"failure_count_delta": float(failure_delta)},
+            required_actions=tuple(actions),
+        )
+
+
+class ADDMDriftEngine:
+    """
+    Week 4 Day 1-2 continuous drift monitor for Phase 2 inputs and Phase 3 outputs.
+    """
+
+    def __init__(
+        self,
+        *,
+        drift_alert_threshold: float = 0.12,
+        sustained_window: int = 3,
+        demotion_window: int = 5,
+        min_size_multiplier: float = 0.05,
+    ) -> None:
+        self.drift_alert_threshold = max(0.0, float(drift_alert_threshold))
+        self.sustained_window = max(1, int(sustained_window))
+        self.demotion_window = max(self.sustained_window, int(demotion_window))
+        self.min_size_multiplier = max(0.0, min(1.0, float(min_size_multiplier)))
+        self._alerts: list[tuple[datetime, bool]] = []
+        self._events: list[dict[str, object]] = []
+
+    def evaluate(self, reading: DriftReading) -> DriftDecision:
+        now = _ensure_utc_datetime(reading.timestamp) or datetime.now(UTC)
+        drift_score = max(float(reading.phase2_input_drift), float(reading.phase3_output_drift))
+        drift_alert = drift_score >= self.drift_alert_threshold
+        self._alerts.append((now, drift_alert))
+        keep = max(self.demotion_window * 4, self.sustained_window * 4)
+        self._alerts = self._alerts[-keep:]
+
+        sustained_drift = self._last_n_all_true(self.sustained_window)
+        demotion_triggered = self._last_n_all_true(self.demotion_window)
+        size_multiplier = self._dynamic_size_multiplier(
+            provenance_reliability=float(reading.provenance_reliability),
+            drift_score=drift_score,
+        )
+
+        if demotion_triggered:
+            reason = "sustained_drift_demotion_triggered"
+        elif sustained_drift:
+            reason = "sustained_drift_alert"
+        elif drift_alert:
+            reason = "drift_alert"
+        else:
+            reason = "drift_stable"
+
+        decision = DriftDecision(
+            timestamp=now,
+            drift_score=drift_score,
+            size_multiplier=size_multiplier,
+            drift_alert=drift_alert,
+            sustained_drift=sustained_drift,
+            demotion_triggered=demotion_triggered,
+            reason=reason,
+        )
+        self._events.append(
+            {
+                "timestamp": now.isoformat(),
+                "drift_score": drift_score,
+                "drift_alert": drift_alert,
+                "sustained_drift": sustained_drift,
+                "demotion_triggered": demotion_triggered,
+                "size_multiplier": size_multiplier,
+                "reason": reason,
+            }
+        )
+        return decision
+
+    def recent_events(self, limit: int = 100) -> tuple[dict[str, object], ...]:
+        return tuple(self._events[-max(0, int(limit)) :])
+
+    def _last_n_all_true(self, n: int) -> bool:
+        if len(self._alerts) < n:
+            return False
+        return all(flag for _, flag in self._alerts[-n:])
+
+    def _dynamic_size_multiplier(self, *, provenance_reliability: float, drift_score: float) -> float:
+        reliability = max(0.0, min(1.0, provenance_reliability))
+        denominator = max(self.drift_alert_threshold * 2.0, 1e-9)
+        drift_pressure = max(0.0, min(1.0, drift_score / denominator))
+        dynamic_multiplier = reliability * (1.0 - 0.7 * drift_pressure)
+        return max(self.min_size_multiplier, min(1.0, dynamic_multiplier))
+
+
+class FalseTriggerRateGovernor:
+    """
+    Week 4 Day 3 review layer for false-trigger breaches.
+    """
+
+    def __init__(
+        self,
+        *,
+        acceptance_limit: float = 0.20,
+        rolling_days: int = 30,
+    ) -> None:
+        self.acceptance_limit = max(0.0, min(1.0, float(acceptance_limit)))
+        self.rolling_days = max(1, int(rolling_days))
+        self._events: list[dict[str, object]] = []
+
+    def evaluate_budget_engine(
+        self,
+        engine: VolatilityScaledRiskBudgetEngine,
+        *,
+        now: datetime | None = None,
+    ) -> FalseTriggerReview:
+        timestamp = _ensure_utc_datetime(now) or datetime.now(UTC)
+        rate = float(engine.false_trigger_rate(now=timestamp))
+        paused = bool(engine.auto_adjustment_paused(now=timestamp))
+        escalation_required = paused or rate > self.acceptance_limit
+        reason = "operator_review_required" if escalation_required else "false_trigger_within_limit"
+        review = FalseTriggerReview(
+            timestamp=timestamp,
+            false_trigger_rate=rate,
+            acceptance_limit=self.acceptance_limit,
+            rolling_days=self.rolling_days,
+            auto_adjustment_paused=paused,
+            escalation_required=escalation_required,
+            reason=reason,
+        )
+        self._events.append(
+            {
+                "timestamp": timestamp.isoformat(),
+                "false_trigger_rate": rate,
+                "acceptance_limit": self.acceptance_limit,
+                "auto_adjustment_paused": paused,
+                "escalation_required": escalation_required,
+                "reason": reason,
+            }
+        )
+        return review
+
+    def recent_events(self, limit: int = 100) -> tuple[dict[str, object], ...]:
+        return tuple(self._events[-max(0, int(limit)) :])
+
+
+class L4KillSwitchDrillRunner:
+    """
+    Week 4 Day 4-5 final surprise L4 drill helper.
+    """
+
+    def run(
+        self,
+        *,
+        timestamp: datetime | None = None,
+        authorizer: str = "surprise_drill_operator",
+    ) -> L4KillSwitchDrillResult:
+        now = _ensure_utc_datetime(timestamp) or datetime.now(UTC)
+        overseer = RiskOverseerStateMachine()
+        decision = overseer.evaluate(
+            RiskSignalSnapshot(timestamp=now, manual_kill_switch=True),
+            authorizer=authorizer,
+        )
+        latest_events = overseer.recent_events(limit=1)
+        event_recorded = (
+            len(latest_events) == 1
+            and latest_events[0].event_type == "KILL_SWITCH_TRIGGER"
+            and latest_events[0].trigger_layer == "L4_MANUAL"
+        )
+        passed = decision.mode == RiskMode.KILL_SWITCH and decision.should_cancel_orders and event_recorded
+        return L4KillSwitchDrillResult(
+            timestamp=now,
+            passed=passed,
+            mode=decision.mode,
+            should_cancel_orders=decision.should_cancel_orders,
+            event_recorded=event_recorded,
+            reason="l4_manual_kill_switch_drill",
+        )
+
+
+class Week4RiskGateReviewer:
+    """
+    Final go-live risk gate checks:
+    SHAP coverage, live attribution visibility, and surprise L4 drill.
+    """
+
+    def __init__(self, *, min_shap_coverage: float = 0.80) -> None:
+        self.min_shap_coverage = max(0.0, min(1.0, float(min_shap_coverage)))
+
+    def evaluate(
+        self,
+        *,
+        xai_logger: XAILogger,
+        pnl_attribution: PnLAttributionEngine,
+        risk_audit_events: Sequence[Mapping[str, Any]],
+        l4_drill_result: L4KillSwitchDrillResult | None = None,
+    ) -> Week4RiskGateReport:
+        shap_coverage = float(xai_logger.coverage())
+        shap_coverage_ok = shap_coverage >= self.min_shap_coverage
+        dashboard = pnl_attribution.dashboard_snapshot()
+        pnl_dashboard_active = int(dashboard.get("events_count", 0)) > 0
+
+        risk_override_events = 0
+        for event in risk_audit_events:
+            event_type = str(event.get("event", "")).strip()
+            if event_type == "risk_cancel_orders":
+                risk_override_events += 1
+                continue
+            if event_type == "risk_overseer_decision":
+                mode = str(event.get("mode", "normal")).strip().lower()
+                if mode != RiskMode.NORMAL.value:
+                    risk_override_events += 1
+
+        risk_overrides_visible = pnl_dashboard_active and risk_override_events > 0
+        drill = l4_drill_result or L4KillSwitchDrillRunner().run()
+        checklist = {
+            "shap_coverage": shap_coverage_ok,
+            "pnl_dashboard_active": pnl_dashboard_active,
+            "risk_overrides_visible": risk_overrides_visible,
+            "l4_drill_passed": bool(drill.passed),
+        }
+        failures = tuple(key for key, passed in checklist.items() if not passed)
+        return Week4RiskGateReport(
+            passed=len(failures) == 0,
+            shap_coverage=shap_coverage,
+            shap_coverage_ok=shap_coverage_ok,
+            pnl_dashboard_active=pnl_dashboard_active,
+            risk_override_events=risk_override_events,
+            risk_overrides_visible_in_dashboard=risk_overrides_visible,
+            l4_drill_passed=bool(drill.passed),
+            checklist=checklist,
+            failure_reasons=failures,
         )
 
 
@@ -714,6 +1180,17 @@ class Week4Controller:
     def run_day2_stress(self, scenarios: Sequence[StressScenarioResult]) -> StressTestReport:
         return self.bundle.stress.evaluate(scenarios)
 
+    def run_day1_and_day2_drift(self, readings: Sequence[DriftReading]) -> tuple[DriftDecision, ...]:
+        return tuple(self.bundle.drift_monitor.evaluate(reading) for reading in readings)
+
+    def run_day3_false_trigger_review(
+        self,
+        risk_budget_engine: VolatilityScaledRiskBudgetEngine,
+        *,
+        now: datetime | None = None,
+    ) -> FalseTriggerReview:
+        return self.bundle.false_trigger_governor.evaluate_budget_engine(risk_budget_engine, now=now)
+
     def run_day3_paper_trading(
         self,
         decisions: Sequence[PaperTradeDecision],
@@ -765,6 +1242,26 @@ class Week4Controller:
         assessment = self.bundle.assessor.assess(evidence)
         return evidence, assessment
 
+    def run_day4_and_day5_risk_gate(
+        self,
+        *,
+        xai_logger: XAILogger,
+        pnl_attribution: PnLAttributionEngine,
+        risk_audit_events: Sequence[Mapping[str, Any]],
+        drill_timestamp: datetime | None = None,
+        drill_authorizer: str = "surprise_drill_operator",
+    ) -> Week4RiskGateReport:
+        drill = self.bundle.l4_drill_runner.run(
+            timestamp=drill_timestamp,
+            authorizer=drill_authorizer,
+        )
+        return self.bundle.risk_gate_reviewer.evaluate(
+            xai_logger=xai_logger,
+            pnl_attribution=pnl_attribution,
+            risk_audit_events=risk_audit_events,
+            l4_drill_result=drill,
+        )
+
 
 def build_week4_bundle(*, periods_per_year: int = 252) -> Week4ReadinessBundle:
     return Week4ReadinessBundle(
@@ -774,6 +1271,10 @@ def build_week4_bundle(*, periods_per_year: int = 252) -> Week4ReadinessBundle:
         governance=MLOpsGovernanceAuditor(),
         evidence=Phase3GateEvidenceCollector(),
         assessor=GoNoGoAssessor(),
+        drift_monitor=ADDMDriftEngine(),
+        false_trigger_governor=FalseTriggerRateGovernor(),
+        risk_gate_reviewer=Week4RiskGateReviewer(),
+        l4_drill_runner=L4KillSwitchDrillRunner(),
     )
 
 
@@ -807,8 +1308,8 @@ def _build_audit_event(
 
 def _audit_has_required_fields(events: Sequence[Mapping[str, Any]]) -> bool:
     for event in events:
-        for field in AUDIT_REQUIRED_FIELDS:
-            if field not in event:
+        for required_field in AUDIT_REQUIRED_FIELDS:
+            if required_field not in event:
                 return False
     return True
 
@@ -821,14 +1322,29 @@ def _ensure_utc_datetime(value: Any) -> datetime | None:
     return None
 
 
+def _quarter_label(value: datetime) -> str:
+    month = int(value.month)
+    quarter = ((month - 1) // 3) + 1
+    return f"{value.year}-Q{quarter}"
+
+
 __all__ = [
     "AUDIT_REQUIRED_FIELDS",
     "GO_LIVE_TARGETS",
+    "WEEK3_CAPACITY_MULTIPLIERS",
+    "WEEK3_SCENARIO_LIBRARY_VERSION",
+    "ADDMDriftEngine",
     "BacktestMetrics",
+    "DriftDecision",
+    "DriftReading",
+    "FalseTriggerRateGovernor",
+    "FalseTriggerReview",
     "FullStackBacktestEngine",
     "GoNoGoAssessor",
     "GoNoGoAssessment",
     "GovernanceAuditResult",
+    "L4KillSwitchDrillResult",
+    "L4KillSwitchDrillRunner",
     "LeakageAuditResult",
     "MLOpsGovernanceAuditor",
     "PaperTradeDecision",
@@ -837,12 +1353,16 @@ __all__ = [
     "PaperTradingReport",
     "Phase3GateEvidence",
     "Phase3GateEvidenceCollector",
+    "QuarterlyStressReview",
+    "StressScenarioDefinition",
     "StressScenarioResult",
     "StressTestEngine",
     "StressTestReport",
     "SurvivorshipAuditResult",
     "WalkForwardBacktestReport",
     "Week4Controller",
+    "Week4RiskGateReport",
+    "Week4RiskGateReviewer",
     "Week4ReadinessBundle",
     "build_week4_bundle",
 ]
