@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any, Mapping, Sequence
 from uuid import uuid4
@@ -9,6 +9,7 @@ from uuid import uuid4
 from src.agents.risk_overseer.schemas import RiskAssessment
 from src.agents.strategic.config import ExecutionConfig
 from src.agents.strategic.impact_monitor import ImpactSlippageMonitor
+from src.agents.strategic.risk_overseer import RiskOverseerDecision, RiskOverseerStateMachine, RiskSignalSnapshot
 from src.agents.strategic.portfolio import round_to_tradable_quantity
 from src.agents.strategic.schemas import (
     ActionType,
@@ -90,6 +91,14 @@ class PreTradeComplianceChecker:
         if participation > self.limits.max_participation:
             reasons.append(f"participation_cap_breach:{participation:.2%}>{self.limits.max_participation:.2%}")
 
+        direction = request.direction.strip().upper()
+        if request.risk_mode == RiskMode.KILL_SWITCH:
+            reasons.append("risk_mode_kill_switch_blocks_all_orders")
+        elif request.risk_mode == RiskMode.CLOSE_ONLY and direction == "BUY":
+            reasons.append("risk_mode_close_only_blocks_buy")
+        elif request.risk_mode == RiskMode.REDUCE_ONLY and direction == "BUY":
+            reasons.append("risk_mode_reduce_only_blocks_buy")
+
         return ComplianceCheckResult(
             passed=len(reasons) == 0,
             reasons=tuple(reasons),
@@ -114,36 +123,100 @@ class ExecutionEngine:
         config: ExecutionConfig | None = None,
         compliance: PreTradeComplianceChecker | None = None,
         impact_monitor: ImpactSlippageMonitor | None = None,
+        risk_overseer: RiskOverseerStateMachine | None = None,
     ):
         self.config = config or ExecutionConfig()
         self.compliance = compliance or PreTradeComplianceChecker()
         self.slippage = SlippageModel()
         self.routing = RoutingHealthMonitor(failure_limit=self.config.routing_health_failure_limit)
         self.impact_monitor = impact_monitor
+        self.risk_overseer = risk_overseer or RiskOverseerStateMachine()
 
     def plan_execution(
         self,
         request: OrderRequest,
         context: ExecutionContext,
+        *,
+        risk_snapshot: RiskSignalSnapshot | None = None,
+        heartbeat_ok: bool = True,
+        risk_authorizer: str = "execution_engine",
     ) -> ExecutionPlan:
         audit_events: list[dict[str, Any]] = []
+        risk_budget_fraction = 1.0
 
-        compliance_result = self.compliance.check(request, context)
-        audit_events.append(
-            {
-                "event": "compliance_check",
-                "passed": compliance_result.passed,
-                "reasons": compliance_result.reasons,
-            }
-        )
+        # 1. Risk Overseer evaluation (veto authority)
+        risk_decision: RiskOverseerDecision | None = None
+        effective_mode = request.risk_mode
+        if self.risk_overseer is not None:
+            snapshot = risk_snapshot or RiskSignalSnapshot(timestamp=context.timestamp)
+            risk_decision = self.risk_overseer.evaluate(
+                snapshot=snapshot,
+                heartbeat_ok=heartbeat_ok,
+                authorizer=risk_authorizer,
+            )
+            effective_mode = _more_restrictive(request.risk_mode, risk_decision.mode)
+            risk_budget_fraction = _coerce_risk_budget_fraction(
+                risk_decision.metadata.get("risk_budget_fraction"),
+            )
+            audit_events.append(
+                {
+                    "event": "risk_overseer_decision",
+                    "mode": risk_decision.mode.value,
+                    "trigger_layer": risk_decision.trigger_layer,
+                    "trigger_reason": risk_decision.trigger_reason,
+                    "block_new_orders": risk_decision.block_new_orders,
+                    "should_cancel_orders": risk_decision.should_cancel_orders,
+                    "fail_closed": risk_decision.fail_closed,
+                    "event_id": risk_decision.event_id,
+                    "risk_budget_fraction": risk_budget_fraction,
+                    "metadata": risk_decision.metadata,
+                }
+            )
 
-        est_slippage = self.slippage.estimate_bps(context, request.target_quantity)
-        effective_qty = int(request.target_quantity)
+        request_for_check = replace(request, risk_mode=effective_mode)
+        scaled_request = request_for_check
+        if request.direction.strip().upper() == "BUY":
+            scaled_quantity = int(math.floor(max(0, request.target_quantity) * risk_budget_fraction))
+            scaled_request = replace(
+                request_for_check,
+                target_quantity=scaled_quantity,
+                target_notional=float(request.target_notional) * risk_budget_fraction,
+            )
+            audit_events.append(
+                {
+                    "event": "risk_budget_scaling",
+                    "symbol": request.symbol,
+                    "direction": request.direction,
+                    "requested_quantity": request.target_quantity,
+                    "requested_notional": request.target_notional,
+                    "risk_budget_fraction": risk_budget_fraction,
+                    "scaled_quantity": scaled_quantity,
+                    "scaled_notional": scaled_request.target_notional,
+                }
+            )
+
+        # 2. Compliance Check
+        compliance_result = self.compliance.check(scaled_request, context)
+        audit_events.append({
+            "event": "compliance_check",
+            "passed": compliance_result.passed,
+            "reasons": compliance_result.reasons,
+            "risk_mode": compliance_result.risk_mode.value,
+        })
+
+        # 3. Slippage Estimation
+        est_slippage = self.slippage.estimate_bps(context, scaled_request.target_quantity)
+        effective_qty = int(scaled_request.target_quantity)
+        if not compliance_result.passed:
+            effective_qty = 0
         size_multiplier = 1.0
         if self.impact_monitor is not None:
             size_multiplier = self.impact_monitor.size_multiplier(request.symbol)
-            effective_qty = int(math.floor(max(0, request.target_quantity) * size_multiplier))
+            effective_qty = int(math.floor(max(0, effective_qty) * size_multiplier))
+        if not compliance_result.passed:
+            effective_qty = 0
 
+        # 4. Instruction Generation
         instruction = OrderInstruction(
             event_id=str(uuid4()),
             timestamp=context.timestamp,
@@ -153,7 +226,10 @@ class ExecutionEngine:
             order_type=request.order_type,
             participation_limit=float(self.compliance.limits.max_participation),
             risk_mode=compliance_result.risk_mode,
-            rationale=f"strategic_exec_v1; slippage={est_slippage:.1f}bps; size_multiplier={size_multiplier:.2f}",
+            rationale=(
+                f"strategic_exec_v1; slippage={est_slippage:.1f}bps; size_multiplier={size_multiplier:.2f}; "
+                f"risk_mode={compliance_result.risk_mode.value}"
+            ),
             metadata=request.metadata,
         )
         audit_events.append(
@@ -164,6 +240,15 @@ class ExecutionEngine:
                 "effective_quantity": effective_qty,
             }
         )
+        if risk_decision is not None and risk_decision.should_cancel_orders:
+            audit_events.append(
+                {
+                    "event": "risk_cancel_orders",
+                    "symbol": request.symbol,
+                    "reason": risk_decision.trigger_reason,
+                    "risk_mode": risk_decision.mode.value,
+                }
+            )
 
         return ExecutionPlan(
             instruction=instruction,
@@ -404,3 +489,23 @@ def _max_risk_mode(left: RiskMode, right: RiskMode) -> RiskMode:
         RiskMode.KILL_SWITCH: 3,
     }
     return left if ordering[left] >= ordering[right] else right
+
+
+def _more_restrictive(a: RiskMode, b: RiskMode) -> RiskMode:
+    order = {
+        RiskMode.NORMAL: 0,
+        RiskMode.REDUCE_ONLY: 1,
+        RiskMode.CLOSE_ONLY: 2,
+        RiskMode.KILL_SWITCH: 3,
+    }
+    return a if order[a] >= order[b] else b
+
+
+def _coerce_risk_budget_fraction(value: Any) -> float:
+    if value is None:
+        return 1.0
+    try:
+        fraction = float(value)
+    except (TypeError, ValueError):
+        return 1.0
+    return max(0.0, min(1.0, fraction))
